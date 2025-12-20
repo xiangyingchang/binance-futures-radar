@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binance Futures Radar</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Optional for future -->
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="header-content">
+                <h1>Binance Futures Radar</h1>
+                <div class="header-actions">
+                    <span id="last-updated">Last Updated: --:--</span>
+                    <button id="refresh-btn" class="refresh-btn">Refresh</button>
+                    <div class="loading-indicator hidden" id="loading-indicator"></div>
+                </div>
+            </div>
+            <div class="filters">
+                <div class="filter-item">
+                    <label>RSI Filter:</label>
+                    <span>1h ≥ 90 OR 4h ≥ 80</span>
+                </div>
+                <div class="status-bar">
+                    <span id="total-pairs">Pairs: 0</span>
+                    <span id="filtered-pairs">Matches: 0</span>
+                </div>
+            </div>
+        </header>
+        
+        <main>
+            <div class="table-container">
+                <table id="crypto-table">
+                    <thead>
+                        <tr>
+                            <th>Pair</th>
+                            <th>Price</th>
+                            <th>24h Volume (USDT)</th>
+                            <th>Funding Rate</th>
+                            <th>RSI 1h</th>
+                            <th>RSI 4h</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Rows will be injected here -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="empty-state" class="empty-state hidden">
+                <p>No pairs match the high RSI criteria right now.</p>
+                <p class="sub-text">Scanning market...</p>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
