@@ -185,9 +185,9 @@ async function updateData() {
             const batchResults = await Promise.all(promises);
             results.push(...batchResults);
 
-            // Artificial delay to respect rate limits if needed, 
-            // but browsers limit concurrent connections anyway.
-            // await new Promise(r => setTimeout(r, 100)); 
+            // Artificial delay to respect rate limits (300ms)
+            // GitHub Pages + No-Referrer might have stricter public IP limits
+            await new Promise(r => setTimeout(r, 300));
 
             // Progressive updating? maybe later.
             // Update status text
