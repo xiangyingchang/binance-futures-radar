@@ -234,9 +234,11 @@ function renderTable(items) {
         const rsi1h = item.rsi1h.toFixed(1);
         const rsi4h = item.rsi4h.toFixed(1);
 
-        // Deep link
-        // Web: https://www.binance.com/en/futures/BTCUSDT
-        const link = `https://www.binance.com/en/futures/${item.symbol}`;
+        // Deep link handling
+        const webLink = `https://www.binance.com/en/futures/${item.symbol}`;
+
+        // Helper to detect mobile
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
         row.innerHTML = `
             <td class="symbol-cell">${item.symbol}</td>
@@ -245,16 +247,47 @@ function renderTable(items) {
             <td class="${item.funding > 0 ? 'funding-positive' : 'funding-negative'}">${funding}</td>
             <td class="${item.rsi1h >= 90 ? 'rsi-extreme' : 'rsi-high'}">${rsi1h}</td>
             <td class="${item.rsi4h >= 80 ? 'rsi-extreme' : 'rsi-high'}">${rsi4h}</td>
-            <td><a href="${link}" target="_blank" class="action-btn">Trade</a></td>
+            <td><a href="#" class="action-btn" data-symbol="${item.symbol}">Trade</a></td>
         `;
 
-        // Whole row click
+        // Row and Button Click Logic
+        const handleTrade = (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent bubbling if clicking button directly
+
+            if (isMobile) {
+                // Try Deep Link first (Common schemes)
+                // Note: Scheme support varies by OS and App version. 
+                // We use a fallback mechanism.
+                const deepLink = `binance://futures/${item.symbol}`; // Try specific pair
+                // const deepLink = `binance://app/futures`; // General futures
+
+                // Attempt to open App
+                window.location.href = deepLink;
+
+                // Fallback to Web Universal Link (which might also trigger app) after 500ms
+                setTimeout(() => {
+                    window.location.href = webLink;
+                }, 500);
+            } else {
+                window.open(webLink, '_blank');
+            }
+        };
+
         row.style.cursor = 'pointer';
         row.addEventListener('click', (e) => {
-            if (e.target.tagName !== 'A') {
-                window.open(link, '_blank');
+            // If clicking the button (which is an A tag now), handle specifically
+            if (e.target.classList.contains('action-btn')) {
+                handleTrade(e);
+            } else {
+                // Clicking the row acts same as button for better UX
+                handleTrade(e);
             }
         });
+
+        // Bind click to the button specifically to be safe
+        const btn = row.querySelector('.action-btn');
+        btn.addEventListener('click', handleTrade);
 
         ELEMENTS.tableBody.appendChild(row);
     });
