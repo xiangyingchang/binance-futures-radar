@@ -8,9 +8,19 @@ const ELEMENTS = {
     filteredPairs: document.getElementById('filtered-pairs')
 };
 
+const CONFIG = {
+    minVolume: 0, // Default to All (Previous 10M USDT)
+    rsiLimit: 35, // Sufficient for RSI-14
+    batchSize: 20, // Batch size for processing
+    concurrency: 12, // Number of simultaneous requests
+    batchDelay: 50, // Small delay between task starts
+    cacheTTL: 60000 // 60 seconds
+};
+
+
+
 const CACHE = {
-    pairs: [],
-    klines: {} // symbol -> { 1h: [], 4h: [] }
+    klines: {} // symbol_interval -> { data: [], timestamp: long }
 };
 
 // --- API Functions ---
@@ -64,16 +74,27 @@ async function fetchFundingRates() {
     }
 }
 
-async function fetchKlines(symbol, interval, limit = 20) {
+async function fetchKlines(symbol, interval, limit = CONFIG.rsiLimit) {
+    const cacheKey = `${symbol}_${interval}`;
+    const now = Date.now();
+
+    if (CACHE.klines[cacheKey] && (now - CACHE.klines[cacheKey].timestamp < CONFIG.cacheTTL)) {
+        return CACHE.klines[cacheKey].data;
+    }
+
     try {
-        // limit is hardcoded in call, but let's append cache buster
-        const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}&t=${Date.now()}`;
+        const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}&t=${now}`;
         const response = await fetch(url);
         const data = await response.json();
-        // [time, open, high, low, close, volume, ...]
-        return data.map(candle => parseFloat(candle[4])); // We only need close prices
+        const closePrices = data.map(candle => parseFloat(candle[4]));
+
+        CACHE.klines[cacheKey] = {
+            data: closePrices,
+            timestamp: now
+        };
+
+        return closePrices;
     } catch (error) {
-        // console.error(`Error fetching klines for ${symbol}:`, error);
         return [];
     }
 }
@@ -145,33 +166,60 @@ async function updateData() {
         // 2. Get 24h stats (Price, Volume)
         const stats = await fetch24hTicker();
 
-        // 3. Get Funding Rates
-        const fundingCalls = fetchFundingRates(); // Started parallel
+        // 3. Filter by Volume (Now scans all by default as minVolume is 0)
+        const minVol = CONFIG.minVolume;
+
+        const highVolumeSymbols = symbols.filter(s => {
+            const vol = stats[s]?.volume || 0;
+            return vol >= minVol;
+        });
+
+        // Optimization: Smart Scan Order
+        // Sort by 24h Price Change % (Desc) so likely candidates (Top Gainers) are scanned first
+        highVolumeSymbols.sort((a, b) => {
+            const changeA = stats[a]?.priceChangePercent || 0;
+            const changeB = stats[b]?.priceChangePercent || 0;
+            return changeB - changeA;
+        });
+
+        // Update Total Pairs UI to show filtered vs total
+        ELEMENTS.totalPairs.textContent = `Scanned: ${highVolumeSymbols.length} / ${symbols.length}`;
+
+        // 4. Get Funding Rates (Only for relevant pairs to save bandwidth? actually public endpoint returns all)
+        // We can keep fetching all for simplicity or optimize if needed.
+        const fundingCalls = fetchFundingRates();
         const fundingMap = await fundingCalls;
 
-        // 4. Batch Process Klines for RSI (The heavy part)
-        // We will do this in chunks to avoid browsing freezing or rate limits issues if strictly enforced client side
-
-        // Actually, for a pure client side app, fetching 200 pairs * 2 requests is ~400 requests.
-        // Binance limit is 1200 request weight per minute usually.
-        // Klines weight is 1. Ticker is 1. 
-        // 400 requests is safe-ish if not repeated instantly.
+        // 5. Batch Process Klines for RSI (The heavy part)
+        // Optimization: Fetch 1h first, if not high, skip 4h.
 
         const results = [];
-        const BATCH_SIZE = 10;
+        const BATCH_SIZE = CONFIG.batchSize;
+        const TARGET_SYMBOLS = highVolumeSymbols; // processed list
 
-        for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
-            const batch = symbols.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < TARGET_SYMBOLS.length; i += BATCH_SIZE) {
+            const batch = TARGET_SYMBOLS.slice(i, i + BATCH_SIZE);
             const promises = batch.map(async symbol => {
-                // Fetch 1h and 4h
-                const [k1h, k4h] = await Promise.all([
-                    fetchKlines(symbol, '1h', 499),
-                    fetchKlines(symbol, '4h', 499)
-                ]);
+                // Optimization: Lazy fetch
 
-                const rsi1h = calculateRSI(k1h, 6);
+                // 1. Fetch 1h
+                const k1h = await fetchKlines(symbol, '1h', CONFIG.rsiLimit);
+                const rsi1h = calculateRSI(k1h, 6); // using same period as before, keeping logic
+
+                // 2. Early Exit
+                if (rsi1h < 90) {
+                    return null; // Skip this pair
+                }
+
+                // 3. Fetch 4h only if 1h is promising
+                const k4h = await fetchKlines(symbol, '4h', CONFIG.rsiLimit);
                 const rsi4h = calculateRSI(k4h, 6);
 
+                if (rsi4h < 80) {
+                    return null;
+                }
+
+                // Found a match!
                 return {
                     symbol,
                     price: stats[symbol]?.price || 0,
@@ -183,20 +231,19 @@ async function updateData() {
             });
 
             const batchResults = await Promise.all(promises);
-            results.push(...batchResults);
+            // Filter out nulls
+            const validResults = batchResults.filter(r => r !== null);
+            results.push(...validResults);
 
-            // Artificial delay to respect rate limits (300ms)
-            // GitHub Pages + No-Referrer might have stricter public IP limits
-            await new Promise(r => setTimeout(r, 300));
+            // Artificial delay to respect rate limits
+            await new Promise(r => setTimeout(r, CONFIG.batchDelay));
 
-            // Progressive updating? maybe later.
             // Update status text
-            ELEMENTS.totalPairs.textContent = `Scanning: ${Math.min(i + BATCH_SIZE, symbols.length)}/${symbols.length}`;
+            ELEMENTS.totalPairs.textContent = `Scanning: ${Math.min(i + BATCH_SIZE, TARGET_SYMBOLS.length)}/${TARGET_SYMBOLS.length}`;
         }
 
-        // 5. Filter and Sort
-        // Condition: 1h RSI >= 90 AND 4h RSI >= 80 (Reverted to original strict criteria)
-        const matches = results.filter(item => item.rsi1h >= 90 && item.rsi4h >= 80);
+        // 6. Sort and Render (Filtering already done in loop effectively)
+        const matches = results; // already filtered
 
         // Sort by Market Cap (Using Volume as proxy as planned) DESC
         matches.sort((a, b) => b.volume - a.volume);
@@ -305,7 +352,8 @@ function setLoading(isLoading) {
 
 // --- Initialization ---
 
-ELEMENTS.refreshBtn.addEventListener('click', updateData);
+// Event Listeners
+ELEMENTS.refreshBtn.addEventListener('click', () => updateData());
 
 // Auto Refresh every 15 minutes - REMOVED per user request
 // setInterval(updateData, 15 * 60 * 1000);
