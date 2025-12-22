@@ -23,6 +23,9 @@ const CACHE = {
     klines: {} // symbol_interval -> { data: [], timestamp: long }
 };
 
+// Wake Lock to prevent screen sleep during scanning (mobile)
+let wakeLock = null;
+
 // --- API Functions ---
 
 // Helper to prevent caching
@@ -158,6 +161,15 @@ async function updateData() {
     setLoading(true);
     ELEMENTS.tableBody.innerHTML = ''; // Clear table
 
+    // Request wake lock to prevent screen sleep on mobile
+    try {
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+        }
+    } catch (err) {
+        // Wake lock request failed - silently continue
+    }
+
     try {
         // 1. Get all pairs
         const symbols = await fetchExchangeInfo();
@@ -260,6 +272,16 @@ async function updateData() {
         alert("Failed to update data. Check console.");
     } finally {
         setLoading(false);
+
+        // Release wake lock
+        if (wakeLock !== null) {
+            try {
+                await wakeLock.release();
+                wakeLock = null;
+            } catch (err) {
+                // Ignore release errors
+            }
+        }
     }
 }
 
