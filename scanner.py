@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Binance Futures RSI Scanner with Telegram Notification
-Scans for high RSI coins and sends alerts via Telegram
+Binance Futures RSI Scanner (Extreme Speed v3)
+Uses asyncio + aiohttp for high-concurrency scanning.
 """
 
 import os
 import sys
-import requests
-from datetime import datetime
+import asyncio
+import aiohttp
+from datetime import datetime, timezone, timedelta
 
 # Configuration
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -17,19 +18,22 @@ TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 RSI_1H_THRESHOLD = 90
 RSI_4H_THRESHOLD = 80
 RSI_PERIOD = 6
+CONCURRENCY = 40  # Increased concurrency for extreme speed
 
 # API Endpoints
 BINANCE_BASE = "https://fapi.binance.com"
+BEIJING_TZ = timezone(timedelta(hours=8))
 
 
-def calculate_rsi(closes, period=14):
-    """Calculate RSI from close prices"""
+def calculate_rsi(closes, period=6):
+    """Accurate RSI calculation matching the JS implementation"""
     if len(closes) < period + 1:
         return 0
     
     gains = 0
     losses = 0
     
+    # Initial SMA
     for i in range(1, period + 1):
         diff = closes[i] - closes[i - 1]
         if diff >= 0:
@@ -40,6 +44,7 @@ def calculate_rsi(closes, period=14):
     avg_gain = gains / period
     avg_loss = losses / period
     
+    # Wilder's Smoothing (as implemented in app.js)
     for i in range(period + 1, len(closes)):
         diff = closes[i] - closes[i - 1]
         current_gain = diff if diff > 0 else 0
@@ -55,225 +60,157 @@ def calculate_rsi(closes, period=14):
     return 100 - (100 / (1 + rs))
 
 
-def fetch_symbols():
-    """Fetch all USDT trading pairs"""
+async def fetch_json(session, url, params=None):
+    """Async helper for GET requests"""
     try:
-        response = requests.get(f"{BINANCE_BASE}/fapi/v1/exchangeInfo")
-        response.raise_for_status()  # Raise exception for bad status codes
-        data = response.json()
-        
-        # Debug: print response structure
-        if 'symbols' not in data:
-            print(f"ERROR: 'symbols' key not found in response. Keys: {list(data.keys())}")
-            print(f"Response content: {str(data)[:500]}")
-            return []
-            
-        symbols = [s['symbol'] for s in data['symbols'] 
-                if s['quoteAsset'] == 'USDT' and s['status'] == 'TRADING']
-        print(f"Successfully fetched {len(symbols)} symbols")
-        return symbols
-    except Exception as e:
-        print(f"Error fetching symbols: {e}")
-        print(f"Response status: {response.status_code if 'response' in locals() else 'N/A'}")
-        print(f"Response text: {response.text[:500] if 'response' in locals() else 'N/A'}")
-        return []
-
-
-def fetch_ticker():
-    """Fetch 24h ticker data"""
-    try:
-        response = requests.get(f"{BINANCE_BASE}/fapi/v1/ticker/24hr")
-        response.raise_for_status()
-        data = response.json()
-        
-        if isinstance(data, dict) and 'msg' in data:
-            print(f"ERROR: API returned error: {data.get('msg')}")
-            return {}
-            
-        return {item['symbol']: {
-            'price': float(item['lastPrice']),
-            'volume': float(item['quoteVolume']),
-            'change': float(item['priceChangePercent'])
-        } for item in data}
-    except Exception as e:
-        print(f"Error fetching ticker: {e}")
-        print(f"Response text: {response.text[:500] if 'response' in locals() else 'N/A'}")
-        return {}
-
-
-def fetch_funding_rates():
-    """Fetch funding rates"""
-    try:
-        response = requests.get(f"{BINANCE_BASE}/fapi/v1/premiumIndex")
-        data = response.json()
-        return {item['symbol']: float(item['lastFundingRate']) for item in data}
-    except Exception as e:
-        print(f"Error fetching funding rates: {e}")
-        return {}
-
-
-def fetch_klines(symbol, interval, limit=35):
-    """Fetch kline data"""
-    try:
-        response = requests.get(
-            f"{BINANCE_BASE}/fapi/v1/klines",
-            params={'symbol': symbol, 'interval': interval, 'limit': limit}
-        )
-        data = response.json()
-        return [float(candle[4]) for candle in data]  # Close prices
-    except Exception as e:
-        return []
-
-
-def send_telegram_message(message):
-    """Send message via Telegram Bot"""
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Telegram credentials not configured")
-        print(message)
-        return False
-    
-    try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        payload = {
-            'chat_id': TELEGRAM_CHAT_ID,
-            'text': message,
-            'parse_mode': 'Markdown'
-        }
-        response = requests.post(url, json=payload)
-        return response.status_code == 200
-    except Exception as e:
-        print(f"Error sending Telegram message: {e}")
-        return False
-
-
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-def check_symbol(symbol, ticker, funding):
-    """Worker function for concurrent scanning"""
-    # Fetch 1h klines
-    k1h = fetch_klines(symbol, '1h')
-    rsi_1h = calculate_rsi(k1h, RSI_PERIOD)
-    
-    # Early exit if 1h RSI not high enough
-    if rsi_1h < RSI_1H_THRESHOLD:
+        async with session.get(url, params=params, timeout=10) as response:
+            if response.status == 200:
+                return await response.json()
+            else:
+                return None
+    except Exception:
         return None
-    
-    # Fetch 4h klines only if 1h is promising
-    k4h = fetch_klines(symbol, '4h')
-    rsi_4h = calculate_rsi(k4h, RSI_PERIOD)
-    
-    if rsi_4h >= RSI_4H_THRESHOLD:
-        info = ticker.get(symbol, {})
-        return {
-            'symbol': symbol,
-            'price': info.get('price', 0),
-            'volume': info.get('volume', 0),
-            'change': info.get('change', 0),
-            'funding': funding.get(symbol, 0),
-            'rsi_1h': rsi_1h,
-            'rsi_4h': rsi_4h
-        }
-    return None
 
-def scan_market():
-    """Main scanning logic with multi-threading"""
-    from datetime import timezone, timedelta
-    beijing_tz = timezone(timedelta(hours=8))
-    print(f"[{datetime.now(beijing_tz)}] Starting concurrent market scan (Beijing Time)...")
-    
-    # Fetch data
-    symbols = fetch_symbols()
-    ticker = fetch_ticker()
-    funding = fetch_funding_rates()
-    
-    if not symbols:
-        return []
 
-    print(f"Found {len(symbols)} trading pairs. Scanning with 12 workers...")
-    
-    # Sort by 24h change
-    symbols.sort(key=lambda s: ticker.get(s, {}).get('change', 0), reverse=True)
-    
-    matches = []
-    total = len(symbols)
-    scanned = 0
-    
-    # Use ThreadPoolExecutor for speed
-    with ThreadPoolExecutor(max_workers=12) as executor:
-        futures = {executor.submit(check_symbol, s, ticker, funding): s for s in symbols}
+async def check_symbol(session, semaphore, symbol, ticker_info, funding_rate, results):
+    """Concurrent worker for checking a single symbol"""
+    async with semaphore:
+        # Fetch 1h klines
+        k1h_data = await fetch_json(session, f"{BINANCE_BASE}/fapi/v1/klines", 
+                                   params={'symbol': symbol, 'interval': '1h', 'limit': 35})
+        if not k1h_data:
+            return
+
+        k1h = [float(c[4]) for c in k1h_data]
+        rsi_1h = calculate_rsi(k1h, RSI_PERIOD)
+
+        if rsi_1h < RSI_1H_THRESHOLD:
+            return
+
+        # Fetch 4h only if 1h passes
+        k4h_data = await fetch_json(session, f"{BINANCE_BASE}/fapi/v1/klines", 
+                                   params={'symbol': symbol, 'interval': '4h', 'limit': 35})
+        if not k4h_data:
+            return
+
+        k4h = [float(c[4]) for c in k4h_data]
+        rsi_4h = calculate_rsi(k4h, RSI_PERIOD)
+
+        if rsi_4h >= RSI_4H_THRESHOLD:
+            results.append({
+                'symbol': symbol,
+                'price': float(ticker_info.get('lastPrice', 0)),
+                'volume': float(ticker_info.get('quoteVolume', 0)),
+                'change': float(ticker_info.get('priceChangePercent', 0)),
+                'funding': funding_rate,
+                'rsi_1h': rsi_1h,
+                'rsi_4h': rsi_4h
+            })
+
+
+async def scan_market():
+    """Main async scanning logic"""
+    start_time = datetime.now(BEIJING_TZ)
+    print(f"[{start_time}] Starting extreme speed scan (v3)...")
+
+    async with aiohttp.ClientSession() as session:
+        # 1. Fetch metadata in parallel
+        tasks = [
+            fetch_json(session, f"{BINANCE_BASE}/fapi/v1/exchangeInfo"),
+            fetch_json(session, f"{BINANCE_BASE}/fapi/v1/ticker/24hr"),
+            fetch_json(session, f"{BINANCE_BASE}/fapi/v1/premiumIndex")
+        ]
         
-        for future in as_completed(futures):
-            scanned += 1
-            if scanned % 50 == 0 or scanned == total:
-                print(f"Progress: {scanned}/{total}...")
-            
-            result = future.result()
-            if result:
-                matches.append(result)
-    
-    print(f"Scan complete. Found {len(matches)} matches.")
-    return matches
+        metadata = await asyncio.gather(*tasks)
+        ex_info, ticker_list, premium_list = metadata
 
+        if not all([ex_info, ticker_list, premium_list]):
+            print("Error: Failed to fetch initial metadata from Binance.")
+            return []
+
+        # 2. Map data
+        symbols = [s['symbol'] for s in ex_info['symbols'] 
+                  if s['quoteAsset'] == 'USDT' and s['status'] == 'TRADING']
+        
+        ticker_map = {item['symbol']: item for item in ticker_list}
+        funding_map = {item['symbol']: float(item['lastFundingRate']) for item in premium_list}
+
+        # 3. Sort symbols by 24h change (desc)
+        symbols.sort(key=lambda s: float(ticker_map.get(s, {}).get('priceChangePercent', 0)), reverse=True)
+
+        print(f"Scanning {len(symbols)} trading pairs with concurrency {CONCURRENCY}...")
+
+        # 4. Running concurrent scanners
+        semaphore = asyncio.Semaphore(CONCURRENCY)
+        results = []
+        scan_tasks = []
+
+        for symbol in symbols:
+            t_info = ticker_map.get(symbol, {})
+            f_rate = funding_map.get(symbol, 0)
+            scan_tasks.append(check_symbol(session, semaphore, symbol, t_info, f_rate, results))
+
+        # Show progress while running
+        await asyncio.gather(*scan_tasks)
+
+        end_time = datetime.now(BEIJING_TZ)
+        duration = (end_time - start_time).total_seconds()
+        print(f"Scan complete in {duration:.1f} seconds. Found {len(results)} matches.")
+        return results
 
 
 def format_message(matches):
-    """Format scan results as Telegram message"""
-    from datetime import timezone, timedelta
-    # Use Beijing time (UTC+8)
-    beijing_tz = timezone(timedelta(hours=8))
-    now = datetime.now(beijing_tz).strftime("%Y-%m-%d %H:%M")
+    """Format results for Telegram"""
+    now = datetime.now(BEIJING_TZ).strftime("%Y-%m-%d %H:%M")
     
     if not matches:
         return f"🔍 *Binance Futures Radar*\n📅 {now}\n\n✅ 没有发现符合条件的币种\n(1h RSI ≥ 90 且 4h RSI ≥ 80)"
     
-    # Sort by volume
     matches.sort(key=lambda x: x['volume'], reverse=True)
     
     lines = [
         f"🚨 *Binance Futures Radar*",
         f"📅 {now}",
         f"📊 发现 {len(matches)} 个高 RSI 币种",
-        "",
-        "```"
+        "", "```"
     ]
     
-    for m in matches[:10]:  # Limit to top 10
-        funding_pct = m['funding'] * 100
-        lines.append(
-            f"{m['symbol']:12} | 1h:{m['rsi_1h']:.0f} 4h:{m['rsi_4h']:.0f} | {m['change']:+.1f}%"
-        )
+    for m in matches[:15]:
+        lines.append(f"{m['symbol']:12} | 1h:{m['rsi_1h']:.0f} 4h:{m['rsi_4h']:.0f} | {m['change']:+.1f}%")
     
     lines.append("```")
-    
-    if len(matches) > 10:
-        lines.append(f"\n_... 及另外 {len(matches) - 10} 个币种_")
-    
-    lines.append("\n💡 _高 RSI 可能意味着超买，注意做空机会_")
+    if len(matches) > 15:
+        lines.append(f"\n_及另外 {len(matches) - 15} 个币种_")
     
     return "\n".join(lines)
 
 
-def main():
-    """Main entry point"""
-    # Check credentials
+async def send_telegram(message):
+    """Async send Telegram message"""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("Warning: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set")
-        print("Running in test mode (output to console only)")
-    
-    # Scan market
-    matches = scan_market()
-    
-    # Format and send message
+        print("Warning: Telegram not configured. Printing result to console:")
+        print(message)
+        return True
+
+    async with aiohttp.ClientSession() as session:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = {'chat_id': TELEGRAM_CHAT_ID, 'text': message, 'parse_mode': 'Markdown'}
+        async with session.post(url, json=payload) as response:
+            return response.status == 200
+
+
+async def main():
+    matches = await scan_market()
     message = format_message(matches)
-    success = send_telegram_message(message)
-    
+    success = await send_telegram(message)
     if success:
-        print("Telegram message sent successfully!")
+        print("Telegram notification sent.")
     else:
-        print("Failed to send Telegram message or running in test mode")
-    
-    return 0 if success or not TELEGRAM_BOT_TOKEN else 1
+        print("Failed to send Telegram notification.")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nScan cancelled by user.")
