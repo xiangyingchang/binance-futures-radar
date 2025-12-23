@@ -59,11 +59,23 @@ def fetch_symbols():
     """Fetch all USDT trading pairs"""
     try:
         response = requests.get(f"{BINANCE_BASE}/fapi/v1/exchangeInfo")
+        response.raise_for_status()  # Raise exception for bad status codes
         data = response.json()
-        return [s['symbol'] for s in data['symbols'] 
+        
+        # Debug: print response structure
+        if 'symbols' not in data:
+            print(f"ERROR: 'symbols' key not found in response. Keys: {list(data.keys())}")
+            print(f"Response content: {str(data)[:500]}")
+            return []
+            
+        symbols = [s['symbol'] for s in data['symbols'] 
                 if s['quoteAsset'] == 'USDT' and s['status'] == 'TRADING']
+        print(f"Successfully fetched {len(symbols)} symbols")
+        return symbols
     except Exception as e:
         print(f"Error fetching symbols: {e}")
+        print(f"Response status: {response.status_code if 'response' in locals() else 'N/A'}")
+        print(f"Response text: {response.text[:500] if 'response' in locals() else 'N/A'}")
         return []
 
 
@@ -71,7 +83,13 @@ def fetch_ticker():
     """Fetch 24h ticker data"""
     try:
         response = requests.get(f"{BINANCE_BASE}/fapi/v1/ticker/24hr")
+        response.raise_for_status()
         data = response.json()
+        
+        if isinstance(data, dict) and 'msg' in data:
+            print(f"ERROR: API returned error: {data.get('msg')}")
+            return {}
+            
         return {item['symbol']: {
             'price': float(item['lastPrice']),
             'volume': float(item['quoteVolume']),
@@ -79,6 +97,7 @@ def fetch_ticker():
         } for item in data}
     except Exception as e:
         print(f"Error fetching ticker: {e}")
+        print(f"Response text: {response.text[:500] if 'response' in locals() else 'N/A'}")
         return {}
 
 
