@@ -129,7 +129,9 @@ def send_telegram_message(message):
 
 def scan_market():
     """Main scanning logic"""
-    print(f"[{datetime.now()}] Starting market scan...")
+    from datetime import timezone, timedelta
+    beijing_tz = timezone(timedelta(hours=8))
+    print(f"[{datetime.now(beijing_tz)}] Starting market scan (Beijing Time)...")
     
     # Fetch data
     symbols = fetch_symbols()
@@ -153,6 +155,10 @@ def scan_market():
         k1h = fetch_klines(symbol, '1h')
         rsi_1h = calculate_rsi(k1h, RSI_PERIOD)
         
+        # Debug: print for specific symbols
+        if symbol in ['DUSDT', 'SQDUSDT']:
+            print(f"DEBUG {symbol}: k1h_len={len(k1h)}, rsi_1h={rsi_1h:.1f}")
+        
         # Early exit if 1h RSI not high enough
         if rsi_1h < RSI_1H_THRESHOLD:
             continue
@@ -160,6 +166,10 @@ def scan_market():
         # Fetch 4h klines only if 1h is promising
         k4h = fetch_klines(symbol, '4h')
         rsi_4h = calculate_rsi(k4h, RSI_PERIOD)
+        
+        # Debug: print for specific symbols
+        if symbol in ['DUSDT', 'SQDUSDT']:
+            print(f"DEBUG {symbol}: k4h_len={len(k4h)}, rsi_4h={rsi_4h:.1f}, threshold={RSI_4H_THRESHOLD}")
         
         if rsi_4h >= RSI_4H_THRESHOLD:
             info = ticker.get(symbol, {})
@@ -172,6 +182,7 @@ def scan_market():
                 'rsi_1h': rsi_1h,
                 'rsi_4h': rsi_4h
             })
+
     
     print(f"Scan complete. Found {len(matches)} matches.")
     return matches
@@ -179,7 +190,10 @@ def scan_market():
 
 def format_message(matches):
     """Format scan results as Telegram message"""
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    from datetime import timezone, timedelta
+    # Use Beijing time (UTC+8)
+    beijing_tz = timezone(timedelta(hours=8))
+    now = datetime.now(beijing_tz).strftime("%Y-%m-%d %H:%M")
     
     if not matches:
         return f"🔍 *Binance Futures Radar*\n📅 {now}\n\n✅ 没有发现符合条件的币种\n(1h RSI ≥ 90 且 4h RSI ≥ 80)"
