@@ -146,58 +146,74 @@ def send_telegram_message(message):
         return False
 
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def check_symbol(symbol, ticker, funding):
+    """Worker function for concurrent scanning"""
+    # Fetch 1h klines
+    k1h = fetch_klines(symbol, '1h')
+    rsi_1h = calculate_rsi(k1h, RSI_PERIOD)
+    
+    # Early exit if 1h RSI not high enough
+    if rsi_1h < RSI_1H_THRESHOLD:
+        return None
+    
+    # Fetch 4h klines only if 1h is promising
+    k4h = fetch_klines(symbol, '4h')
+    rsi_4h = calculate_rsi(k4h, RSI_PERIOD)
+    
+    if rsi_4h >= RSI_4H_THRESHOLD:
+        info = ticker.get(symbol, {})
+        return {
+            'symbol': symbol,
+            'price': info.get('price', 0),
+            'volume': info.get('volume', 0),
+            'change': info.get('change', 0),
+            'funding': funding.get(symbol, 0),
+            'rsi_1h': rsi_1h,
+            'rsi_4h': rsi_4h
+        }
+    return None
+
 def scan_market():
-    """Main scanning logic"""
+    """Main scanning logic with multi-threading"""
     from datetime import timezone, timedelta
     beijing_tz = timezone(timedelta(hours=8))
-    print(f"[{datetime.now(beijing_tz)}] Starting market scan (Beijing Time)...")
+    print(f"[{datetime.now(beijing_tz)}] Starting concurrent market scan (Beijing Time)...")
     
     # Fetch data
     symbols = fetch_symbols()
     ticker = fetch_ticker()
     funding = fetch_funding_rates()
     
-    print(f"Found {len(symbols)} trading pairs")
+    if not symbols:
+        return []
+
+    print(f"Found {len(symbols)} trading pairs. Scanning with 12 workers...")
     
-    # Sort by 24h change (top gainers first)
+    # Sort by 24h change
     symbols.sort(key=lambda s: ticker.get(s, {}).get('change', 0), reverse=True)
     
     matches = []
+    total = len(symbols)
     scanned = 0
     
-    for symbol in symbols:
-        scanned += 1
-        if scanned % 50 == 0:
-            print(f"Scanned {scanned}/{len(symbols)}...")
+    # Use ThreadPoolExecutor for speed
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        futures = {executor.submit(check_symbol, s, ticker, funding): s for s in symbols}
         
-        # Fetch 1h klines
-        k1h = fetch_klines(symbol, '1h')
-        rsi_1h = calculate_rsi(k1h, RSI_PERIOD)
-        
-        # Early exit if 1h RSI not high enough
-        if rsi_1h < RSI_1H_THRESHOLD:
-            continue
-        
-        # Fetch 4h klines only if 1h is promising
-        k4h = fetch_klines(symbol, '4h')
-        rsi_4h = calculate_rsi(k4h, RSI_PERIOD)
-        
-        if rsi_4h >= RSI_4H_THRESHOLD:
-            info = ticker.get(symbol, {})
-            matches.append({
-                'symbol': symbol,
-                'price': info.get('price', 0),
-                'volume': info.get('volume', 0),
-                'change': info.get('change', 0),
-                'funding': funding.get(symbol, 0),
-                'rsi_1h': rsi_1h,
-                'rsi_4h': rsi_4h
-            })
-
-
+        for future in as_completed(futures):
+            scanned += 1
+            if scanned % 50 == 0 or scanned == total:
+                print(f"Progress: {scanned}/{total}...")
+            
+            result = future.result()
+            if result:
+                matches.append(result)
     
     print(f"Scan complete. Found {len(matches)} matches.")
     return matches
+
 
 
 def format_message(matches):
