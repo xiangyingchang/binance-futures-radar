@@ -160,7 +160,7 @@ async def scan_market():
 
 
 def format_message(matches):
-    """Format results for Telegram"""
+    """Format results for Telegram - symbols are individually copyable"""
     now = datetime.now(BEIJING_TZ).strftime("%Y-%m-%d %H:%M")
     
     if not matches:
@@ -172,17 +172,21 @@ def format_message(matches):
         f"🚨 *Binance Futures Radar*",
         f"📅 {now}",
         f"📊 发现 {len(matches)} 个高 RSI 币种",
-        "", "```"
+        ""
     ]
     
     for m in matches[:15]:
-        lines.append(f"{m['symbol']:12} | 1h:{m['rsi_1h']:.0f} 4h:{m['rsi_4h']:.0f} | {m['change']:+.1f}%")
+        # Wrap only the symbol in backticks so it's individually copyable on tap
+        symbol_text = f"`{m['symbol']}`"
+        lines.append(f"{symbol_text} | 1h:{int(m['rsi_1h'])} 4h:{int(m['rsi_4h'])} | {m['change']:+.1f}%")
     
-    lines.append("```")
     if len(matches) > 15:
         lines.append(f"\n_及另外 {len(matches) - 15} 个币种_")
     
+    lines.append("\n💡 _点击名称可单项复制到币安_")
+    
     return "\n".join(lines)
+
 
 
 async def send_telegram(message):
