@@ -174,10 +174,6 @@ def scan_market():
         k1h = fetch_klines(symbol, '1h')
         rsi_1h = calculate_rsi(k1h, RSI_PERIOD)
         
-        # Debug: print for specific symbols
-        if symbol in ['DUSDT', 'SQDUSDT']:
-            print(f"DEBUG {symbol}: k1h_len={len(k1h)}, rsi_1h={rsi_1h:.1f}")
-        
         # Early exit if 1h RSI not high enough
         if rsi_1h < RSI_1H_THRESHOLD:
             continue
@@ -185,10 +181,6 @@ def scan_market():
         # Fetch 4h klines only if 1h is promising
         k4h = fetch_klines(symbol, '4h')
         rsi_4h = calculate_rsi(k4h, RSI_PERIOD)
-        
-        # Debug: print for specific symbols
-        if symbol in ['DUSDT', 'SQDUSDT']:
-            print(f"DEBUG {symbol}: k4h_len={len(k4h)}, rsi_4h={rsi_4h:.1f}, threshold={RSI_4H_THRESHOLD}")
         
         if rsi_4h >= RSI_4H_THRESHOLD:
             info = ticker.get(symbol, {})
@@ -201,6 +193,7 @@ def scan_market():
                 'rsi_1h': rsi_1h,
                 'rsi_4h': rsi_4h
             })
+
 
     
     print(f"Scan complete. Found {len(matches)} matches.")
