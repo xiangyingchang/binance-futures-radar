@@ -1,17 +1,14 @@
 :root {
-    --bg-color: #0a0a0b;
-    --card-bg: #111113;
-    --text-primary: #fafafa;
-    --text-secondary: #71717a;
-    --text-muted: #52525b;
-    --accent-color: #3b82f6;
-    --accent-hover: #2563eb;
-    --success-color: #22c55e;
-    --danger-color: #ef4444;
-    --warning-color: #f59e0b;
-    --border-color: #27272a;
-    --hover-bg: #18181b;
-    --table-header-bg: #0f0f10;
+    --bg-color: #0d1117;
+    --card-bg: #161b22;
+    --text-primary: #f0f6fc;
+    --text-secondary: #8b949e;
+    --accent-color: #58a6ff;
+    --success-color: #238636;
+    --danger-color: #da3633;
+    --border-color: #30363d;
+    --hover-bg: #21262d;
+    --table-header-bg: #161b22;
 }
 
 * {
@@ -21,24 +18,23 @@
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--bg-color);
     color: var(--text-primary);
-    line-height: 1.6;
-    min-height: 100vh;
+    line-height: 1.5;
 }
 
 .app-container {
-    max-width: 1100px;
+    max-width: 1200px;
     margin: 0 auto;
-    padding: 40px 24px;
+    padding: 20px;
 }
 
 header {
-    margin-bottom: 32px;
+    margin-bottom: 30px;
     background: var(--card-bg);
-    padding: 28px 32px;
-    border-radius: 16px;
+    padding: 20px;
+    border-radius: 12px;
     border: 1px solid var(--border-color);
 }
 
@@ -46,52 +42,51 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 
 h1 {
-    font-size: 22px;
-    font-weight: 600;
-    color: var(--text-primary);
-    letter-spacing: -0.02em;
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(90deg, #58a6ff, #a371f7);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .header-actions {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 15px;
 }
 
 #last-updated {
-    color: var(--text-muted);
-    font-size: 13px;
+    color: var(--text-secondary);
+    font-size: 14px;
     font-variant-numeric: tabular-nums;
 }
 
 .refresh-btn {
-    background-color: var(--text-primary);
-    color: var(--bg-color);
+    background-color: var(--accent-color);
+    color: white;
     border: none;
-    padding: 10px 20px;
-    border-radius: 8px;
+    padding: 8px 16px;
+    border-radius: 6px;
     cursor: pointer;
-    font-weight: 500;
-    font-size: 13px;
-    transition: all 0.15s ease;
+    font-weight: 600;
+    transition: opacity 0.2s;
 }
 
 .refresh-btn:hover {
-    background-color: var(--text-secondary);
-    transform: translateY(-1px);
+    opacity: 0.9;
 }
 
 .filters {
     display: flex;
-    gap: 24px;
+    gap: 20px;
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 14px;
     border-top: 1px solid var(--border-color);
-    padding-top: 20px;
+    padding-top: 15px;
 }
 
 .filter-item {
@@ -100,28 +95,19 @@ h1 {
     align-items: center;
 }
 
-.filter-item label {
-    color: var(--text-muted);
-}
-
-.filter-item span {
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
 .status-bar {
     margin-left: auto;
     display: flex;
-    gap: 20px;
-    color: var(--text-muted);
+    gap: 15px;
 }
 
 /* Table Styles */
 .table-container {
     background: var(--card-bg);
-    border-radius: 16px;
+    border-radius: 12px;
     border: 1px solid var(--border-color);
     overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 table {
@@ -132,29 +118,24 @@ table {
 
 th {
     background-color: var(--table-header-bg);
-    color: var(--text-muted);
-    font-weight: 500;
-    padding: 14px 20px;
-    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    padding: 16px;
+    font-size: 13px;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.5px;
     border-bottom: 1px solid var(--border-color);
 }
 
 td {
-    padding: 16px 20px;
+    padding: 16px;
     border-bottom: 1px solid var(--border-color);
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
-    font-size: 14px;
 }
 
 tr:last-child td {
     border-bottom: none;
-}
-
-tr {
-    transition: background-color 0.1s ease;
 }
 
 tr:hover {
@@ -164,12 +145,10 @@ tr:hover {
 .symbol-cell {
     font-weight: 600;
     color: var(--text-primary);
-    letter-spacing: -0.01em;
 }
 
 .price-cell {
-    font-family: "SF Mono", "Fira Code", monospace;
-    font-size: 13px;
+    font-family: 'Roboto Mono', monospace;
 }
 
 .volume-cell {
@@ -178,55 +157,60 @@ tr:hover {
 
 .funding-positive {
     color: var(--danger-color);
-    font-weight: 500;
+    /* Shorts pay Longs usually high demand */
 }
 
 .funding-negative {
     color: var(--success-color);
-    font-weight: 500;
+    /* Longs pay Shorts */
 }
 
 .rsi-high {
-    color: var(--warning-color);
-    font-weight: 600;
+    color: #f7a21f;
+    /* Warning color */
+    font-weight: bold;
 }
 
 .rsi-extreme {
     color: var(--danger-color);
-    font-weight: 600;
+    font-weight: bold;
 }
 
 .action-btn {
     text-decoration: none;
-    color: var(--text-secondary);
-    font-size: 13px;
+    color: var(--accent-color);
+    font-size: 14px;
     font-weight: 500;
-    padding: 8px 16px;
+    padding: 6px 12px;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    transition: all 0.15s ease;
-    display: inline-block;
+    border-radius: 6px;
+    transition: all 0.2s;
 }
 
 .action-btn:hover {
-    background-color: var(--text-primary);
-    color: var(--bg-color);
-    border-color: var(--text-primary);
+    background-color: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
 }
 
 /* Loading & Empty States */
 .loading-indicator {
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--border-color);
-    border-top: 2px solid var(--text-primary);
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--bg-color);
+    border-top: 2px solid var(--accent-color);
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+    animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 .hidden {
@@ -234,41 +218,32 @@ tr:hover {
 }
 
 .empty-state {
-    padding: 80px 40px;
+    padding: 60px;
     text-align: center;
-    color: var(--text-muted);
-}
-
-.empty-state p {
-    font-size: 15px;
+    color: var(--text-secondary);
 }
 
 .sub-text {
-    font-size: 13px;
-    margin-top: 12px;
-    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 8px;
+    opacity: 0.7;
 }
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
     .app-container {
-        padding: 16px;
+        padding: 10px;
     }
 
     header {
-        padding: 20px;
-        margin-bottom: 24px;
-        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 20px;
     }
 
     .header-content {
         flex-direction: column;
         align-items: flex-start;
-        gap: 16px;
-    }
-
-    h1 {
-        font-size: 18px;
+        gap: 15px;
     }
 
     .header-actions {
@@ -279,23 +254,23 @@ tr:hover {
     .filters {
         flex-direction: column;
         align-items: flex-start;
-        gap: 12px;
+        gap: 10px;
     }
 
     .status-bar {
         margin-left: 0;
         width: 100%;
         justify-content: space-between;
+        font-size: 13px;
     }
 
-    /* Card View */
-    .table-container {
-        border-radius: 12px;
-        background: transparent;
-        border: none;
-    }
-
-    table, thead, tbody, th, td, tr {
+    /* Table to Card View Transformation */
+    table,
+    thead,
+    tbody,
+    th,
+    td,
+    tr {
         display: block;
     }
 
@@ -306,46 +281,70 @@ tr:hover {
     }
 
     tr {
-        margin-bottom: 12px;
+        margin-bottom: 15px;
         border: 1px solid var(--border-color);
-        border-radius: 12px;
+        border-radius: 8px;
         background: var(--card-bg);
-        padding: 16px;
+        padding: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     td {
         border: none;
         position: relative;
-        padding: 10px 0;
+        padding: 8px 0;
         display: flex;
         justify-content: space-between;
         align-items: center;
         text-align: right;
-        border-bottom: 1px solid var(--border-color);
+        border-bottom: 1px solid rgba(48, 54, 61, 0.3);
     }
 
     td:last-child {
         border-bottom: none;
     }
 
-    td:nth-of-type(1)::before { content: "Pair"; }
-    td:nth-of-type(2)::before { content: "Price"; }
-    td:nth-of-type(3)::before { content: "Volume"; }
-    td:nth-of-type(4)::before { content: "Funding"; }
-    td:nth-of-type(5)::before { content: "RSI 1h"; }
-    td:nth-of-type(6)::before { content: "RSI 4h"; }
-
-    td::before {
-        font-weight: 500;
-        color: var(--text-muted);
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
+    /* Pseudo-labels for each column */
+    td:nth-of-type(1)::before {
+        content: "Pair";
+        font-weight: 600;
+        color: var(--text-secondary);
     }
 
+    td:nth-of-type(2)::before {
+        content: "Price";
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+
+    td:nth-of-type(3)::before {
+        content: "Volume";
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+
+    td:nth-of-type(4)::before {
+        content: "Funding";
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+
+    td:nth-of-type(5)::before {
+        content: "RSI 1h";
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+
+    td:nth-of-type(6)::before {
+        content: "RSI 4h";
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+
+    /* Special styling for Action button cell */
     td:nth-of-type(7) {
-        margin-top: 12px;
-        padding-top: 12px;
+        margin-top: 10px;
+        padding-top: 10px;
         justify-content: center;
         border-top: 1px solid var(--border-color);
         border-bottom: none;
@@ -358,10 +357,13 @@ tr:hover {
     .action-btn {
         width: 100%;
         text-align: center;
-        padding: 12px;
+        padding: 10px;
     }
 
     .symbol-cell {
-        font-size: 16px;
+        font-size: 18px;
+        color: var(--accent-color);
+        margin-bottom: 5px;
     }
+
 }
