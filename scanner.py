@@ -160,30 +160,35 @@ async def scan_market():
 
 
 def format_message(matches):
-    """Format results for Telegram - symbols are individually copyable"""
-    now = datetime.now(BEIJING_TZ).strftime("%Y-%m-%d %H:%M")
+    """Format results for Telegram - clean and minimal design"""
+    now = datetime.now(BEIJING_TZ).strftime("%m-%d %H:%M")
     
     if not matches:
-        return f"🔍 *Binance Futures Radar*\n📅 {now}\n\n✅ 没有发现符合条件的币种\n(1h RSI ≥ 90 且 4h RSI ≥ 80)"
+        return f"📡 *RSI Radar*  ·  {now}\n\n✅ 暂无高RSI币种"
     
     matches.sort(key=lambda x: x['volume'], reverse=True)
     
     lines = [
-        f"🚨 *Binance Futures Radar*",
-        f"📅 {now}",
-        f"📊 发现 {len(matches)} 个高 RSI 币种",
+        f"📡 *RSI Radar*  ·  {now}",
+        f"━━━━━━━━━━━━━━━━",
         ""
     ]
     
     for m in matches[:15]:
-        # Wrap only the symbol in backticks so it's individually copyable on tap
-        symbol_text = f"`{m['symbol']}`"
-        lines.append(f"{symbol_text} | 1h:{int(m['rsi_1h'])} 4h:{int(m['rsi_4h'])} | {m['change']:+.1f}%")
+        # Format funding rate as percentage
+        funding_pct = m['funding'] * 100
+        funding_str = f"{funding_pct:+.3f}%"
+        
+        # Symbol copyable, RSI values, funding rate
+        lines.append(f"`{m['symbol']}`")
+        lines.append(f"  RSI  1h `{int(m['rsi_1h'])}` · 4h `{int(m['rsi_4h'])}`  |  费率 `{funding_str}`")
+        lines.append("")
     
     if len(matches) > 15:
-        lines.append(f"\n_及另外 {len(matches) - 15} 个币种_")
+        lines.append(f"_+{len(matches) - 15} more_")
     
-    lines.append("\n💡 _点击名称可单项复制到币安_")
+    lines.append("━━━━━━━━━━━━━━━━")
+    lines.append("💡 _点击币种名称可复制_")
     
     return "\n".join(lines)
 
