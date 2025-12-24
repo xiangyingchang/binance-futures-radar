@@ -11,9 +11,7 @@ const ELEMENTS = {
 const CONFIG = {
     minVolume: 0, // Default to All (Previous 10M USDT)
     rsiLimit: 35, // Sufficient for RSI-14
-    batchSize: 20, // Batch size for processing
-    concurrency: 12, // Number of simultaneous requests
-    batchDelay: 50, // Small delay between task starts
+    concurrency: 40, // Match Python's concurrency
     cacheTTL: 60000 // 60 seconds
 };
 
@@ -171,14 +169,16 @@ async function updateData() {
     }
 
     try {
-        // 1. Get all pairs
-        const symbols = await fetchExchangeInfo();
+        // 1. Fetch all metadata in PARALLEL (like Python version)
+        const [symbols, stats, fundingMap] = await Promise.all([
+            fetchExchangeInfo(),
+            fetch24hTicker(),
+            fetchFundingRates()
+        ]);
+        
         ELEMENTS.totalPairs.textContent = `Pairs: ${symbols.length}`;
 
-        // 2. Get 24h stats (Price, Volume)
-        const stats = await fetch24hTicker();
-
-        // 3. Filter by Volume (Now scans all by default as minVolume is 0)
+        // 2. Filter by Volume (Now scans all by default as minVolume is 0)
         const minVol = CONFIG.minVolume;
 
         const highVolumeSymbols = symbols.filter(s => {
@@ -197,62 +197,72 @@ async function updateData() {
         // Update Total Pairs UI to show filtered vs total
         ELEMENTS.totalPairs.textContent = `Scanned: ${highVolumeSymbols.length} / ${symbols.length}`;
 
-        // 4. Get Funding Rates (Only for relevant pairs to save bandwidth? actually public endpoint returns all)
-        // We can keep fetching all for simplicity or optimize if needed.
-        const fundingCalls = fetchFundingRates();
-        const fundingMap = await fundingCalls;
-
-        // 5. Batch Process Klines for RSI (The heavy part)
-        // Optimization: Fetch 1h first, if not high, skip 4h.
+        // 3. Batch Process Klines for RSI (The heavy part)
+        // Optimization: Use concurrent pool pattern for maximum throughput
 
         const results = [];
-        const BATCH_SIZE = CONFIG.batchSize;
-        const TARGET_SYMBOLS = highVolumeSymbols; // processed list
+        const CONCURRENCY = CONFIG.concurrency;
+        const TARGET_SYMBOLS = highVolumeSymbols;
 
-        for (let i = 0; i < TARGET_SYMBOLS.length; i += BATCH_SIZE) {
-            const batch = TARGET_SYMBOLS.slice(i, i + BATCH_SIZE);
-            const promises = batch.map(async symbol => {
-                // Optimization: Lazy fetch
+        // Concurrent pool pattern - much faster than batch processing
+        let index = 0;
+        let completed = 0;
+        const total = TARGET_SYMBOLS.length;
 
-                // 1. Fetch 1h
-                const k1h = await fetchKlines(symbol, '1h', CONFIG.rsiLimit);
-                const rsi1h = calculateRSI(k1h, 6); // using same period as before, keeping logic
+        const processSymbol = async (symbol) => {
+            // 1. Fetch 1h
+            const k1h = await fetchKlines(symbol, '1h', CONFIG.rsiLimit);
+            const rsi1h = calculateRSI(k1h, 6);
 
-                // 2. Early Exit
-                if (rsi1h < 90) {
-                    return null; // Skip this pair
+            // 2. Early Exit
+            if (rsi1h < 90) {
+                return null;
+            }
+
+            // 3. Fetch 4h only if 1h is promising
+            const k4h = await fetchKlines(symbol, '4h', CONFIG.rsiLimit);
+            const rsi4h = calculateRSI(k4h, 6);
+
+            if (rsi4h < 80) {
+                return null;
+            }
+
+            // Found a match!
+            return {
+                symbol,
+                price: stats[symbol]?.price || 0,
+                volume: stats[symbol]?.volume || 0,
+                funding: fundingMap[symbol] || 0,
+                rsi1h,
+                rsi4h
+            };
+        };
+
+        const worker = async () => {
+            while (index < total) {
+                const currentIndex = index++;
+                const symbol = TARGET_SYMBOLS[currentIndex];
+                
+                try {
+                    const result = await processSymbol(symbol);
+                    if (result) {
+                        results.push(result);
+                    }
+                } catch (err) {
+                    // Skip failed symbols
                 }
-
-                // 3. Fetch 4h only if 1h is promising
-                const k4h = await fetchKlines(symbol, '4h', CONFIG.rsiLimit);
-                const rsi4h = calculateRSI(k4h, 6);
-
-                if (rsi4h < 80) {
-                    return null;
+                
+                completed++;
+                // Update progress less frequently to reduce DOM updates
+                if (completed % 10 === 0 || completed === total) {
+                    ELEMENTS.totalPairs.textContent = `Scanning: ${completed}/${total}`;
                 }
+            }
+        };
 
-                // Found a match!
-                return {
-                    symbol,
-                    price: stats[symbol]?.price || 0,
-                    volume: stats[symbol]?.volume || 0, // USDT Volume
-                    funding: fundingMap[symbol] || 0,
-                    rsi1h,
-                    rsi4h
-                };
-            });
-
-            const batchResults = await Promise.all(promises);
-            // Filter out nulls
-            const validResults = batchResults.filter(r => r !== null);
-            results.push(...validResults);
-
-            // Artificial delay to respect rate limits
-            await new Promise(r => setTimeout(r, CONFIG.batchDelay));
-
-            // Update status text
-            ELEMENTS.totalPairs.textContent = `Scanning: ${Math.min(i + BATCH_SIZE, TARGET_SYMBOLS.length)}/${TARGET_SYMBOLS.length}`;
-        }
+        // Start concurrent workers
+        const workers = Array(Math.min(CONCURRENCY, total)).fill(null).map(() => worker());
+        await Promise.all(workers);
 
         // 6. Sort and Render (Filtering already done in loop effectively)
         const matches = results; // already filtered
