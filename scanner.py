@@ -30,9 +30,9 @@ CONCURRENCY = 40  # Increased concurrency for extreme speed
 BINANCE_BASE = "https://fapi.binance.com"
 BEIJING_TZ = timezone(timedelta(hours=8))
 
-# Global Cache for Rank
-RANK_CACHE = {
-    'data': {},
+# Global Cache for Asset Ranks (Base Asset -> Rank)
+ASSET_RANK_CACHE = {
+    'data': {}, # base_asset -> rank (int)
     'last_update': 0
 }
 RANK_CACHE_TTL = 3600  # 1 hour
@@ -142,20 +142,52 @@ async def scan_market():
         
         # Only fetch rank if cache expired
         fetching_rank = False
-        if now_ts - RANK_CACHE['last_update'] > RANK_CACHE_TTL:
+        if now_ts - ASSET_RANK_CACHE['last_update'] > RANK_CACHE_TTL:
             fetching_rank = True
-            tasks.append(fetch_json(session, "https://www.binance.com/bapi/composite/v1/public/marketing/symbol/list"))
+            # Fetch product data which contains circulating supply ('cs')
+            tasks.append(fetch_json(session, "https://www.binance.com/bapi/asset/v2/public/asset-service/product/get-products?includeEtf=true"))
         
         metadata = await asyncio.gather(*tasks)
         
         if fetching_rank:
             # If rank was fetched, it's the last item in metadata
-            ex_info, ticker_list, premium_list, funding_info_list, bapi_data = metadata
-            if bapi_data and bapi_data.get('success'):
-                RANK_CACHE['data'] = {item['symbol']: item.get('rank') for item in bapi_data.get('data', [])}
-                RANK_CACHE['last_update'] = now_ts
+            # If rank was fetched, it's the last item in metadata
+            ex_info, ticker_list, premium_list, funding_info_list, product_data = metadata
+            
+            if product_data and product_data.get('success'):
+                # GLOBAL RANK CALCULATION
+                # 1. Extract all USDT pairs with Circulating Supply
+                # 2. Calculate Market Cap = Price * CS
+                # 3. Sort by Mcap to get Global Rank
+                
+                mcap_list = []
+                # products are typically Spot pairs or mixed. We want Spot USDT pairs for best price comparison.
+                for item in product_data.get('data', []):
+                    # Filter for USDT quote and valid CS
+                    if item.get('q') == 'USDT' and item.get('cs') is not None:
+                        try:
+                            price = float(item.get('c', 0))
+                            cs = float(item['cs'])
+                            if price > 0 and cs > 0:
+                                mcap = price * cs
+                                mcap_list.append({
+                                    'base': item['b'], # Base Asset (e.g. BTC)
+                                    'mcap': mcap
+                                })
+                        except:
+                            continue
+                            
+                # Sort by Market Cap Desc
+                mcap_list.sort(key=lambda x: x['mcap'], reverse=True)
+                
+                # Build Rank Map (Base Asset -> Rank)
+                rank_map = {item['base']: i+1 for i, item in enumerate(mcap_list)}
+                
+                ASSET_RANK_CACHE['data'] = rank_map
+                ASSET_RANK_CACHE['last_update'] = now_ts
+                print(f"Updated global asset ranks. Tracked {len(rank_map)} assets.")
             else:
-                print("Warning: Failed to fetch BAPI rank data.")
+                print("Warning: Failed to fetch Product data for market cap.")
         else:
             # If rank was not fetched, metadata has 4 items
             ex_info, ticker_list, premium_list, funding_info_list = metadata
@@ -173,10 +205,29 @@ async def scan_market():
         # Map funding interval and ranking
         funding_info_map = {item['symbol']: item.get('fundingIntervalHours', 8) for item in funding_info_list}
         
+        # Helper to get base asset from symbol (e.g. BTCUSDT -> BTC)
+        # We can use ex_info for accurate baseAsset
+        symbol_to_base = {}
+        for s in ex_info['symbols']:
+            symbol_to_base[s['symbol']] = s['baseAsset']
+
         for symbol in ticker_map:
             ticker_map[symbol]['funding_interval'] = funding_info_map.get(symbol, 8)
-            # Use cached rank
-            ticker_map[symbol]['rank'] = RANK_CACHE['data'].get(symbol, RANK_CACHE['data'].get(symbol.split('USDT')[0], 'N/A'))
+            
+            # Resolve Global Rank via Base Asset
+            base_asset = symbol_to_base.get(symbol, symbol.replace('USDT', ''))
+            
+            # Handle 1000PEPE -> PEPE case if needed, but let's try direct map first.
+            # Usually users want the rank of the underlying project.
+            # If base is '1000PEPE', we might check 'PEPE' in rank cache if '1000PEPE' not found.
+            
+            rank = ASSET_RANK_CACHE['data'].get(base_asset)
+            
+            # Fallback: Try stripping '1000'
+            if rank is None and base_asset.startswith('1000'):
+                rank = ASSET_RANK_CACHE['data'].get(base_asset[4:])
+                
+            ticker_map[symbol]['rank'] = rank if rank else 'N/A'
 
         # 3. Sort symbols by 24h change (desc)
         symbols.sort(key=lambda s: float(ticker_map.get(s, {}).get('priceChangePercent', 0)), reverse=True)

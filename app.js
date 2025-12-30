@@ -12,13 +12,14 @@ const CONFIG = {
     minVolume: 0, // Default to All (Previous 10M USDT)
     rsiLimit: 35, // Sufficient for RSI-14
     concurrency: 40, // Match Python's concurrency
-    cacheTTL: 60000 // 60 seconds
+    cacheTTL: 60000, // 60 seconds
+    rankCacheTTL: 3600000 // 1 hour for rank cache
 };
 
-
-
 const CACHE = {
-    klines: {} // symbol_interval -> { data: [], timestamp: long }
+    klines: {}, // symbol_interval -> { data: [], timestamp: long }
+    rank: { data: {}, timestamp: 0 },
+    products: { data: {}, timestamp: 0 }
 };
 
 // Wake Lock to prevent screen sleep during scanning (mobile)
@@ -34,12 +35,18 @@ async function fetchExchangeInfo() {
         const response = await fetch(`https://fapi.binance.com/fapi/v1/exchangeInfo${noCache()}`);
         const data = await response.json();
         // Filter for USDT pairs and trading enabled
-        return data.symbols
-            .filter(s => s.quoteAsset === 'USDT' && s.status === 'TRADING')
-            .map(s => s.symbol);
+        const activeSymbols = data.symbols.filter(s => s.quoteAsset === 'USDT' && s.status === 'TRADING');
+
+        return {
+            symbols: activeSymbols.map(s => s.symbol),
+            baseMap: activeSymbols.reduce((acc, s) => {
+                acc[s.symbol] = s.baseAsset;
+                return acc;
+            }, {})
+        };
     } catch (error) {
         console.error("Error fetching exchange info:", error);
-        return [];
+        return { symbols: [], baseMap: {} };
     }
 }
 
@@ -72,6 +79,43 @@ async function fetchFundingRates() {
     } catch (error) {
         console.error("Error fetching funding rates:", error);
         return {};
+    }
+}
+
+async function fetchFundingIntervals() {
+    try {
+        const response = await fetch(`https://fapi.binance.com/fapi/v1/fundingInfo${noCache()}`);
+        const data = await response.json();
+        return data.reduce((acc, item) => {
+            acc[item.symbol] = item.fundingIntervalHours;
+            return acc;
+        }, {});
+    } catch (error) {
+        console.error("Error fetching funding intervals:", error);
+        return {};
+    }
+}
+
+async function fetchProductData() {
+    // Fetches raw product data to calculate GLOBAL market cap rank
+    const now = Date.now();
+    if (CACHE.products.data && CACHE.products.data.length > 0 && (now - CACHE.products.timestamp < CONFIG.rankCacheTTL)) {
+        return CACHE.products.data;
+    }
+
+    try {
+        const response = await fetch("https://www.binance.com/bapi/asset/v2/public/asset-service/product/get-products?includeEtf=true");
+        const json = await response.json();
+        if (json.success && json.data) {
+            // Return raw data list for processing
+            CACHE.products.data = json.data;
+            CACHE.products.timestamp = now;
+            return json.data;
+        }
+        return [];
+    } catch (error) {
+        console.error("Error fetching product data:", error);
+        return CACHE.products.data || [];
     }
 }
 
@@ -169,13 +213,17 @@ async function updateData() {
     }
 
     try {
-        // 1. Fetch all metadata in PARALLEL (like Python version)
-        const [symbols, stats, fundingMap] = await Promise.all([
+        // 1. Fetch all metadata in PARALLEL
+        const [exchangeData, stats, fundingMap, fundingIntervals, productList] = await Promise.all([
             fetchExchangeInfo(),
             fetch24hTicker(),
-            fetchFundingRates()
+            fetchFundingRates(),
+            fetchFundingIntervals(),
+            fetchProductData()
         ]);
-        
+
+        const { symbols, baseMap } = exchangeData;
+
         ELEMENTS.totalPairs.textContent = `Pairs: ${symbols.length}`;
 
         // 2. Filter by Volume (Now scans all by default as minVolume is 0)
@@ -196,6 +244,34 @@ async function updateData() {
 
         // Update Total Pairs UI to show filtered vs total
         ELEMENTS.totalPairs.textContent = `Scanned: ${highVolumeSymbols.length} / ${symbols.length}`;
+
+        // CALCULATE GLOBAL MARKET CAP RANK
+        // 1. Process product list for ALL USDT spot pairs
+        const mcapList = [];
+        productList.forEach(item => {
+            if (item.q === 'USDT' && item.cs) {
+                const price = parseFloat(item.c || 0);
+                const cs = parseFloat(item.cs);
+                if (price > 0 && cs > 0) {
+                    mcapList.push({
+                        base: item.b,
+                        mcap: price * cs
+                    });
+                }
+            }
+        });
+
+        // 2. Sort Descending
+        mcapList.sort((a, b) => b.mcap - a.mcap);
+
+        // 3. Create Rank Map (Base Asset -> Rank)
+        const rankMap = {};
+        mcapList.forEach((item, index) => {
+            // Only assign best rank if duplicate base assets exist (rare for USDT pairs but safety first)
+            if (!rankMap[item.base]) {
+                rankMap[item.base] = index + 1;
+            }
+        });
 
         // 3. Batch Process Klines for RSI (The heavy part)
         // Optimization: Use concurrent pool pattern for maximum throughput
@@ -230,9 +306,21 @@ async function updateData() {
             // Found a match!
             return {
                 symbol,
-                price: stats[symbol]?.price || 0,
-                volume: stats[symbol]?.volume || 0,
+                // price: stats[symbol]?.price || 0, // Removed per request
+                // volume: stats[symbol]?.volume || 0, // Removed vol, keep for sorting logic internally if needed, logic below uses it
+                volume: stats[symbol]?.volume || 0, // Kept for sorting only
                 funding: fundingMap[symbol] || 0,
+                interval: fundingIntervals[symbol] || 8,
+                // Look up global rank using base asset
+                rank: (() => {
+                    const base = baseMap[symbol] || symbol.replace('USDT', '');
+                    let r = rankMap[base];
+                    // Fallback for 1000PEPE -> PEPE
+                    if (!r && base.startsWith('1000')) {
+                        r = rankMap[base.substring(4)];
+                    }
+                    return r || 'N/A';
+                })(),
                 rsi1h,
                 rsi4h
             };
@@ -242,7 +330,7 @@ async function updateData() {
             while (index < total) {
                 const currentIndex = index++;
                 const symbol = TARGET_SYMBOLS[currentIndex];
-                
+
                 try {
                     const result = await processSymbol(symbol);
                     if (result) {
@@ -251,7 +339,7 @@ async function updateData() {
                 } catch (err) {
                     // Skip failed symbols
                 }
-                
+
                 completed++;
                 // Update progress less frequently to reduce DOM updates
                 if (completed % 10 === 0 || completed === total) {
@@ -307,66 +395,42 @@ function renderTable(items) {
         const row = document.createElement('tr');
 
         // Formatting
-        const price = item.price < 1 ? item.price.toFixed(6) : item.price.toFixed(2);
-        const volume = (item.volume / 1000000).toFixed(2) + 'M';
-        const funding = (item.funding * 100).toFixed(4) + '%';
+        const rankDisplay = item.rank !== 'N/A' ? `#${item.rank}` : '-';
+
+        // Annualized Funding Calculation
+        // Formula: rate * (24 / interval) * 365
+        const dailyIntervals = 24 / item.interval;
+        const annualizedRate = item.funding * dailyIntervals * 365 * 100;
+        const fundingDisplay = `<span class="funding-wrapper">${annualizedRate > 0 ? '+' : ''}${annualizedRate.toFixed(2)}% <span class="interval-tag">(${item.interval}h)</span></span>`;
+
         const rsi1h = item.rsi1h.toFixed(1);
         const rsi4h = item.rsi4h.toFixed(1);
 
         // Deep link handling
         const webLink = `https://www.binance.com/en/futures/${item.symbol}`;
 
-        // Helper to detect mobile
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
         row.innerHTML = `
-            <td class="symbol-cell">${item.symbol}</td>
-            <td class="price-cell">$${price}</td>
-            <td class="volume-cell">${volume}</td>
-            <td class="${item.funding > 0 ? 'funding-positive' : 'funding-negative'}">${funding}</td>
+            <td class="symbol-cell" title="Click to copy">${item.symbol}</td>
+            <td class="rank-cell">${rankDisplay}</td>
+            <td class="${item.funding > 0 ? 'funding-positive' : 'funding-negative'}">${fundingDisplay}</td>
             <td class="${item.rsi1h >= 90 ? 'rsi-extreme' : 'rsi-high'}">${rsi1h}</td>
             <td class="${item.rsi4h >= 80 ? 'rsi-extreme' : 'rsi-high'}">${rsi4h}</td>
-            <td><a href="#" class="action-btn" data-symbol="${item.symbol}">Trade</a></td>
+            <td><a href="${webLink}" target="_blank" class="action-btn">Trade</a></td>
         `;
 
-        // Row and Button Click Logic
-        const handleTrade = (e) => {
-            e.preventDefault();
-            e.stopPropagation(); // Prevent bubbling if clicking button directly
-
-            if (isMobile) {
-                // Try Deep Link first (Common schemes)
-                // Note: Scheme support varies by OS and App version. 
-                // We use a fallback mechanism.
-                const deepLink = `binance://futures/${item.symbol}`; // Try specific pair
-                // const deepLink = `binance://app/futures`; // General futures
-
-                // Attempt to open App
-                window.location.href = deepLink;
-
-                // Fallback to Web Universal Link (which might also trigger app) after 500ms
+        // Click to Copy Logic for Symbol
+        const symbolCell = row.querySelector('.symbol-cell');
+        symbolCell.style.cursor = 'copy';
+        symbolCell.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent row click
+            navigator.clipboard.writeText(item.symbol).then(() => {
+                const originalText = symbolCell.textContent;
+                symbolCell.textContent = 'Copied!';
                 setTimeout(() => {
-                    window.location.href = webLink;
-                }, 500);
-            } else {
-                window.open(webLink, '_blank');
-            }
-        };
-
-        row.style.cursor = 'pointer';
-        row.addEventListener('click', (e) => {
-            // If clicking the button (which is an A tag now), handle specifically
-            if (e.target.classList.contains('action-btn')) {
-                handleTrade(e);
-            } else {
-                // Clicking the row acts same as button for better UX
-                handleTrade(e);
-            }
+                    symbolCell.textContent = originalText;
+                }, 1000);
+            });
         });
-
-        // Bind click to the button specifically to be safe
-        const btn = row.querySelector('.action-btn');
-        btn.addEventListener('click', handleTrade);
 
         ELEMENTS.tableBody.appendChild(row);
     });
