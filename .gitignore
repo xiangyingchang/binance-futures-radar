@@ -1,0 +1,13 @@
+# Local configuration
+.env
+
+# Python Virtual Environment
+.venv/
+__pycache__/
+*.py[cod]
+
+# OS files
+.DS_Store
+
+# Temporary data
+bapi_response.json
