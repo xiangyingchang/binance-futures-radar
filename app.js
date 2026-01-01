@@ -144,7 +144,7 @@ async function fetchKlines(symbol, interval, limit = CONFIG.rsiLimit) {
     }
 }
 
-async function fetchDepth(symbol, limit = 50) {
+async function fetchDepth(symbol, limit = 100) {
     try {
         const response = await fetch(`https://fapi.binance.com/fapi/v1/depth?symbol=${symbol}&limit=${limit}`);
         const data = await response.json();
@@ -315,7 +315,7 @@ async function updateData() {
             }
 
             // Found a match! Fetch Depth Analysis
-            const depthData = await fetchDepth(symbol, 50);
+            const depthData = await fetchDepth(symbol, 100);
             let depthRatio = 0;
             let bidPower = 0;
             let askPower = 0;

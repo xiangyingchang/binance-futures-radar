@@ -366,7 +366,7 @@ tr:hover {
     }
 
     td:nth-of-type(6)::before {
-        content: "Depth (50)";
+        content: "Depth (100)";
         font-weight: 600;
         color: var(--text-secondary);
     }
