@@ -460,7 +460,7 @@ function renderTable(items) {
             suggestion = 'Strong Resist: Avoid Long (卖盘 > 2倍)';
             suggestionColor = '#da3633'; // Red
         } else if (ratio <= 0.8) {
-            suggestion = 'Bearish Pressure: Avoid Long (卖盘占优)';
+            suggestion = 'Bearish Pressure: Avoid Long (卖盘 > 1.2倍)';
             suggestionColor = '#da3633';
         } else {
             suggestion = 'Neutral';
