@@ -194,6 +194,35 @@ tr:hover {
     border-color: var(--accent-color);
 }
 
+/* Depth Visualization */
+.depth-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+
+.depth-ratio {
+    font-weight: bold;
+}
+
+.depth-vol {
+    color: var(--text-secondary);
+    opacity: 0.8;
+}
+
+.text-xs {
+    font-size: 11px;
+    font-family: 'Roboto Mono', monospace;
+}
+
+.depth-vol-inline {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: normal;
+    opacity: 0.8;
+}
+
 /* Loading & Empty States */
 .loading-indicator {
     width: 20px;
@@ -336,8 +365,14 @@ tr:hover {
         color: var(--text-secondary);
     }
 
-    /* Action button is the 6th child now */
-    td:nth-of-type(6) {
+    td:nth-of-type(6)::before {
+        content: "Depth (50)";
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+
+    /* Action button is the 7th child now */
+    td:nth-of-type(7) {
         margin-top: 10px;
         padding-top: 10px;
         justify-content: center;
@@ -345,7 +380,7 @@ tr:hover {
         border-bottom: none;
     }
 
-    td:nth-of-type(6)::before {
+    td:nth-of-type(7)::before {
         display: none;
     }
 

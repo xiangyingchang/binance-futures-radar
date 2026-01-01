@@ -144,6 +144,17 @@ async function fetchKlines(symbol, interval, limit = CONFIG.rsiLimit) {
     }
 }
 
+async function fetchDepth(symbol, limit = 50) {
+    try {
+        const response = await fetch(`https://fapi.binance.com/fapi/v1/depth?symbol=${symbol}&limit=${limit}`);
+        const data = await response.json();
+        return data; // { lastUpdateId, E, T, bids: [[price, qty], ...], asks: [] }
+    } catch (error) {
+        console.error(`Error fetching depth for ${symbol}:`, error);
+        return null;
+    }
+}
+
 // --- Indicator Functions ---
 
 function calculateRSI(closes, period = 14) {
@@ -303,6 +314,21 @@ async function updateData() {
                 return null;
             }
 
+            // Found a match! Fetch Depth Analysis
+            const depthData = await fetchDepth(symbol, 50);
+            let depthRatio = 0;
+            let bidPower = 0;
+            let askPower = 0;
+
+            if (depthData) {
+                // Calculate total value of bids and asks
+                bidPower = depthData.bids.reduce((acc, [p, q]) => acc + (parseFloat(p) * parseFloat(q)), 0);
+                askPower = depthData.asks.reduce((acc, [p, q]) => acc + (parseFloat(p) * parseFloat(q)), 0);
+
+                // Avoid division by zero
+                depthRatio = askPower > 0 ? bidPower / askPower : (bidPower > 0 ? 999 : 0);
+            }
+
             // Found a match!
             return {
                 symbol,
@@ -322,7 +348,11 @@ async function updateData() {
                     return r || 'N/A';
                 })(),
                 rsi1h,
-                rsi4h
+                rsi1h,
+                rsi4h,
+                depthRatio,
+                bidPower,
+                askPower
             };
         };
 
@@ -406,6 +436,50 @@ function renderTable(items) {
         const rsi1h = item.rsi1h.toFixed(1);
         const rsi4h = item.rsi4h.toFixed(1);
 
+        // Depth Display
+        const ratio = item.depthRatio || 0;
+        const isStrong = ratio >= 1;
+        // Reuse funding classes for color (Green/Red)
+        const depthClass = isStrong ? 'funding-positive' : 'funding-negative';
+        const arrow = isStrong ? '🟢' : '🔴';
+        // Format values for display (e.g., 20k / 21k)
+        const bidStr = (item.bidPower / 1000).toFixed(0) + 'k';
+        const askStr = (item.askPower / 1000).toFixed(0) + 'k';
+
+        // Strategy Advice
+        let suggestion = '';
+        let suggestionColor = '';
+
+        if (ratio >= 2.0) {
+            suggestion = 'Strong Support: Avoid Short (买盘 > 2倍)';
+            suggestionColor = '#238636'; // Green
+        } else if (ratio >= 1.2) {
+            suggestion = 'Bullish Pressure: Avoid Short (买盘 > 1.2倍)';
+            suggestionColor = '#238636';
+        } else if (ratio <= 0.5) {
+            suggestion = 'Strong Resist: Avoid Long (卖盘 > 2倍)';
+            suggestionColor = '#da3633'; // Red
+        } else if (ratio <= 0.8) {
+            suggestion = 'Bearish Pressure: Avoid Long (卖盘占优)';
+            suggestionColor = '#da3633';
+        } else {
+            suggestion = 'Neutral';
+            suggestionColor = '#8b949e'; // Grey
+        }
+
+        // Compact display: Ratio | Vol | Advice
+        // Format: 🟢 1.46X（29k/20k）
+        const depthDisplay = `
+            <div class="depth-wrapper">
+                <span class="depth-ratio">
+                    ${arrow} ${ratio.toFixed(2)}x <span class="depth-vol-inline">(${bidStr}/${askStr})</span>
+                </span>
+                <span class="depth-advice" style="color: ${suggestionColor}; font-size: 10px; font-weight: bold; margin-top: 2px;">
+                    ${suggestion}
+                </span>
+            </div>
+        `;
+
         // Deep link handling
         const webLink = `https://www.binance.com/en/futures/${item.symbol}`;
 
@@ -415,6 +489,7 @@ function renderTable(items) {
             <td class="${item.funding > 0 ? 'funding-positive' : 'funding-negative'}">${fundingDisplay}</td>
             <td class="${item.rsi1h >= 90 ? 'rsi-extreme' : 'rsi-high'}">${rsi1h}</td>
             <td class="${item.rsi4h >= 80 ? 'rsi-extreme' : 'rsi-high'}">${rsi4h}</td>
+            <td class="${depthClass}" style="font-weight: bold;">${depthDisplay}</td>
             <td><a href="${webLink}" target="_blank" class="action-btn">Trade</a></td>
         `;
 
