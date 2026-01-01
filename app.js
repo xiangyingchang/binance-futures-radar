@@ -450,22 +450,17 @@ function renderTable(items) {
         let suggestion = '';
         let suggestionColor = '';
 
-        if (ratio >= 2.0) {
-            suggestion = 'Strong Support: Avoid Short (买盘 > 2倍)';
-            suggestionColor = '#238636'; // Green
-        } else if (ratio >= 1.2) {
-            suggestion = 'Bullish Pressure: Avoid Short (买盘 > 1.2倍)';
-            suggestionColor = '#238636';
-        } else if (ratio <= 0.5) {
-            suggestion = 'Strong Resist: Avoid Long (卖盘 > 2倍)';
-            suggestionColor = '#da3633'; // Red
-        } else if (ratio <= 0.8) {
-            suggestion = 'Bearish Pressure: Avoid Long (卖盘 > 1.2倍)';
-            suggestionColor = '#da3633';
-        } else {
-            suggestion = 'Neutral';
-            suggestionColor = '#8b949e'; // Grey
-        }
+        const getAdvice = (r) => {
+            if (r >= 2.0) return { text: 'Strong Support: Avoid Short (买盘 > 2倍)', color: '#238636' };
+            if (r >= 1.2) return { text: 'Bullish Pressure: Avoid Short (买盘 > 1.2倍)', color: '#238636' };
+            if (r <= 0.5) return { text: 'Strong Resist: Avoid Long (卖盘 > 2倍)', color: '#da3633' };
+            if (r <= 0.8) return { text: 'Bearish Pressure: Avoid Long (卖盘 > 1.2倍)', color: '#da3633' };
+            return { text: 'Neutral', color: '#8b949e' };
+        };
+
+        const advice = getAdvice(ratio);
+        suggestion = advice.text;
+        suggestionColor = advice.color;
 
         // Compact display: Ratio | Vol | Advice
         // Format: 🟢 1.46X（29k/20k）
@@ -483,9 +478,57 @@ function renderTable(items) {
             <td class="${item.funding > 0 ? 'funding-positive' : 'funding-negative'}">${fundingDisplay}</td>
             <td class="${item.rsi1h >= 90 ? 'rsi-extreme' : 'rsi-high'}">${rsi1h}</td>
             <td class="${item.rsi4h >= 80 ? 'rsi-extreme' : 'rsi-high'}">${rsi4h}</td>
-            <td class="${depthClass}" style="font-weight: bold;">${depthDisplay}</td>
+            <td class="depth-cell ${depthClass}" style="font-weight: bold; cursor: pointer;" title="Click to refresh depth">${depthDisplay}</td>
             <td><a href="${webLink}" target="_blank" class="action-btn">Trade</a></td>
         `;
+
+        // Depth Refresh Logic
+        const depthCell = row.querySelector('.depth-cell');
+        depthCell.addEventListener('click', async () => {
+            console.log(`Refreshing depth for ${item.symbol}...`);
+            const originalHTML = depthCell.innerHTML;
+            depthCell.style.opacity = '0.5';
+            depthCell.style.pointerEvents = 'none';
+
+            // Optional: Show "Updating..." briefly if it takes more than 100ms
+            const timeout = setTimeout(() => {
+                depthCell.innerHTML = `<div class="depth-wrapper"><span class="depth-ratio">Refreshing...</span></div>`;
+            }, 200);
+
+            try {
+                const newDepth = await fetchDepth(item.symbol, 100);
+                clearTimeout(timeout);
+
+                if (newDepth) {
+                    const newBidPower = newDepth.bids.reduce((acc, [p, q]) => acc + (parseFloat(p) * parseFloat(q)), 0);
+                    const newAskPower = newDepth.asks.reduce((acc, [p, q]) => acc + (parseFloat(p) * parseFloat(q)), 0);
+                    const newRatio = newAskPower > 0 ? newBidPower / newAskPower : (newBidPower > 0 ? 999 : 0);
+
+                    const newIsStrong = newRatio >= 1;
+                    const newArrow = newIsStrong ? '🟢' : '🔴';
+                    const newBidStr = (newBidPower / 1000).toFixed(0) + 'k';
+                    const newAskStr = (newAskPower / 1000).toFixed(0) + 'k';
+                    const newAdvice = getAdvice(newRatio);
+
+                    depthCell.className = `depth-cell ${newIsStrong ? 'funding-positive' : 'funding-negative'}`;
+                    depthCell.innerHTML = `<div class="depth-wrapper">` +
+                        `<span class="depth-ratio">${newArrow} ${newRatio.toFixed(2)}X <span class="depth-vol-inline">(${newBidStr}/${newAskStr})</span></span>` +
+                        `<span class="depth-advice" style="color: ${newAdvice.color}; font-size: 10px; font-weight: bold; margin-top: 2px; text-align: left;">${newAdvice.text}</span>` +
+                        `</div>`;
+                    console.log(`Updated depth for ${item.symbol}: ${newRatio.toFixed(2)}X`);
+                } else {
+                    depthCell.innerHTML = originalHTML;
+                    console.warn(`Failed to fetch depth for ${item.symbol}`);
+                }
+            } catch (err) {
+                clearTimeout(timeout);
+                depthCell.innerHTML = originalHTML;
+                console.error(`Error refreshing depth for ${item.symbol}:`, err);
+            } finally {
+                depthCell.style.opacity = '1';
+                depthCell.style.pointerEvents = 'auto';
+            }
+        });
 
         // Click to Copy Logic for Symbol
         const symbolCell = row.querySelector('.symbol-cell');
