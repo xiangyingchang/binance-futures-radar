@@ -469,16 +469,10 @@ function renderTable(items) {
 
         // Compact display: Ratio | Vol | Advice
         // Format: 🟢 1.46X（29k/20k）
-        const depthDisplay = `
-            <div class="depth-wrapper">
-                <span class="depth-ratio">
-                    ${arrow} ${ratio.toFixed(2)}x <span class="depth-vol-inline">(${bidStr}/${askStr})</span>
-                </span>
-                <span class="depth-advice" style="color: ${suggestionColor}; font-size: 10px; font-weight: bold; margin-top: 2px;">
-                    ${suggestion}
-                </span>
-            </div>
-        `;
+        const depthDisplay = `<div class="depth-wrapper">` +
+            `<span class="depth-ratio">${arrow} ${ratio.toFixed(2)}X <span class="depth-vol-inline">(${bidStr}/${askStr})</span></span>` +
+            `<span class="depth-advice" style="color: ${suggestionColor}; font-size: 10px; font-weight: bold; margin-top: 2px; text-align: left;">${suggestion}</span>` +
+            `</div>`;
 
         // Deep link handling
         const webLink = `https://www.binance.com/en/futures/${item.symbol}`;
