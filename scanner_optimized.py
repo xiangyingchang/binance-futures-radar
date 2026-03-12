@@ -60,6 +60,12 @@ CONCURRENCY = 40
 BINANCE_BASE = "https://fapi.binance.com"
 BEIJING_TZ = timezone(timedelta(hours=8))
 
+# Proxy (for environments where Binance is blocked, e.g. mainland China)
+# Reads from HTTPS_PROXY / HTTP_PROXY / ALL_PROXY environment variables
+PROXY_URL = os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY") or os.environ.get("ALL_PROXY") or os.environ.get("https_proxy") or os.environ.get("http_proxy") or os.environ.get("all_proxy")
+if PROXY_URL:
+    print(f"Using proxy: {PROXY_URL}")
+
 # Output
 WORKSPACE = os.environ.get(
     "OPENCLAW_WORKSPACE",
@@ -127,7 +133,7 @@ def calculate_rsi(closes, period=6):
 async def fetch_json(session, url, params=None, timeout=15):
     """Async GET request with error handling."""
     try:
-        async with session.get(url, params=params, timeout=timeout) as response:
+        async with session.get(url, params=params, timeout=timeout, proxy=PROXY_URL) as response:
             if response.status == 200:
                 return await response.json()
             else:
@@ -503,7 +509,7 @@ async def send_telegram(message):
             "parse_mode": "Markdown",
         }
         try:
-            async with session.post(url, json=payload, timeout=10) as response:
+            async with session.post(url, json=payload, timeout=10, proxy=PROXY_URL) as response:
                 if response.status == 200:
                     return True
                 else:
@@ -534,7 +540,19 @@ async def main():
         action="store_true",
         help="Skip writing signal files (print to stdout only)",
     )
+    parser.add_argument(
+        "--proxy",
+        type=str,
+        default=None,
+        help="HTTP/SOCKS5 proxy URL (e.g. http://127.0.0.1:7897). Overrides env vars.",
+    )
     args = parser.parse_args()
+
+    # Override global proxy if --proxy is given
+    global PROXY_URL
+    if args.proxy:
+        PROXY_URL = args.proxy
+        print(f"Using proxy (from --proxy flag): {PROXY_URL}")
 
     if args.loop:
         print("Loop mode enabled. Scanning at every top of the hour.")
