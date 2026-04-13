@@ -4,11 +4,12 @@ Binance Futures RSI Scanner — Optimized Production Version
 ============================================================
 扫描 Binance USDⓈ-M 永续合约，输出结构化信号文件供 radar_engine.py 消费。
 
-信号源规则（对齐 TRADING_STRATEGY.md v1.2 第二节）：
+信号源规则（对齐 TRADING_STRATEGY.md v1.4 第二节）：
 - rsi_1h > 90
 - rsi_4h > 80
 - funding_apr > -500%
 - rank > 100（缺失时放行，标记 rank_status=missing）
+- change_24h < 35%（24h涨幅过高拒绝入场）
 
 输出格式：
 {
@@ -52,6 +53,9 @@ FUNDING_APR_MIN = -500  # funding_apr > -500%
 
 # Rank Filter
 RANK_MIN_EXCLUSIVE = 100  # rank > 100 (rank_status=missing 时放行)
+
+# 24h Change Filter: 拒绝入场前24h涨幅>=35%的标的（大幅拉升追空风险过高）
+CHANGE_24H_MAX = 35.0
 
 # Concurrency
 CONCURRENCY = 40
@@ -173,6 +177,27 @@ async def fetch_depth_ratio(session, symbol):
         return None
 
 
+async def fetch_oi_change_1h(session, symbol):
+    """Fetch 1h OI change rate and absolute OI value. Collected for future analysis — not filtered yet."""
+    try:
+        data = await fetch_json(
+            session,
+            f"{BINANCE_BASE}/futures/data/openInterestHist",
+            params={"symbol": symbol, "period": "1h", "limit": 2},
+            timeout=10,
+        )
+        if not data or not isinstance(data, list) or len(data) < 2:
+            return None
+        oi_now = float(data[-1]["sumOpenInterestValue"])
+        oi_1h_ago = float(data[-2]["sumOpenInterestValue"])
+        if oi_1h_ago == 0:
+            return None
+        change = round((oi_now - oi_1h_ago) / oi_1h_ago * 100, 2)
+        return {"oi_change_1h": change, "oi_value_usd": round(oi_now)}
+    except Exception:
+        return None
+
+
 # ============================================================
 # Symbol Scanner
 # ============================================================
@@ -231,11 +256,15 @@ async def check_symbol(
         funding_apr = round(annualized_rate, 2)
         base_info["funding_apr"] = funding_apr
 
-        # --- Step 4: Fetch depth ---
-        depth_100 = await fetch_depth_ratio(session, symbol)
+        # --- Step 4 & 5: Fetch depth and OI in parallel ---
+        depth_100, oi_result = await asyncio.gather(
+            fetch_depth_ratio(session, symbol),
+            fetch_oi_change_1h(session, symbol),
+        )
         base_info["depth_100"] = depth_100
+        base_info.update(oi_result or {"oi_change_1h": None, "oi_value_usd": None})
 
-        # --- Step 5: Apply filters ---
+        # --- Step 6: Apply filters ---
         if rsi_4h < RSI_4H_THRESHOLD:
             reject_reasons.append(f"rsi_4h={rsi_4h}<{RSI_4H_THRESHOLD}")
 
@@ -246,7 +275,10 @@ async def check_symbol(
         if rank_status == "valid" and rank is not None and rank <= RANK_MIN_EXCLUSIVE:
             reject_reasons.append(f"rank={rank}<={RANK_MIN_EXCLUSIVE}")
 
-        # --- Step 6: Classify ---
+        if base_info["change_24h"] >= CHANGE_24H_MAX:
+            reject_reasons.append(f"change_24h={base_info['change_24h']:.1f}%>={CHANGE_24H_MAX}%")
+
+        # --- Step 7: Classify ---
         base_info["reject_reasons"] = reject_reasons
         base_info["eligible"] = len(reject_reasons) == 0
 
@@ -325,7 +357,9 @@ async def scan_market():
         symbols = [
             s["symbol"]
             for s in ex_info["symbols"]
-            if s["quoteAsset"] == "USDT" and s["status"] == "TRADING"
+            if s["quoteAsset"] == "USDT"
+            and s["status"] == "TRADING"
+            and s.get("underlyingType") == "COIN"
         ]
 
         ticker_map = {item["symbol"]: item for item in ticker_list}
