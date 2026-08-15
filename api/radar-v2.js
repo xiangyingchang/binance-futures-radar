@@ -17,8 +17,8 @@ const BINANCE_PRODUCTS = 'https://www.binance.com/bapi/asset/v2/public/asset-ser
 const COINGECKO_MARKETS = 'https://api.coingecko.com/api/v3/coins/markets';
 
 const RUNTIME = Object.freeze({
-  requestTimeoutMs: 12_000,
-  coinGeckoTimeoutMs: 8_000,
+  requestTimeoutMs: 12000,
+  coinGeckoTimeoutMs: 8000,
   dailyKlineLimit: 60,
   intradayKlineLimit: 80,
   initialConcurrency: 16,
@@ -57,7 +57,7 @@ async function fetchJson(url, params = {}, timeoutMs = RUNTIME.requestTimeoutMs)
     try {
       payload = await response.json();
     } catch (_) {
-      // Keep the HTTP status even when an upstream sends a non-JSON body.
+      // Keep HTTP status when upstream sends a non-JSON body.
     }
 
     if (!response.ok) {
@@ -111,7 +111,9 @@ function buildBinanceRankMap(productList) {
     if (item?.q !== 'USDT' || item?.cs == null) continue;
     const price = Number(item.c || 0);
     const supply = Number(item.cs || 0);
-    if (price > 0 && supply > 0) marketCaps.push({ base: String(item.b || '').toUpperCase(), marketCap: price * supply });
+    if (price > 0 && supply > 0) {
+      marketCaps.push({ base: String(item.b || '').toUpperCase(), marketCap: price * supply });
+    }
   }
   marketCaps.sort((a, b) => b.marketCap - a.marketCap);
   const map = new Map();
@@ -150,7 +152,10 @@ async function fetchCoinGeckoRanks() {
     fetchJson(COINGECKO_MARKETS, { ...shared, page: 1 }, RUNTIME.coinGeckoTimeoutMs),
     fetchJson(COINGECKO_MARKETS, { ...shared, page: 2 }, RUNTIME.coinGeckoTimeoutMs),
   ]);
-  return buildCoinGeckoRankMap([...(Array.isArray(page1) ? page1 : []), ...(Array.isArray(page2) ? page2 : [])]);
+  return buildCoinGeckoRankMap([
+    ...(Array.isArray(page1) ? page1 : []),
+    ...(Array.isArray(page2) ? page2 : []),
+  ]);
 }
 
 function resolveRank(base, coinGeckoMap, binanceMap) {
@@ -227,8 +232,321 @@ function computeOiChanges(rows) {
   const data = Array.isArray(rows) ? rows : [];
   if (data.length < 2) return { oi24hPct: null, oi7dPct: null, oiSamples: data.length };
   const current = Number(data.at(-1)?.sumOpenInterest);
-  if (!Number.isFinite(current) || current <= 0) return { oi24hPct: null, oi7dPct: null, oiSamples: data.length };
+  if (!Number.isFinite(current) || current <= 0) {
+    return { oi24hPct: null, oi7dPct: null, oiSamples: data.length };
+  }
 
   const currentTs = Number(data.at(-1)?.timestamp || 0);
   const nearestBefore = (hours) => {
-    const target = currentTs - (ho²È="24(€€€‘•¥Í¥½¹…Ñ”è™¥¹…±MÑ…ÑÕÌ€ôôô€M!=IQ}MQU@œ(€€€€€€ü€Q1eMQ}IY%]}IEU%Iœ(€€€€€€è…¹‘¥‘…Ñ”¹É…¹­M½ÕÉ”€„ôô€½¥¹•­¼œ(€€€€€€€€ü€I9-}M=UI}IY%]}IEU%Iœ(€€€€€€€€è€]%Q}=I}	QQI}MQU@œ°(€ôì)ô()…Íå¹Œ™Õ¹Ñ¥½¸Í…¹5…É­•Ð ¤ì(€½¹ÍÐÍÑ…ÉÑ•‘Ð€ô…Ñ”¹¹½Ü ¤ì(€½¹ÍÐ¹½Ü€ô…Ñ”¹¹½Ü ¤ì(€½¹ÍÐÝ…É¹¥¹Ì€ômtì((€½¹ÍÐm•á¡…¹•%¹™¼°Ñ¥­•É1¥ÍÐ°ÁÉ•µ¥Õµ1¥ÍÑt€ô…Ý…¥ÐAÉ½µ¥Í”¹…±°¡l(€€€™ÕÑÕÉ•Í•Ð œ½™…Á¤½ØÄ½•á¡…¹•%¹™¼œ¤°(€€€™ÕÑÕÉ•Í•Ð œ½™…Á¤½ØÄ½Ñ¥­•È¼ÈÑ¡Èœ¤°(€€€™ÕÑÕÉ•Í•Ð œ½™…Á¤½ØÄ½ÁÉ•µ¥Õµ%¹‘•àœ¤°(€t¤ì((€¥˜€ …ÉÉ…ä¹¥ÍÉÉ…ä¡•á¡…¹•%¹™¼ü¹Íåµ‰½±Ì¤ñð€…ÉÉ…ä¹¥ÍÉÉ…ä¡Ñ¥­•É1¥ÍÐ¤ñð€…ÉÉ…ä¹¥ÍÉÉ…ä¡ÁÉ•µ¥Õµ1¥ÍÐ¤¤ì(€€€Ñ¡É½Ü¹•ÜUÁÍÑÉ•…µÉÉ½È 5…±™½Éµ•	¥¹…¹”µ•Ñ…‘…Ñ„É•ÍÁ½¹Í”œ¤ì(€ô((€½¹ÍÐm™Õ¹‘¥¹%¹™½1¥ÍÐ°ÁÉ½‘ÕÑI•ÍÁ½¹Í”°½¥¹•­½5…Át€ô…Ý…¥ÐAÉ½µ¥Í”¹…±°¡l(€€€™ÕÑÕÉ•Í•Ð œ½™…Á¤½ØÄ½™Õ¹‘¥¹%¹™¼œ¤¹…Ñ  ¡•ÉÉ½È¤€ôøì(€€€€€Ý…É¹¥¹Ì¹ÁÕÍ ¡™Õ¹‘¥¹%¹™¼Õ¹…Ù…¥±…‰±”è€‘í•ÉÉ½È¹µ•ÍÍ…•õ€¤ì(€€€€€É•ÑÕÉ¸mtì(€€€ô¤°(€€€™•Ñ¡)Í½¸¡	%99}AI=UQL°ì¥¹±Õ‘•Ñ˜è€ÑÉÕ”œô¤¹…Ñ  ¡•ÉÉ½È¤€ôøì(€€€€€Ý…É¹¥¹Ì¹ÁÕÍ ¡	¥¹…¹”µ…É­•Ðµ…ÀÁÉ½áäÕ¹…Ù…¥±…‰±”è€‘í•ÉÉ½È¹µ•ÍÍ…•õ€¤ì(€€€€€É•ÑÕÉ¸ì‘…Ñ„èmtôì(€€€ô¤°(€€€™•Ñ¡½¥¹•­½I…¹­Ì ¤¹…Ñ  ¡•ÉÉ½È¤€ôøì(€€€€€Ý…É¹¥¹Ì¹ÁÕÍ ¡½¥¹•­¼É…¹¬Õ¹…Ù…¥±…‰±”ìÕÍ¥¹œ	¥¹…¹”ÁÉ½áäÝ¡•¸Á½ÍÍ¥‰±”è€‘í•ÉÉ½È¹µ•ÍÍ…•õ€¤ì(€€€€€É•ÑÕÉ¸¹•Ü5…À ¤ì(€€€ô¤°(€t¤ì((€½¹ÍÐ‰¥¹…¹•I…¹­5…À€ô‰Õ¥±‘	¥¹…¹•I…¹­5…À¡ÁÉ½‘ÕÑI•ÍÁ½¹Í”ü¹‘…Ñ„¤ì(€½¹ÍÐÑ¥­•É5…À€ô=‰©•Ð¹™É½µ¹ÑÉ¥•Ì¡Ñ¥­•É1¥ÍÐ¹µ…À ¡¥Ñ•´¤€ôøm¥Ñ•´¹Íåµ‰½°°¥Ñ•µt¤¤ì(€½¹ÍÐÁÉ•µ¥Õµ5…À€ô=‰©•Ð¹™É½µ¹ÑÉ¥•Ì¡ÁÉ•µ¥Õµ1¥ÍÐ¹µ…À ¡¥Ñ•´¤€ôøm¥Ñ•´¹Íåµ‰½°°¥Ñ•µt¤¤ì(€½¹ÍÐ™Õ¹‘¥¹%¹Ñ•ÉÙ…±5…À€ô=‰©•Ð¹™É½µ¹ÑÉ¥•Ì (€€€€¡ÉÉ…ä¹¥ÍÉÉ…ä¡™Õ¹‘¥¹%¹™½1¥ÍÐ¤€ü™Õ¹‘¥¹%¹™½1¥ÍÐ€èmt¤¹µ…À ¡¥Ñ•´¤€ôøm¥Ñ•´¹Íåµ‰½°°9Õµ‰•È¡¥Ñ•´¹™Õ¹‘¥¹%¹Ñ•ÉÙ…±!½ÕÉÌñð€à¥t¤(€€¤ì((€½¹ÍÐ…Ñ¥Ù”€ô•á¡…¹•%¹™¼¹Íåµ‰½±Ì¹™¥±Ñ•È ¡Ì¤€ôø€ (€€€Ì¹ÅÕ½Ñ•ÍÍ•Ð€ôôô€UMPœ(€€€€˜˜Ì¹ÍÑ…ÑÕÌ€ôôô€QI%9œ(€€€€˜˜Ì¹½¹ÑÉ…ÑQåÁ”€ôôô€AIAQU0œ(€€€€˜˜Ì¹Õ¹‘•É±å¥¹QåÁ”€ôôô€=%8œ(€€¤¤ì(€¥˜€ ……Ñ¥Ù”¹±•¹Ñ ¤Ñ¡É½Ü¹•ÜUÁÍÑÉ•…µÉÉ½È 	¥¹…¹”É•ÑÕÉ¹•é•É¼…Ñ¥Ù”UMPÁ•ÉÁ•ÑÕ…°ÉåÁÑ¼Íåµ‰½±Ìœ¤ì((€½¹ÍÐÕ¹¥Ù•ÉÍ”€ômtì(€½¹ÍÐÕ¹¥Ù•ÉÍ•I•©•Ñ½Õ¹ÑÌ€ôíôì(€½¹ÍÐ‰ÕµÀ€ô€¡É•…Í½¸¤€ôøìÕ¹¥Ù•ÉÍ•I•©•Ñ½Õ¹ÑÍmÉ•…Í½¹t€ô€¡Õ¹¥Ù•ÉÍ•I•©•Ñ½Õ¹ÑÍmÉ•…Í½¹tñð€À¤€¬€Äìôì((€™½È€¡½¹ÍÐ¥¹™¼½˜…Ñ¥Ù”¤ì(€€€½¹ÍÐ‰…Í”€ôMÑÉ¥¹œ¡¥¹™¼¹‰…Í•ÍÍ•Ðñð€œœ¤¹Ñ½UÁÁ•É…Í” ¤ì(€€€½¹ÍÐÑ¥­•È€ôÑ¥­•É5…Ám¥¹™¼¹Íåµ‰½±tì(€€€½¹ÍÐìÉ…¹¬°É…¹­M½ÕÉ”ô€ôÉ•Í½±Ù•I…¹¬¡‰…Í”°½¥¹•­½5…À°‰¥¹…¹•I…¹­5…À¤ì(€€€½¹ÍÐ½¹‰½…É‘…Ñ”€ô9Õµ‰•È¡¥¹™¼¹½¹‰½…É‘…Ñ”ñð€À¤ì(€€€½¹ÍÐ±¥ÍÑ¥¹•…åÌ€ô½¹‰½…É‘…Ñ”€ø€À€ü€¡¹½Ü€´½¹‰½…É‘…Ñ”¤€¼€ ÈÐ€¨€ØÀ€¨€ØÀ€¨€ÄÀÀÀ¤€è¹Õ±°ì(€€€½¹ÍÐÅÕ½Ñ•Y½±Õµ•UÍ€ô9Õµ‰•È¡Ñ¥­•Èü¹ÅÕ½Ñ•Y½±Õµ”ñð€À¤ì((€€€±•ÐÉ•…Í½¸€ô¹Õ±°ì(€€€¥˜€¡a1U}	ML¹¡…Ì¡‰…Í”¤¤É•…Í½¸€ô€•á±Õ‘•‘}…ÍÍ•Ðœì(€€€•±Í”¥˜€ …9Õµ‰•È¹¥Í¥¹¥Ñ”¡É…¹¬¤¤É•…Í½¸€ô€É…¹­}Õ¹…Ù…¥±…‰±”œì(€€€•±Í”¥˜€¡É…¹¬€ðMQIQd¹É…¹­5¥¸ñðÉ…¹¬€øMQIQd¹É…¹­5…à¤É•…Í½¸€ô€É…¹­}½ÕÑÍ¥‘•|ÄÀÅ|ÔÀÀœì(€€€•±Í”¥˜€ …9Õµ‰•È¹¥Í¥¹¥Ñ”¡±¥ÍÑ¥¹•…åÌ¤ñð±¥ÍÑ¥¹•…åÌ€ðMQIQd¹µ¥¹1¥ÍÑ¥¹•…åÌ¤É•…Í½¸€ô€±¥ÍÑ¥¹}…•}±Ñ|äÁœì(€€€•±Í”¥˜€ …9Õµ‰•È¹¥Í¥¹¥Ñ”¡ÅÕ½Ñ•Y½±Õµ•UÍ¤ñðÅÕ½Ñ•Y½±Õµ•UÍ€ðMQIQd¹µ¥¹EÕ½Ñ•Y½±Õµ•UÍ¤É•…Í½¸€ô€Ù½±Õµ•}±Ñ|ÈÁ´œì((€€€¥˜€¡É•…Í½¸¤ì(€€€€€‰ÕµÀ¡É•…Í½¸¤ì(€€€€€½¹Ñ¥¹Õ”ì(€€€ô((€€€Õ¹¥Ù•ÉÍ”¹ÁÕÍ ¡ì(€€€€€Íåµ‰½°è¥¹™¼¹Íåµ‰½°°(€€€€€‰…Í”°(€€€€€É…¹¬°(€€€€€É…¹­M½ÕÉ”°(€€€€€±¥ÍÑ¥¹•…åÌ°(€€€€€ÅÕ½Ñ•Y½±Õµ•UÍ°(€€€€€¡…¹”ÈÑ¡AÐè9Õµ‰•È¡Ñ¥­•Èü¹ÁÉ¥•¡…¹•A•É•¹Ðñð€À¤°(€€€€€±…ÍÑAÉ¥”è9Õµ‰•È¡Ñ¥­•Èü¹±…ÍÑAÉ¥”ñð€À¤°(€€€ô¤ì(€ô((€½¹ÍÐ‘…¥±åMÑ…”€ô…Ý…¥ÐÉÕ¹A½½°¡Õ¹¥Ù•ÉÍ”°…Íå¹Œ€¡¥Ñ•´¤€ôøì(€€€½¹ÍÐÉ…Ü€ô…Ý…¥Ð™ÕÑÕÉ•Í•Ð œ½™…Á¤½ØÄ½­±¥¹•Ìœ°ì(€€€€€Íåµ‰½°è¥Ñ•´¹Íåµ‰½°°(€€€€€¥¹Ñ•ÉÙ…°è€œÅœ°(€€€€€±¥µ¥ÐèIU9Q%5¹‘…¥±å-±¥¹•1¥µ¥Ð°(€€€ô¤ì(€€€½¹ÍÐ…¹‘±•Ì€ô±½Í•‘…¹‘±•Ì¡Á…ÉÍ•-±¥¹•Ì¡É…Ü¤°¹½Ü¤ì(€€€¥˜€¡…¹‘±•Ì¹±•¹Ñ €ð€ÈÈ¤É•ÑÕÉ¸¹Õ±°ì(€€€½¹ÍÐ±½Í•Ì€ô…¹‘±•Ì¹µ…À ¡Œ¤€ôøŒ¹±½Í”¤ì(€€€½¹ÍÐ‘…¥±åIÍ¤€ôÕÉÉ•¹ÑIÍ¤¡±½Í•Ì°MQIQd¹ÉÍ¥A•É¥½¤ì(€€€½¹ÍÐÉ•ÑÕÉ¸Ý‘AÐ€ô±½Í•Ì¹±•¹Ñ €øô€à€üÁÑ¡…¹”¡±½Í•Ì¹…Ð ´Ä¤°±½Í•Ì¹…Ð ´à¤¤€è¹Õ±°ì(€€€½¹ÍÐ…¹‘¥‘…Ñ”€ôì€¸¸¹¥Ñ•´°‘…¥±åIÍ¤°É•ÑÕÉ¸Ý‘AÐôì(€€€½¹ÍÐÉ•…Í½¹Ì€ô¡…É‘¥±Ñ•ÉI•…Í½¹Ì¡…¹‘¥‘…Ñ”¤ì(€€€¥˜€¡É•…Í½¹Ì¹±•¹Ñ ¤É•ÑÕÉ¸ìÉ•©•Ñ•èÑÉÕ”°É•…Í½¹Ì°…¹‘¥‘…Ñ”ôì(€€€É•ÑÕÉ¸ìÉ•©•Ñ•è™…±Í”°…¹‘¥‘…Ñ”ôì(€ô°IU9Q%5¹¥¹¥Ñ¥…±½¹ÕÉÉ•¹ä¤ì((€½¹ÍÐ‘…¥±åI•©•Ñ½Õ¹ÑÌ€ôíôì(€½¹ÍÐ‰…Í•…¹‘¥‘…Ñ•Ì€ômtì(€™½È€¡½¹ÍÐÉ½Ü½˜‘…¥±åMÑ…”¹É•ÍÕ±ÑÌ¤ì(€€€¥˜€¡É½Ü¹É•©•Ñ•¤ì(€€€€€™½È€¡½¹ÍÐÉ•…Í½¸½˜É½Ü¹É•…Í½¹Ì¤‘…¥±åI•©•Ñ½Õ¹ÑÍmÉ•…Í½¹t€ô€¡‘…¥±åI•©•Ñ½Õ¹ÑÍmÉ•…Í½¹tñð€À¤€¬€Äì(€€€ô•±Í”ì(€€€€€‰…Í•…¹‘¥‘…Ñ•Ì¹ÁÕÍ ¡É½Ü¹…¹‘¥‘…Ñ”¤ì(€€€ô(€ô((€½¹ÍÐ‘•Ñ…¥±•‘MÑ…”€ô…Ý…¥ÐÉÕ¹A½½°¡‰…Í•…¹‘¥‘…Ñ•Ì°€¡…¹‘¥‘…Ñ”¤€ôø•¹É¥¡…¹‘¥‘…Ñ”¡…¹‘¥‘…Ñ”°ì(€€€ÁÉ•µ¥Õµ5…À°(€€€™Õ¹‘¥¹%¹Ñ•ÉÙ…±5…À°(€ô¤°IU9Q%5¹‘•Ñ…¥±½¹ÕÉÉ•¹ä¤ì((€½¹ÍÐ…¹‘¥‘…Ñ•Ì€ô‘•Ñ…¥±•‘MÑ…”¹É•ÍÕ±ÑÌ¹Í½ÉÐ ¡„°ˆ¤€ôø€ (€€€ÍÑ…ÑÕÍ=É‘•È¡ˆ¹ÍÑ…ÑÕÌ¤€´ÍÑ…ÑÕÍ=É‘•È¡„¹ÍÑ…ÑÕÌ¤(€€€ñðˆ¹Í½É”€´„¹Í½É”(€€€ñðˆ¹‘…¥±åIÍ¤€´„¹‘…¥±åIÍ¤(€€¤¤ì((€½¹ÍÐÍ¡½ÉÑM•ÑÕÁÌ€ô…¹‘¥‘…Ñ•Ì¹™¥±Ñ•È ¡¥Ñ•´¤€ôø¥Ñ•´¹ÍÑ…ÑÕÌ€ôôô€M!=IQ}MQU@œ¤¹±•¹Ñ ì(€½¹ÍÐÍÑÉ½¹]…Ñ €ô…¹‘¥‘…Ñ•Ì¹™¥±Ñ•È ¡¥Ñ•´¤€ôø¥Ñ•´¹ÍÑ…ÑÕÌ€ôôô€MQI=9}]Q œ¤¹±•¹Ñ ì(€½¹ÍÐÝ…Ñ €ô…¹‘¥‘…Ñ•Ì¹™¥±Ñ•È ¡¥Ñ•´¤€ôø¥Ñ•´¹ÍÑ…ÑÕÌ€ôôô€]Q œ¤¹±•¹Ñ ì((€É•ÑÕÉ¸ì(€€€Í½ÕÉ”è€‰¥¹…¹”µ™ÕÑÕÉ•ÌµÉ…‘…ÈµÙ•É•°œ°(€€€ÍÑÉ…Ñ•åY•ÉÍ¥½¸è€•á¡…ÕÍÑ¥½¸µÍ¡½ÉÐµÉ…‘…ÈµØÈœ°(€€€•¹•É…Ñ•‘Ðè¹•Ü…Ñ” ¤¹Ñ½%M=MÑÉ¥¹œ ¤°(€€€‘ÕÉ…Ñ¥½¹5Ìè…Ñ”¹¹½Ü ¤€´ÍÑ…ÉÑ•‘Ð°(€€€ÍÕµµ…Éäèì(€€€€€Ñ½Ñ…±A…¥ÉÌè…Ñ¥Ù”¹±•¹Ñ °(€€€€€É…¹­•‘1¥ÅÕ¥‘U¹¥Ù•ÉÍ”èÕ¹¥Ù•ÉÍ”¹±•¹Ñ °(€€€€€‰…Í•…¹‘¥‘…Ñ•Ìè‰…Í•…¹‘¥‘…Ñ•Ì¹±•¹Ñ °(€€€€€µ…Ñ¡•Ìè…¹‘¥‘…Ñ•Ì¹±•¹Ñ °(€€€€€Í¡½ÉÑM•ÑÕÁÌ°(€€€€€ÍÑÉ½¹]…Ñ °(€€€€€Ý…Ñ °(€€€€€‘…¥±åMÑ…•ÉÉ½ÉÌè‘…¥±åMÑ…”¹•ÉÉ½ÉÌ¹±•¹Ñ °(€€€€€‘•Ñ…¥±MÑ…•ÉÉ½ÉÌè‘•Ñ…¥±•‘MÑ…”¹•ÉÉ½ÉÌ¹±•¹Ñ °(€€€€€½¥¹•­½I…¹­Måµ‰½±Ìè½¥¹•­½5…À¹Í¥é”°(€€€€€‰¥¹…¹•AÉ½áåI…¹­Måµ‰½±Ìè‰¥¹…¹•I…¹­5…À¹Í¥é”°(€€€€€É…¹­Ù…¥±…‰±”è½¥¹•­½5…À¹Í¥é”€ø€Àñð‰¥¹…¹•I…¹­5…À¹Í¥é”€ø€À°(€€€ô°(€€€ÍÑÉ…Ñ•äèì(€€€€€Õ¹¥Ù•ÉÍ”è€	¥¹…¹”UMPÁ•ÉÁ•ÑÕ…°ÉåÁÑ¼½¹ÑÉ…ÑÌœ°(€€€€€É…¹¬è€œÄÀÄ´ÌÀÀÁÉ¥µ…Éäì€ÌÀÄ´ÔÀÀÍ•½¹‘…Éäœ°(€€€€€±¥ÍÑ¥¹”è€œøôäÀ‘…åÌœ°(€€€€€ÅÕ½Ñ•Y½±Õµ”ÈÑ è€œøôÈÁ´UMPœ°(€€€€€‘…¥±åIÍ¤ÄÐè€œøäÀ€¡±…ÍÐ±½Í•‘…¥±ä…¹‘±”¤œ°(€€€€€É•ÑÕÉ¸Ýè€œøÔÀ”œ°(€€€€€É½Ý‘¥¹œè€Õ¹‘¥¹œÁ•É•¹Ñ¥±”€¬=$É½ÝÑ œ°(€€€€€É•Ù•ÉÍ…°è€œÅ ¼Ñ ±½Í•µ…¹‘±”•á¡…ÕÍÑ¥½¸Í¥¹…±Ìœ°(€€€€€Í¡½ÉÑM•ÑÕÁ…Ñ”è€Í½É”øôàÔ€¬½¥¹•­¼É…¹¬€¬™Õ¹‘¥¹œøõ@äÀ€¬ÍÑÉ½¹œ=$€¬€øôÈÉ•Ù•ÉÍ…°Í¥¹…±Ìœ°(€€€€€…Ñ…±åÍÑI•Ù¥•Üè€É•ÅÕ¥É•‰•™½É”…¹äÑÉ…‘”œ°(€€€€€…ÕÑ½QÉ…‘”è™…±Í”°(€€€ô°(€€€‘¥…¹½ÍÑ¥Ìèì(€€€€€Ý…É¹¥¹Ì°(€€€€€Õ¹¥Ù•ÉÍ•I•©•Ñ½Õ¹ÑÌ°(€€€€€‘…¥±åI•©•Ñ½Õ¹ÑÌ°(€€€€€‘…¥±åÉÉ½ÉÌè‘…¥±åMÑ…”¹•ÉÉ½ÉÌ¹Í±¥” À°€ÄÀ¤°(€€€€€‘•Ñ…¥±ÉÉ½ÉÌè‘•Ñ…¥±•‘MÑ…”¹•ÉÉ½ÉÌ¹Í±¥” À°€ÄÀ¤°(€€€ô°(€€€µ…Ñ¡•Ìè…¹‘¥‘…Ñ•Ì°(€ôì)ô()µ½‘Õ±”¹•áÁ½ÉÑÌ€ô…Íå¹Œ™Õ¹Ñ¥½¸¡…¹‘±•È¡É•Ä°É•Ì¤ì(€É•Ì¹Í•Ñ!•…‘•È •ÍÌµ½¹ÑÉ½°µ±±½Üµ=É¥¥¸œ°€œ¨œ¤ì(€É•Ì¹Í•Ñ!•…‘•È •ÍÌµ½¹ÑÉ½°µ±±½Üµ5•Ñ¡½‘Ìœ°€P°=AQ%=9Lœ¤ì(€É•Ì¹Í•Ñ!•…‘•È •ÍÌµ½¹ÑÉ½°µ±±½Üµ!•…‘•ÉÌœ°€½¹Ñ•¹ÐµQåÁ”œ¤ì((€¥˜€¡É•Ä¹µ•Ñ¡½€ôôô€=AQ%=9Lœ¤É•ÑÕÉ¸É•Ì¹ÍÑ…ÑÕÌ ÈÀÐ¤¹•¹ ¤ì(€¥˜€¡É•Ä¹µ•Ñ¡½€„ôô€Pœ¤É•ÑÕÉ¸É•Ì¹ÍÑ…ÑÕÌ ÐÀÔ¤¹©Í½¸¡ì•ÉÉ½Èè€5•Ñ¡½¹½Ð…±±½Ý•œô¤ì((€ÑÉäì(€€€½¹ÍÐÁ…å±½…€ô…Ý…¥ÐÍ…¹5…É­•Ð ¤ì(€€€É•Ì¹Í•Ñ!•…‘•È …¡”µ½¹ÑÉ½°œ°€ÁÕ‰±¥Œ°Ìµµ…á…”ôÄÈÀ°ÍÑ…±”µÝ¡¥±”µÉ•Ù…±¥‘…Ñ”ôØÀÀœ¤ì(€€€É•ÑÕÉ¸É•Ì¹ÍÑ…ÑÕÌ ÈÀÀ¤¹©Í½¸¡Á…å±½…¤ì(€ô…Ñ €¡•ÉÉ½È¤ì(€€€½¹ÍÐÕÁÍÑÉ•…´€ô•ÉÉ½È¥¹ÍÑ…¹•½˜UÁÍÑÉ•…µÉÉ½È€ü•ÉÉ½È¹ÕÁÍÑÉ•…µMÑ…ÑÕÌ€è¹Õ±°ì(€€€É•ÑÕÉ¸É•Ì¹ÍÑ…ÑÕÌ¡•ÉÉ½È¹ÍÑ…ÑÕÌñð€ÔÀÀ¤¹©Í½¸¡ì(€€€€€•ÉÉ½Èè€I…‘…ÈÍ…¸™…¥±•œ°(€€€€€µ•ÍÍ…”è•ÉÉ½È¹µ•ÍÍ…”ñð€U¹­¹½Ý¸•ÉÉ½Èœ°(€€€€€ÕÁÍÑÉ•…µMÑ…ÑÕÌèÕÁÍÑÉ•…´°(€€€€€•¹•É…Ñ•‘Ðè¹•Ü…Ñ” ¤¹Ñ½%M=MÑÉ¥¹œ ¤°(€€€ô¤ì(€ô)ôì(
+    const target = currentTs - (hours * 60 * 60 * 1000);
+    let best = null;
+    for (const row of data) {
+      const ts = Number(row?.timestamp || 0);
+      const value = Number(row?.sumOpenInterest);
+      if (!Number.isFinite(ts) || !Number.isFinite(value) || value <= 0 || ts > target) continue;
+      if (!best || ts > best.ts) best = { ts, value };
+    }
+    return best?.value ?? null;
+  };
+
+  const prior24h = nearestBefore(24);
+  const prior7d = nearestBefore(24 * 7);
+  return {
+    oi24hPct: prior24h ? pctChange(current, prior24h) : null,
+    oi7dPct: prior7d ? pctChange(current, prior7d) : null,
+    oiSamples: data.length,
+  };
+}
+
+function statusOrder(status) {
+  if (status === 'SHORT_SETUP') return 3;
+  if (status === 'STRONG_WATCH') return 2;
+  return 1;
+}
+
+async function enrichCandidate(candidate, context) {
+  const { premiumMap, fundingIntervalMap } = context;
+  const now = Date.now();
+  const dataErrors = [];
+
+  const safe = async (name, fn, fallback) => {
+    try {
+      return await fn();
+    } catch (error) {
+      dataErrors.push(`${name}: ${error.message || 'failed'}`);
+      return fallback;
+    }
+  };
+
+  const [fundingHistory, oiHistory, k1hRaw, k4hRaw, depthData] = await Promise.all([
+    safe('funding_history', () => fetchFundingHistory(candidate.symbol, now), []),
+    safe('oi_history', () => futuresGet('/futures/data/openInterestHist', {
+      symbol: candidate.symbol,
+      period: '1h',
+      limit: RUNTIME.oiLookbackHours,
+    }), []),
+    safe('1h_klines', () => futuresGet('/fapi/v1/klines', {
+      symbol: candidate.symbol,
+      interval: '1h',
+      limit: RUNTIME.intradayKlineLimit,
+    }), []),
+    safe('4h_klines', () => futuresGet('/fapi/v1/klines', {
+      symbol: candidate.symbol,
+      interval: '4h',
+      limit: RUNTIME.intradayKlineLimit,
+    }), []),
+    safe('depth', () => futuresGet('/fapi/v1/depth', {
+      symbol: candidate.symbol,
+      limit: RUNTIME.depthLimit,
+    }), null),
+  ]);
+
+  const interval = fundingIntervalMap[candidate.symbol] || 8;
+  const currentFunding = Number(premiumMap[candidate.symbol]?.lastFundingRate || 0);
+  const historicalRates = (Array.isArray(fundingHistory) ? fundingHistory : [])
+    .map((row) => Number(row?.fundingRate))
+    .filter(Number.isFinite);
+  const fundingPercentile = percentileRank(historicalRates, currentFunding);
+  const oi = computeOiChanges(oiHistory);
+  const reversal = analyzeReversal(
+    closedCandles(parseKlines(k1hRaw), now),
+    closedCandles(parseKlines(k4hRaw), now),
+  );
+  const score = scoreCandidate({
+    ...candidate,
+    fundingPercentile,
+    ...oi,
+    reversal,
+  });
+  const finalStatus = score.status === 'SHORT_SETUP' && candidate.rankSource !== 'coingecko'
+    ? 'STRONG_WATCH'
+    : score.status;
+
+  const riskFlags = [];
+  if (Number.isFinite(reversal.invalidationDistancePct) && reversal.invalidationDistancePct > 25) {
+    riskFlags.push('wide_invalidation_gt_25pct');
+  }
+  if (candidate.rankSource !== 'coingecko') riskFlags.push('rank_uses_proxy_source');
+  if (dataErrors.length) riskFlags.push('incomplete_market_data');
+
+  return {
+    ...candidate,
+    currentFundingRate: currentFunding,
+    fundingIntervalHours: interval,
+    fundingApr: fundingApr(currentFunding, interval),
+    fundingPercentile,
+    fundingHistorySamples: historicalRates.length,
+    ...oi,
+    reversal,
+    ...analyzeDepth(depthData),
+    ...score,
+    status: finalStatus,
+    riskFlags,
+    dataErrors,
+    catalystReviewRequired: true,
+    autoTrade: false,
+    decisionGate: finalStatus === 'SHORT_SETUP'
+      ? 'CATALYST_REVIEW_REQUIRED'
+      : candidate.rankSource !== 'coingecko'
+        ? 'RANK_SOURCE_REVIEW_REQUIRED'
+        : 'WAIT_FOR_BETTER_SETUP',
+  };
+}
+
+async function scanMarket() {
+  const startedAt = Date.now();
+  const now = Date.now();
+  const warnings = [];
+
+  const [exchangeInfo, tickerList, premiumList] = await Promise.all([
+    futuresGet('/fapi/v1/exchangeInfo'),
+    futuresGet('/fapi/v1/ticker/24hr'),
+    futuresGet('/fapi/v1/premiumIndex'),
+  ]);
+
+  if (!Array.isArray(exchangeInfo?.symbols) || !Array.isArray(tickerList) || !Array.isArray(premiumList)) {
+    throw new UpstreamError('Malformed Binance metadata response');
+  }
+
+  const [fundingInfoList, productResponse, coinGeckoMap] = await Promise.all([
+    futuresGet('/fapi/v1/fundingInfo').catch((error) => {
+      warnings.push(`fundingInfo unavailable: ${error.message}`);
+      return [];
+    }),
+    fetchJson(BINANCE_PRODUCTS, { includeEtf: 'true' }).catch((error) => {
+      warnings.push(`Binance market-cap proxy unavailable: ${error.message}`);
+      return { data: [] };
+    }),
+    fetchCoinGeckoRanks().catch((error) => {
+      warnings.push(`CoinGecko rank unavailable; using Binance proxy when possible: ${error.message}`);
+      return new Map();
+    }),
+  ]);
+
+  const binanceRankMap = buildBinanceRankMap(productResponse?.data);
+  const tickerMap = Object.fromEntries(tickerList.map((item) => [item.symbol, item]));
+  const premiumMap = Object.fromEntries(premiumList.map((item) => [item.symbol, item]));
+  const fundingIntervalMap = Object.fromEntries(
+    (Array.isArray(fundingInfoList) ? fundingInfoList : [])
+      .map((item) => [item.symbol, Number(item.fundingIntervalHours || 8)])
+  );
+
+  const active = exchangeInfo.symbols.filter((s) => (
+    s.quoteAsset === 'USDT'
+    && s.status === 'TRADING'
+    && s.contractType === 'PERPETUAL'
+    && s.underlyingType === 'COIN'
+  ));
+  if (!active.length) {
+    throw new UpstreamError('Binance returned zero active USDT perpetual crypto symbols');
+  }
+
+  const universe = [];
+  const universeRejectCounts = {};
+  const bump = (reason) => {
+    universeRejectCounts[reason] = (universeRejectCounts[reason] || 0) + 1;
+  };
+
+  for (const info of active) {
+    const base = String(info.baseAsset || '').toUpperCase();
+    const ticker = tickerMap[info.symbol];
+    const { rank, rankSource } = resolveRank(base, coinGeckoMap, binanceRankMap);
+    const onboardDate = Number(info.onboardDate || 0);
+    const listingAgeDays = onboardDate > 0
+      ? (now - onboardDate) / (24 * 60 * 60 * 1000)
+      : null;
+    const quoteVolumeUsd = Number(ticker?.quoteVolume || 0);
+
+    let reason = null;
+    if (EXCLUDED_BASES.has(base)) reason = 'excluded_asset';
+    else if (!Number.isFinite(rank)) reason = 'rank_unavailable';
+    else if (rank < STRATEGY.rankMin || rank > STRATEGY.rankMax) reason = 'rank_outside_101_500';
+    else if (!Number.isFinite(listingAgeDays) || listingAgeDays < STRATEGY.minListingAgeDays) reason = 'listing_age_lt_90d';
+    else if (!Number.isFinite(quoteVolumeUsd) || quoteVolumeUsd < STRATEGY.minQuoteVolumeUsd) reason = 'volume_lt_20m';
+
+    if (reason) {
+      bump(reason);
+      continue;
+    }
+
+    universe.push({
+      symbol: info.symbol,
+      base,
+      rank,
+      rankSource,
+      listingAgeDays,
+      quoteVolumeUsd,
+      change24hPct: Number(ticker?.priceChangePercent || 0),
+      lastPrice: Number(ticker?.lastPrice || 0),
+    });
+  }
+
+  const dailyStage = await runPool(universe, async (item) => {
+    const raw = await futuresGet('/fapi/v1/klines', {
+      symbol: item.symbol,
+      interval: '1d',
+      limit: RUNTIME.dailyKlineLimit,
+    });
+    const candles = closedCandles(parseKlines(raw), now);
+    if (candles.length < 22) return null;
+    const closes = candles.map((c) => c.close);
+    const dailyRsi = currentRsi(closes, STRATEGY.rsiPeriod);
+    const return7dPct = closes.length >= 8 ? pctChange(closes.at(-1), closes.at(-8)) : null;
+    const candidate = { ...item, dailyRsi, return7dPct };
+    const reasons = hardFilterReasons(candidate);
+    if (reasons.length) return { rejected: true, reasons, candidate };
+    return { rejected: false, candidate };
+  }, RUNTIME.initialConcurrency);
+
+  const dailyRejectCounts = {};
+  const baseCandidates = [];
+  for (const row of dailyStage.results) {
+    if (row.rejected) {
+      for (const reason of row.reasons) {
+        dailyRejectCounts[reason] = (dailyRejectCounts[reason] || 0) + 1;
+      }
+    } else {
+      baseCandidates.push(row.candidate);
+    }
+  }
+
+  const detailedStage = await runPool(baseCandidates, (candidate) => enrichCandidate(candidate, {
+    premiumMap,
+    fundingIntervalMap,
+  }), RUNTIME.detailConcurrency);
+
+  const candidates = detailedStage.results.sort((a, b) => (
+    statusOrder(b.status) - statusOrder(a.status)
+    || b.score - a.score
+    || b.dailyRsi - a.dailyRsi
+  ));
+
+  const shortSetups = candidates.filter((item) => item.status === 'SHORT_SETUP').length;
+  const strongWatch = candidates.filter((item) => item.status === 'STRONG_WATCH').length;
+  const watch = candidates.filter((item) => item.status === 'WATCH').length;
+
+  return {
+    source: 'binance-futures-radar-vercel',
+    strategyVersion: 'exhaustion-short-radar-v2',
+    generatedAt: new Date().toISOString(),
+    durationMs: Date.now() - startedAt,
+    summary: {
+      totalPairs: active.length,
+      rankedLiquidUniverse: universe.length,
+      baseCandidates: baseCandidates.length,
+      matches: candidates.length,
+      shortSetups,
+      strongWatch,
+      watch,
+      dailyStageErrors: dailyStage.errors.length,
+      detailStageErrors: detailedStage.errors.length,
+      coinGeckoRankSymbols: coinGeckoMap.size,
+      binanceProxyRankSymbols: binanceRankMap.size,
+      rankAvailable: coinGeckoMap.size > 0 || binanceRankMap.size > 0,
+    },
+    strategy: {
+      universe: 'Binance USDT perpetual crypto contracts',
+      rank: '101-300 primary; 301-500 secondary',
+      listingAge: '>=90 days',
+      quoteVolume24h: '>=20m USDT',
+      dailyRsi14: '>90 (last closed daily candle)',
+      return7d: '>50%',
+      crowding: 'Funding percentile + OI growth',
+      reversal: '1h/4h closed-candle exhaustion signals',
+      shortSetupGate: 'score>=85 + CoinGecko rank + funding>=P90 + strong OI + >=2 reversal signals',
+      catalystReview: 'required before any trade',
+      autoTrade: false,
+    },
+    diagnostics: {
+      warnings,
+      universeRejectCounts,
+      dailyRejectCounts,
+      dailyErrors: dailyStage.errors.slice(0, 10),
+      detailErrors: detailedStage.errors.slice(0, 10),
+    },
+    matches: candidates,
+  };
+}
+
+module.exports = async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') return res.status(204).end();
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  try {
+    const payload = await scanMarket();
+    res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
+    return res.status(200).json(payload);
+  } catch (error) {
+    const upstream = error instanceof UpstreamError ? error.upstreamStatus : null;
+    return res.status(error.status || 500).json({
+      error: 'Radar scan failed',
+      message: error.message || 'Unknown error',
+      upstreamStatus: upstream,
+      generatedAt: new Date().toISOString(),
+    });
+  }
+};
