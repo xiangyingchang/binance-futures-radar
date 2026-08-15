@@ -1,7 +1,7 @@
 # Exhaustion Short Strategy
 
 > Status: **Live forward-test / pilot**  
-> Production strategy version: `exhaustion-short-radar-v5-rsi6-funding-pilot`  
+> Production strategy version: `exhaustion-short-radar-v6-cmc-rank-consensus`  
 > Last updated: 2026-08-15
 
 ## 1. Goal
@@ -24,6 +24,10 @@ A symbol is eligible for the live pilot only when all hard filters below are sat
 - 24H quote volume at least **20M USDT**.
 - Target market-cap rank: **101–500**.
 - **Top 100 is a hard exclusion.**
+- Market-cap rank uses **CoinMarketCap (CMC) as the primary source**, with CoinGecko and a Binance circulating-supply market-cap proxy as cross-checks.
+- If **any trusted source reports rank <=100**, reject the symbol before technical screening.
+- If sources disagree across the eligible boundary (Top100 vs 101–500, or 101–500 vs >500), reject / flag the symbol rather than producing `SHORT_SETUP`.
+- A `SHORT_SETUP` requires a valid **CMC rank in 101–500**; if CMC is unavailable, the symbol may be watched but cannot be promoted to a short setup.
 
 ### 2.2 Heat gate
 
@@ -38,8 +42,8 @@ RSI(6) is intentionally used instead of RSI(14) for this strategy because the la
 
 Status convention:
 
-- `SHORT_SETUP`: hard universe/heat gate passed + Funding >= P90.
-- `STRONG_WATCH`: hard universe/heat gate passed + Funding P75–P90.
+- `SHORT_SETUP`: hard universe/heat gate passed + CMC rank verified 101–500 + Funding >= P90.
+- `STRONG_WATCH`: hard universe/heat gate passed + Funding P75–P90, or rank verification is incomplete but not contradicted.
 - `WATCH`: heat gate passed but funding crowding is incomplete.
 
 ### 2.4 Reference-only signals
@@ -111,29 +115,33 @@ Used for:
 - 24H quote volume;
 - funding rate / funding history;
 - OI history;
-- intraday reference signals.
+- intraday reference signals;
+- circulating-supply market-cap proxy used only as a rank cross-check.
 
-### Market-cap rank
+### CoinMarketCap (CMC)
 
-**This is currently the most important known data-quality issue.**
+Used as the **primary current market-cap rank source** via CoinMarketCap's official keyless public API. `SHORT_SETUP` requires a valid CMC rank in 101–500.
 
-The production code currently prefers **CoinGecko** rank and falls back to a Binance-derived market-cap proxy. Binance's app displays market-cap information sourced from **CoinMarketCap (CMC)**.
+### CoinGecko
 
-On 2026-08-15, `HUSDT / Humanity` exposed a material disagreement:
+Used as a secondary rank cross-check. It is not allowed to override a CMC Top100 classification.
 
-- Production radar / CoinGecko path: approximately **#134**.
-- Binance app / CMC display: **#69**.
+### Market-cap rank conflict policy
 
-Because **Top 100 is a hard exclusion**, a rank-source disagreement around the #100 boundary can create a false `SHORT_SETUP`.
+`HUSDT / Humanity` exposed why a single rank source is unsafe. On 2026-08-15:
 
-### Required conservative rule going forward
+- Production radar / CoinGecko path showed approximately **#134**.
+- Binance app, which labels the displayed fundamental data as CoinMarketCap-sourced, showed **#69** at the time of the user's check.
 
-Until a reliable authoritative CMC point-in-time rank source is integrated:
+Because **Top 100 is a hard exclusion**, this created a false `SHORT_SETUP` under v5.
 
-1. If any trusted rank source shows `rank <= 100`, the symbol should be **rejected from SHORT_SETUP**.
-2. If rank sources disagree across the Top-100 boundary, status should become `RANK_CONFLICT / REVIEW`, never `SHORT_SETUP`.
-3. Rank source and observed rank must be stored with every forward-test entry.
-4. Historical backtests must use point-in-time rank where possible; current rank must not silently substitute for historical rank.
+The v6 conservative rule is:
+
+1. If any trusted rank source shows `rank <= 100`, **reject** the symbol.
+2. If rank sources cross the eligibility boundary, **reject / flag conflict**, never `SHORT_SETUP`.
+3. `SHORT_SETUP` requires CMC itself to report 101–500.
+4. Rank source values must be returned by the API and shown in the UI for auditability.
+5. Historical backtests should use point-in-time rank where possible; current rank must not silently substitute for historical rank.
 
 ## 7. Current research evidence
 
@@ -168,7 +176,7 @@ For every live trade, record at minimum:
 - entry time / price;
 - notional;
 - strategy version;
-- rank + rank source;
+- rank + rank source(s);
 - RSI(6);
 - 7D return;
 - funding percentile and raw funding;
@@ -220,6 +228,16 @@ Metrics to track:
 A higher win rate alone is not sufficient. Short strategies must be evaluated primarily on **expectancy and tail loss control**.
 
 ## 11. Version notes
+
+### 2026-08-15 — Pilot v6
+
+- Integrated **CoinMarketCap official keyless public listings** as the primary live rank source.
+- Added CoinGecko + Binance market-cap proxy cross-checks.
+- Added conservative `any trusted source <=100 => reject` rule.
+- Added cross-boundary rank-conflict rejection.
+- Required valid CMC 101–500 rank for `SHORT_SETUP`.
+- Added all rank-source values to API/UI diagnostics.
+- HUSDT v5 entry is retained as a forward-test record but flagged as a rank-data-quality invalid sample for strategy statistics.
 
 ### 2026-08-15 — Pilot v5
 
