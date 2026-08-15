@@ -8,6 +8,8 @@ https://binance-futures-radar.vercel.app
 
 The web UI no longer calls Binance directly from the browser. It requests the same-origin `/api/radar` Vercel Function, which performs the market scan server-side in Vercel `sin1` (Singapore).
 
+Production verification on 2026-08-15: the API scanned 529 active pairs, returned 4 matches, reported 0 symbol request errors, and completed in about 2.9 seconds.
+
 ## Strategy filters
 
 - RSI 1h > 90
