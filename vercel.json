@@ -13,6 +13,10 @@
     "api/backtest-30d.js": {
       "regions": ["sin1"],
       "maxDuration": 60
+    },
+    "api/tp-backtest-180d.js": {
+      "regions": ["sin1"],
+      "maxDuration": 60
     }
   }
 }
