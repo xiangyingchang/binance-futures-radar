@@ -80,12 +80,19 @@ function reversalText(reversal) {
 
 function riskText(item) {
   const pieces = [];
+  const maxHoldDays = Number(item?.maxHoldDays);
+  const hardStopPct = Number(item?.hardStopPct);
+  if (Number.isFinite(maxHoldDays) && Number.isFinite(hardStopPct)) {
+    pieces.push(`${maxHoldDays}D max · +${hardStopPct.toFixed(0)}% stop`);
+  } else {
+    pieces.push('3D max · +30% stop');
+  }
   if (Number.isFinite(Number(item?.reversal?.invalidationDistancePct))) {
-    pieces.push(`Invalidation ${fmtSigned(item.reversal.invalidationDistancePct, 1)}`);
+    pieces.push(`ATR ref ${fmtSigned(item.reversal.invalidationDistancePct, 1)}`);
   }
   if (Array.isArray(item.riskFlags) && item.riskFlags.length) pieces.push('⚠ data/risk flag');
   if (item.catalystReviewRequired) pieces.push('Catalyst check');
-  return pieces.join(' · ') || 'Catalyst check';
+  return pieces.join(' · ');
 }
 
 function renderRows(items) {
@@ -110,7 +117,9 @@ function renderRows(items) {
       ? `${fmtSigned(item.fundingApr, 1)}/yr`
       : '—';
     const tradeLink = `https://www.binance.com/en/futures/${encodeURIComponent(item.symbol)}`;
-    const tierClass = item.rankTier === 'PRIMARY_101_300' ? 'primary-tier' : 'secondary-tier';
+    const tierClass = item.rankTier === 'TARGET_101_500' || item.rankTier === 'PRIMARY_101_300'
+      ? 'primary-tier'
+      : 'secondary-tier';
 
     row.innerHTML = `
       <td class="symbol-cell" title="Tap to copy">${item.symbol}</td>
@@ -173,7 +182,7 @@ async function updateData() {
   setLoading(true);
   hideEmpty();
   ELEMENTS.tableBody.innerHTML = '';
-  setStatus('Running staged Binance scan…');
+  setStatus('Running RSI(6) + funding production pilot scan…');
   try {
     const payload = await fetchRadar();
     renderRows(payload.matches);
@@ -194,7 +203,7 @@ async function updateData() {
       errors ? `${errors} symbol error${errors > 1 ? 's' : ''}` : '',
     ].filter(Boolean).join(' · ');
     setStatus(
-      `V2 scan OK · ${duration}s${note ? ` · ${note}` : ''}`,
+      `Pilot scan OK · ${duration}s${note ? ` · ${note}` : ''}`,
       (warnings || errors) ? 'warning' : 'success'
     );
   } catch (error) {
