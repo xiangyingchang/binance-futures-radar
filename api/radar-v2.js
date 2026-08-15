@@ -15,10 +15,12 @@ const {
 const BINANCE_FUTURES = 'https://fapi.binance.com';
 const BINANCE_PRODUCTS = 'https://www.binance.com/bapi/asset/v2/public/asset-service/product/get-products';
 const COINGECKO_MARKETS = 'https://api.coingecko.com/api/v3/coins/markets';
+const CMC_PUBLIC_LISTINGS = 'https://pro-api.coinmarketcap.com/public-api/v3/cryptocurrency/listings/latest';
 
 const RUNTIME = Object.freeze({
   requestTimeoutMs: 12000,
   coinGeckoTimeoutMs: 8000,
+  cmcTimeoutMs: 9000,
   dailyKlineLimit: 60,
   intradayKlineLimit: 80,
   initialConcurrency: 16,
@@ -45,14 +47,17 @@ async function fetchJson(url, params = {}, timeoutMs = RUNTIME.requestTimeoutMs)
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(target, {
-      headers: { Accept: 'application/json', 'User-Agent': 'binance-futures-radar/5.0' },
+      headers: { Accept: 'application/json', 'User-Agent': 'binance-futures-radar/6.0' },
       signal: controller.signal,
     });
     let payload = null;
     try { payload = await response.json(); } catch (_) {}
     if (!response.ok) {
-      const message = payload?.msg || payload?.message || `HTTP ${response.status}`;
+      const message = payload?.status?.error_message || payload?.msg || payload?.message || `HTTP ${response.status}`;
       throw new UpstreamError(message, 502, response.status);
+    }
+    if (payload?.status?.error_code && Number(payload.status.error_code) !== 0) {
+      throw new UpstreamError(payload.status.error_message || `CMC error ${payload.status.error_code}`, 502, response.status);
     }
     return payload;
   } catch (error) {
@@ -109,19 +114,28 @@ function buildBinanceRankMap(productList) {
   return map;
 }
 
-function buildCoinGeckoRankMap(rows) {
-  const symbolCounts = new Map();
+function buildUniqueSymbolRankMap(rows, rankGetter) {
+  const counts = new Map();
   for (const coin of Array.isArray(rows) ? rows : []) {
     const symbol = String(coin?.symbol || '').toUpperCase();
-    if (symbol) symbolCounts.set(symbol, (symbolCounts.get(symbol) || 0) + 1);
+    if (symbol) counts.set(symbol, (counts.get(symbol) || 0) + 1);
   }
   const map = new Map();
   for (const coin of Array.isArray(rows) ? rows : []) {
     const symbol = String(coin?.symbol || '').toUpperCase();
-    const rank = Number(coin?.market_cap_rank);
-    if (symbol && Number.isFinite(rank) && symbolCounts.get(symbol) === 1) map.set(symbol, rank);
+    const rank = Number(rankGetter(coin));
+    if (symbol && Number.isFinite(rank) && counts.get(symbol) === 1) map.set(symbol, rank);
   }
   return map;
+}
+
+function buildCoinGeckoRankMap(rows) {
+  return buildUniqueSymbolRankMap(rows, (coin) => coin?.market_cap_rank);
+}
+
+function buildCmcRankMap(payload) {
+  const rows = Array.isArray(payload?.data) ? payload.data : [];
+  return buildUniqueSymbolRankMap(rows, (coin) => coin?.cmc_rank);
 }
 
 async function fetchCoinGeckoRanks() {
@@ -133,14 +147,62 @@ async function fetchCoinGeckoRanks() {
   return buildCoinGeckoRankMap([...(Array.isArray(page1) ? page1 : []), ...(Array.isArray(page2) ? page2 : [])]);
 }
 
-function resolveRank(base, coinGeckoMap, binanceMap) {
+async function fetchCmcRanks() {
+  const payload = await fetchJson(CMC_PUBLIC_LISTINGS, {
+    start: 1,
+    limit: 500,
+    convert: 'USD',
+    sort: 'market_cap',
+    sort_dir: 'desc',
+    cryptocurrency_type: 'all',
+  }, RUNTIME.cmcTimeoutMs);
+  return buildCmcRankMap(payload);
+}
+
+function findRank(base, map) {
   for (const key of rankLookupKeys(base)) {
-    if (coinGeckoMap?.has(key)) return { rank: coinGeckoMap.get(key), rankSource: 'coingecko' };
+    if (map?.has(key)) return Number(map.get(key));
   }
-  for (const key of rankLookupKeys(base)) {
-    if (binanceMap?.has(key)) return { rank: binanceMap.get(key), rankSource: 'binance_marketcap_proxy' };
-  }
-  return { rank: null, rankSource: 'unavailable' };
+  return null;
+}
+
+function resolveRankConsensus(base, cmcMap, coinGeckoMap, binanceMap) {
+  const cmcRank = findRank(base, cmcMap);
+  const coinGeckoRank = findRank(base, coinGeckoMap);
+  const binanceProxyRank = findRank(base, binanceMap);
+  const sources = [
+    ['coinmarketcap', cmcRank],
+    ['coingecko', coinGeckoRank],
+    ['binance_marketcap_proxy', binanceProxyRank],
+  ].filter(([, rank]) => Number.isFinite(rank));
+
+  const primary = Number.isFinite(cmcRank)
+    ? { rank: cmcRank, rankSource: 'coinmarketcap' }
+    : Number.isFinite(coinGeckoRank)
+      ? { rank: coinGeckoRank, rankSource: 'coingecko' }
+      : Number.isFinite(binanceProxyRank)
+        ? { rank: binanceProxyRank, rankSource: 'binance_marketcap_proxy' }
+        : { rank: null, rankSource: 'unavailable' };
+
+  const top100Sources = sources.filter(([, rank]) => rank <= 100).map(([source]) => source);
+  const targetSources = sources.filter(([, rank]) => rank >= STRATEGY.rankMin && rank <= STRATEGY.rankMax).map(([source]) => source);
+  const above500Sources = sources.filter(([, rank]) => rank > STRATEGY.rankMax).map(([source]) => source);
+  const rankConflict = (top100Sources.length > 0 && targetSources.length > 0)
+    || (targetSources.length > 0 && above500Sources.length > 0);
+  const cmcInTarget = Number.isFinite(cmcRank) && cmcRank >= STRATEGY.rankMin && cmcRank <= STRATEGY.rankMax;
+  const rankVerifiedForShort = cmcInTarget && top100Sources.length === 0 && !rankConflict;
+
+  return {
+    ...primary,
+    cmcRank,
+    coinGeckoRank,
+    binanceProxyRank,
+    rankSources: Object.fromEntries(sources),
+    top100Sources,
+    above500Sources,
+    rankConflict,
+    rankVerifiedForShort,
+  };
 }
 
 async function runPool(items, worker, concurrency) {
@@ -251,12 +313,14 @@ async function enrichCandidate(candidate, context) {
     closedCandles(parseKlines(k4hRaw), now),
   );
   const scored = scoreCandidate({ ...candidate, fundingPercentile, ...oi, reversal });
-  const finalStatus = scored.status === 'SHORT_SETUP' && candidate.rankSource !== 'coingecko'
+  const finalStatus = scored.status === 'SHORT_SETUP' && !candidate.rankVerifiedForShort
     ? 'STRONG_WATCH'
     : scored.status;
 
   const riskFlags = [];
-  if (candidate.rankSource !== 'coingecko') riskFlags.push('rank_uses_proxy_source');
+  if (!Number.isFinite(candidate.cmcRank)) riskFlags.push('cmc_rank_unavailable');
+  if (candidate.rankConflict) riskFlags.push('rank_source_conflict');
+  if (!candidate.rankVerifiedForShort) riskFlags.push('rank_not_verified_for_short');
   if (candidate.dailyRsiConfirmed === false) riskFlags.push('live_daily_rsi_not_closed_confirmed');
   if (dataErrors.length) riskFlags.push('incomplete_reference_data');
 
@@ -277,7 +341,7 @@ async function enrichCandidate(candidate, context) {
     autoTrade: false,
     decisionGate: finalStatus === 'SHORT_SETUP'
       ? 'MANUAL_CATALYST_AND_SIZE_REVIEW_REQUIRED'
-      : candidate.rankSource !== 'coingecko'
+      : !candidate.rankVerifiedForShort
         ? 'RANK_SOURCE_REVIEW_REQUIRED'
         : 'WAIT_FOR_FUNDING_P90',
   };
@@ -297,7 +361,7 @@ async function scanMarket() {
     throw new UpstreamError('Malformed Binance metadata response');
   }
 
-  const [fundingInfoList, productResponse, coinGeckoMap] = await Promise.all([
+  const [fundingInfoList, productResponse, coinGeckoMap, cmcMap] = await Promise.all([
     futuresGet('/fapi/v1/fundingInfo').catch((error) => {
       warnings.push(`fundingInfo unavailable: ${error.message}`);
       return [];
@@ -307,7 +371,11 @@ async function scanMarket() {
       return { data: [] };
     }),
     fetchCoinGeckoRanks().catch((error) => {
-      warnings.push(`CoinGecko rank unavailable; using Binance proxy when possible: ${error.message}`);
+      warnings.push(`CoinGecko rank unavailable: ${error.message}`);
+      return new Map();
+    }),
+    fetchCmcRanks().catch((error) => {
+      warnings.push(`CoinMarketCap rank unavailable; SHORT_SETUP will be rank-downgraded: ${error.message}`);
       return new Map();
     }),
   ]);
@@ -329,29 +397,37 @@ async function scanMarket() {
 
   const universe = [];
   const universeRejectCounts = {};
+  const rankConflictExamples = [];
   const bump = (reason) => { universeRejectCounts[reason] = (universeRejectCounts[reason] || 0) + 1; };
 
   for (const info of active) {
     const base = String(info.baseAsset || '').toUpperCase();
     const ticker = tickerMap[info.symbol];
-    const { rank, rankSource } = resolveRank(base, coinGeckoMap, binanceRankMap);
+    const rankInfo = resolveRankConsensus(base, cmcMap, coinGeckoMap, binanceRankMap);
     const onboardDate = Number(info.onboardDate || 0);
     const listingAgeDays = onboardDate > 0 ? (now - onboardDate) / 86_400_000 : null;
     const quoteVolumeUsd = Number(ticker?.quoteVolume || 0);
 
     let reason = null;
     if (EXCLUDED_BASES.has(base)) reason = 'excluded_asset';
-    else if (!Number.isFinite(rank)) reason = 'rank_unavailable';
-    else if (rank < STRATEGY.rankMin || rank > STRATEGY.rankMax) reason = 'rank_outside_101_500';
+    else if (rankInfo.top100Sources.length > 0) reason = 'rank_top100_any_source';
+    else if (rankInfo.rankConflict) reason = 'rank_source_conflict';
+    else if (!Number.isFinite(rankInfo.rank)) reason = 'rank_unavailable';
+    else if (rankInfo.rank < STRATEGY.rankMin || rankInfo.rank > STRATEGY.rankMax) reason = 'rank_outside_101_500';
     else if (!Number.isFinite(listingAgeDays) || listingAgeDays < STRATEGY.minListingAgeDays) reason = 'listing_age_lt_90d';
     else if (!Number.isFinite(quoteVolumeUsd) || quoteVolumeUsd < STRATEGY.minQuoteVolumeUsd) reason = 'volume_lt_20m';
-    if (reason) { bump(reason); continue; }
+    if (reason) {
+      bump(reason);
+      if ((reason === 'rank_top100_any_source' || reason === 'rank_source_conflict') && rankConflictExamples.length < 20) {
+        rankConflictExamples.push({ symbol: info.symbol, reason, ...rankInfo });
+      }
+      continue;
+    }
 
     universe.push({
       symbol: info.symbol,
       base,
-      rank,
-      rankSource,
+      ...rankInfo,
       listingAgeDays,
       quoteVolumeUsd,
       change24hPct: Number(ticker?.priceChangePercent || 0),
@@ -402,7 +478,7 @@ async function scanMarket() {
 
   return {
     source: 'binance-futures-radar-vercel',
-    strategyVersion: 'exhaustion-short-radar-v5-rsi6-funding-pilot',
+    strategyVersion: 'exhaustion-short-radar-v6-cmc-rank-consensus',
     generatedAt: new Date().toISOString(),
     durationMs: Date.now() - startedAt,
     summary: {
@@ -415,19 +491,21 @@ async function scanMarket() {
       watch: candidates.filter((item) => item.status === 'WATCH').length,
       dailyStageErrors: dailyStage.errors.length,
       detailStageErrors: detailedStage.errors.length,
+      cmcRankSymbols: cmcMap.size,
       coinGeckoRankSymbols: coinGeckoMap.size,
       binanceProxyRankSymbols: binanceRankMap.size,
-      rankAvailable: coinGeckoMap.size > 0 || binanceRankMap.size > 0,
+      rankAvailable: cmcMap.size > 0 || coinGeckoMap.size > 0 || binanceRankMap.size > 0,
     },
     strategy: {
       universe: 'Binance USDT perpetual crypto contracts',
-      rank: '101-500; Top 100 excluded',
+      rank: '101-500; any trusted source <=100 rejects; cross-boundary conflicts reject',
+      rankPrimary: 'CoinMarketCap public API; CoinGecko + Binance market-cap proxy cross-check',
       listingAge: '>=90 days',
       quoteVolume24h: '>=20m USDT',
       dailyRsi6: '>93 (live current daily candle)',
       closedDailyRsi6: 'reported for confirmation context only',
       return7d: '>20% (live current price vs 7d ago)',
-      shortSetupGate: 'core heat/liquidity/rank gate + CoinGecko rank + funding >= P90',
+      shortSetupGate: 'core heat/liquidity/rank gate + CMC verified 101-500 + funding >= P90',
       fundingWatch: 'P75-P90 => STRONG_WATCH',
       oiAndReversal: 'reference/scoring only; never hard gates',
       pilotExit: 'max 3 days; hard stop if price rises 30% from entry',
@@ -437,6 +515,7 @@ async function scanMarket() {
     diagnostics: {
       warnings,
       universeRejectCounts,
+      rankConflictExamples,
       dailyRejectCounts,
       dailyErrors: dailyStage.errors.slice(0, 10),
       detailErrors: detailedStage.errors.slice(0, 10),

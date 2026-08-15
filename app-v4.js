@@ -67,6 +67,15 @@ function statusMeta(status) {
   return { label: 'WATCH', className: 'status-watch' };
 }
 
+function rankText(item) {
+  const primary = Number.isFinite(Number(item.rank)) ? `#${Number(item.rank)}` : '#—';
+  const tags = [];
+  if (Number.isFinite(Number(item.cmcRank))) tags.push(`CMC ${Number(item.cmcRank)}`);
+  if (Number.isFinite(Number(item.coinGeckoRank))) tags.push(`CG ${Number(item.coinGeckoRank)}`);
+  if (Number.isFinite(Number(item.binanceProxyRank))) tags.push(`PX ${Number(item.binanceProxyRank)}`);
+  return `${primary}<small>${tags.length ? tags.join(' · ') : 'rank unavailable'}</small>`;
+}
+
 function reversalText(reversal) {
   if (!reversal) return '—';
   const tags = [];
@@ -90,9 +99,11 @@ function riskText(item) {
   if (Number.isFinite(Number(item?.reversal?.invalidationDistancePct))) {
     pieces.push(`ATR ref ${fmtSigned(item.reversal.invalidationDistancePct, 1)}`);
   }
+  if (item.rankConflict) pieces.push('⚠ rank conflict');
+  if (!item.rankVerifiedForShort) pieces.push('⚠ rank not verified');
   if (Array.isArray(item.riskFlags) && item.riskFlags.length) pieces.push('⚠ data/risk flag');
   if (item.catalystReviewRequired) pieces.push('Catalyst check');
-  return pieces.join(' · ');
+  return [...new Set(pieces)].join(' · ');
 }
 
 function renderRows(items) {
@@ -109,7 +120,6 @@ function renderRows(items) {
   for (const item of items) {
     const row = document.createElement('tr');
     const status = statusMeta(item.status);
-    const rankSource = item.rankSource === 'coingecko' ? 'CG' : 'proxy';
     const fundingPctl = Number.isFinite(Number(item.fundingPercentile))
       ? `P${Math.round(Number(item.fundingPercentile))}`
       : 'P—';
@@ -125,7 +135,7 @@ function renderRows(items) {
       <td class="symbol-cell" title="Tap to copy">${item.symbol}</td>
       <td><span class="status-pill ${status.className}">${status.label}</span></td>
       <td><span class="score ${status.className}">${Math.round(Number(item.score || 0))}</span></td>
-      <td class="${tierClass}">#${item.rank ?? '—'} <small>${rankSource}</small></td>
+      <td class="${tierClass}">${rankText(item)}</td>
       <td class="hot">${fmt(item.dailyRsi, 1)}</td>
       <td class="hot">${fmtSigned(item.return7dPct, 1)}</td>
       <td>${compactUsd(item.quoteVolumeUsd)}</td>
@@ -182,7 +192,7 @@ async function updateData() {
   setLoading(true);
   hideEmpty();
   ELEMENTS.tableBody.innerHTML = '';
-  setStatus('Running RSI(6) + funding production pilot scan…');
+  setStatus('Running RSI(6) + funding + rank-consensus scan…');
   try {
     const payload = await fetchRadar();
     renderRows(payload.matches);
