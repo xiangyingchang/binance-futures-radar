@@ -12,7 +12,7 @@ Production domain: `https://binance-futures-radar.vercel.app`
 - Current market-cap rank **101–300 primary**, **301–500 secondary**
 - Listed on Binance Futures for at least **90 days**
 - 24h quote volume at least **20M USDT**
-- Daily Wilder RSI(14) **> 90**
+- Daily Wilder RSI(14) **> 90**, using the **last closed daily candle**
 - 7-day return **> 50%**
 - Stable/pegged/wrapped assets are excluded
 
@@ -22,11 +22,13 @@ Rank source order:
 2. Binance spot circulating-supply × price rank as a fallback proxy
 3. Unknown rank is rejected rather than silently admitted
 
+A proxy-ranked candidate may be shown as a watch item, but **cannot become `SHORT_SETUP`** until CoinGecko rank is available.
+
 ### Crowding layer
 
 Only hard-filter survivors receive the expensive requests:
 
-- Current funding percentile versus ~90 days of that symbol's funding history
+- Current funding percentile versus ~90 days of that symbol's funding history (paged when needed)
 - Open-interest change over ~24h and ~7d
 - 1h / 4h intraday candles
 - Top-100 order-book depth
@@ -48,8 +50,8 @@ Closed 1h/4h candles are used to avoid repainting the trigger layer. Signals inc
 ### Status logic
 
 - `WATCH`: base setup exists, but crowding/reversal confirmation is weak
-- `STRONG_WATCH`: score >= 75
-- `SHORT_SETUP`: score >= 85 **and** funding >= P90 **and** strong OI **and** at least two reversal signals **and** critical crowding data is complete
+- `STRONG_WATCH`: score >= 75, or a high-scoring setup whose rank is only from the proxy source
+- `SHORT_SETUP`: score >= 85 **and** CoinGecko rank is available **and** funding >= P90 **and** strong OI **and** at least two reversal signals **and** critical crowding data is complete
 
 `SHORT_SETUP` is **not an automatic trade signal**. Every candidate is marked `CATALYST_REVIEW_REQUIRED` and `autoTrade=false`.
 
