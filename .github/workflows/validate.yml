@@ -5,12 +5,13 @@ on:
   push:
     branches:
       - main
+      - agent/exhaustion-short-radar-v2
 
 permissions:
   contents: read
 
 jobs:
-  syntax:
+  syntax-and-strategy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,8 +19,14 @@ jobs:
 
       - name: Check JavaScript syntax
         run: |
-          node --check app-v3.js
+          node --check app-v4.js
           node --check api/radar.js
+          node --check api/radar-v2.js
+          node --check lib/strategy.js
+          node --check tests/strategy.test.js
+
+      - name: Run strategy unit tests
+        run: node tests/strategy.test.js
 
       - name: Check Python syntax
         run: python -m py_compile scanner.py scanner_optimized.py
