@@ -6,15 +6,15 @@
   <meta name="referrer" content="no-referrer">
   <meta name="color-scheme" content="dark">
   <title>Exhaustion Short Radar</title>
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
   <div class="app-shell">
     <header class="hero">
       <div>
-        <div class="eyebrow">BINANCE USDT PERPETUALS · RESEARCH RADAR</div>
+        <div class="eyebrow">BINANCE USDT PERPETUALS · LIVE PILOT</div>
         <h1>Exhaustion Short Radar</h1>
-        <p class="hero-copy">Find small/mid-cap coins after extreme upside, then wait for crowded longs and intraday exhaustion. No automatic trading.</p>
+        <p class="hero-copy">Production pilot for the RSI(6) + funding crowding setup. No automatic trading.</p>
       </div>
       <div class="hero-actions">
         <span id="last-updated" class="muted">Last updated: --</span>
@@ -24,11 +24,11 @@
     </header>
 
     <section class="rules-panel">
-      <div class="rule"><span>Universe</span><strong>Rank 101–300 primary</strong><small>301–500 secondary</small></div>
-      <div class="rule"><span>Heat</span><strong>Daily RSI(14) &gt; 90</strong><small>7D return &gt; 50%</small></div>
+      <div class="rule"><span>Universe</span><strong>Rank 101–500</strong><small>Top 100 excluded</small></div>
+      <div class="rule"><span>Heat</span><strong>Daily RSI(6) &gt; 93</strong><small>7D return &gt; 20%</small></div>
       <div class="rule"><span>Liquidity</span><strong>24H volume ≥ $20M</strong><small>Listed ≥ 90 days</small></div>
-      <div class="rule"><span>Crowding</span><strong>Funding ≥ P90</strong><small>OI 24H ≥20% or 7D ≥30%</small></div>
-      <div class="rule"><span>Trigger</span><strong>≥2 reversal signals</strong><small>1H / 4H closed candles</small></div>
+      <div class="rule"><span>Crowding</span><strong>Funding ≥ P90</strong><small>90D percentile · OI is reference only</small></div>
+      <div class="rule"><span>Pilot plan</span><strong>Max hold 3 days</strong><small>Hard stop: +30% against short</small></div>
     </section>
 
     <section class="status-strip">
@@ -41,9 +41,9 @@
     </section>
 
     <section class="summary-grid">
-      <div class="summary-card danger"><span>Short setup</span><strong id="setup-count">--</strong><small>Still requires catalyst review</small></div>
-      <div class="summary-card warning"><span>Strong watch</span><strong id="strong-count">--</strong><small>Close, not ready</small></div>
-      <div class="summary-card"><span>Watch</span><strong id="watch-count">--</strong><small>Extreme, but incomplete</small></div>
+      <div class="summary-card danger"><span>Short setup</span><strong id="setup-count">--</strong><small>Core gate passed · manual review</small></div>
+      <div class="summary-card warning"><span>Strong watch</span><strong id="strong-count">--</strong><small>Funding P75–P90</small></div>
+      <div class="summary-card"><span>Watch</span><strong id="watch-count">--</strong><small>Heat gate passed, crowding incomplete</small></div>
     </section>
 
     <main>
@@ -55,13 +55,13 @@
               <th>Status</th>
               <th>Score</th>
               <th>Rank</th>
-              <th>Daily RSI</th>
+              <th>RSI(6)</th>
               <th>7D</th>
               <th>24H Vol</th>
               <th>Funding</th>
               <th>OI 24H / 7D</th>
-              <th>Reversal</th>
-              <th>Risk / Gate</th>
+              <th>Reversal ref.</th>
+              <th>Risk / Plan</th>
               <th></th>
             </tr>
           </thead>
@@ -76,9 +76,9 @@
     </main>
 
     <footer>
-      <strong>Important:</strong> SHORT_SETUP means the market-data gate passed, not “short now”. Check the catalyst/news manually and size risk independently.
+      <strong>Important:</strong> SHORT_SETUP means the live core market-data gate passed, not “short now”. This pilot still requires manual catalyst review and independent position sizing. The +30% stop is a strategy-level test parameter, not a recommended account risk.
     </footer>
   </div>
-  <script src="app-v4.js?v=4"></script>
+  <script src="app-v4.js?v=5"></script>
 </body>
 </html>
