@@ -9,6 +9,10 @@
     "api/radar-v2.js": {
       "regions": ["sin1"],
       "maxDuration": 60
+    },
+    "api/backtest-30d.js": {
+      "regions": ["sin1"],
+      "maxDuration": 60
     }
   }
 }
