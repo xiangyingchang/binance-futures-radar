@@ -17,7 +17,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check JavaScript syntax
-        run: node --check app-v2.js
+        run: |
+          node --check app-v3.js
+          node --check api/radar.js
 
       - name: Check Python syntax
         run: python -m py_compile scanner.py scanner_optimized.py
