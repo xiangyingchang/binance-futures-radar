@@ -1,66 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="referrer" content="no-referrer">
-    <title>Binance Futures Radar</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <meta name="color-scheme" content="dark">
+  <title>Exhaustion Short Radar</title>
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
-
 <body>
-    <div class="app-container">
-        <header>
-            <div class="header-content">
-                <h1>Binance Futures Radar</h1>
-                <div class="header-actions">
-                    <span id="last-updated">Last Updated: --:--</span>
-                    <button id="refresh-btn" class="refresh-btn">Refresh</button>
-                    <div class="loading-indicator hidden" id="loading-indicator"></div>
-                </div>
-            </div>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">BINANCE USDT PERPETUALS · RESEARCH RADAR</div>
+        <h1>Exhaustion Short Radar</h1>
+        <p class="hero-copy">Find small/mid-cap coins after extreme upside, then wait for crowded longs and intraday exhaustion. No automatic trading.</p>
+      </div>
+      <div class="hero-actions">
+        <span id="last-updated" class="muted">Last updated: --</span>
+        <button id="refresh-btn" class="refresh-btn">Refresh scan</button>
+        <div class="loading-indicator hidden" id="loading-indicator" aria-label="Loading"></div>
+      </div>
+    </header>
 
-            <div class="filters">
-                <div class="filter-item">
-                    <label>Strategy:</label>
-                    <span>1h RSI &gt; 90 AND 4h RSI ≥ 80 · Funding APR &gt; -500% · Rank &gt; 100 when known · 24h change &lt; 35%</span>
-                </div>
-                <div id="api-status" class="filter-item">Connecting to server-side radar…</div>
-                <div class="status-bar">
-                    <span id="total-pairs">Pairs: --</span>
-                    <span id="filtered-pairs">Matches: --</span>
-                </div>
-            </div>
-        </header>
+    <section class="rules-panel">
+      <div class="rule"><span>Universe</span><strong>Rank 101–300 primary</strong><small>301–500 secondary</small></div>
+      <div class="rule"><span>Heat</span><strong>Daily RSI(14) &gt; 90</strong><small>7D return &gt; 50%</small></div>
+      <div class="rule"><span>Liquidity</span><strong>24H volume ≥ $20M</strong><small>Listed ≥ 90 days</small></div>
+      <div class="rule"><span>Crowding</span><strong>Funding ≥ P90</strong><small>OI 24H ≥20% or 7D ≥30%</small></div>
+      <div class="rule"><span>Trigger</span><strong>≥2 reversal signals</strong><small>1H / 4H closed candles</small></div>
+    </section>
 
-        <main>
-            <div class="table-container">
-                <table id="crypto-table">
-                    <thead>
-                        <tr>
-                            <th>Pair</th>
-                            <th>Rank</th>
-                            <th>Funding Rate (APR)</th>
-                            <th>RSI 1h</th>
-                            <th>RSI 4h</th>
-                            <th title="Buy/Sell Strength (Top 100)">Depth (100)</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-body">
-                        <!-- Rows will be injected here -->
-                    </tbody>
-                </table>
-            </div>
-            <div id="empty-state" class="empty-state hidden">
-                <p id="empty-title">No pairs match the strategy right now.</p>
-                <p id="empty-detail" class="sub-text">Scanning market…</p>
-            </div>
-        </main>
-    </div>
+    <section class="status-strip">
+      <div id="api-status" class="api-status">Connecting to server-side radar…</div>
+      <div class="metrics">
+        <span id="total-pairs">Pairs: --</span>
+        <span id="universe-count">Universe: --</span>
+        <span id="candidate-count">Candidates: --</span>
+      </div>
+    </section>
 
-    <script src="app-v3.js?v=3"></script>
+    <section class="summary-grid">
+      <div class="summary-card danger"><span>Short setup</span><strong id="setup-count">--</strong><small>Still requires catalyst review</small></div>
+      <div class="summary-card warning"><span>Strong watch</span><strong id="strong-count">--</strong><small>Close, not ready</small></div>
+      <div class="summary-card"><span>Watch</span><strong id="watch-count">--</strong><small>Extreme, but incomplete</small></div>
+    </section>
+
+    <main>
+      <div class="table-container">
+        <table id="crypto-table">
+          <thead>
+            <tr>
+              <th>Pair</th>
+              <th>Status</th>
+              <th>Score</th>
+              <th>Rank</th>
+              <th>Daily RSI</th>
+              <th>7D</th>
+              <th>24H Vol</th>
+              <th>Funding</th>
+              <th>OI 24H / 7D</th>
+              <th>Reversal</th>
+              <th>Risk / Gate</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+
+      <div id="empty-state" class="empty-state hidden">
+        <h2 id="empty-title">No candidates right now.</h2>
+        <p id="empty-detail">That is a valid result. The strategy is designed to stay idle most of the time.</p>
+      </div>
+    </main>
+
+    <footer>
+      <strong>Important:</strong> SHORT_SETUP means the market-data gate passed, not “short now”. Check the catalyst/news manually and size risk independently.
+    </footer>
+  </div>
+  <script src="app-v4.js?v=4"></script>
 </body>
-
 </html>
