@@ -21,6 +21,14 @@ This file is the human-readable index for live strategy validation. The machine-
 - Max hold: `3 days`
 - Add to loser: `No`
 
+### Risk-control execution
+
+- Stop order confirmed: `2026-08-15 21:12:20 +08:00`
+- Order type: `Stop Market / Close Short`
+- Trigger: latest price `>= 0.1814500`
+- Reduce-only: `Yes`
+- No fixed take-profit for FT-001; exit rule remains `hard stop OR 72h max hold` so the live test stays comparable with the frozen backtest rule.
+
 ### Entry signal snapshot
 
 - Market-cap rank: `#134`
