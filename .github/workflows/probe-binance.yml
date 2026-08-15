@@ -1,0 +1,32 @@
+name: Probe Binance
+
+on:
+  push:
+    branches:
+      - agent/static-data-backend
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe Binance Futures API
+        shell: bash
+        run: |
+          python - <<'PY'
+          import urllib.request
+          import urllib.error
+
+          url = "https://fapi.binance.com/fapi/v1/exchangeInfo"
+          req = urllib.request.Request(url, headers={"User-Agent": "binance-futures-radar-probe/1.0"})
+          try:
+              with urllib.request.urlopen(req, timeout=15) as response:
+                  body = response.read(500).decode("utf-8", errors="replace")
+                  print("STATUS", response.status)
+                  print("BODY", body)
+          except urllib.error.HTTPError as exc:
+              body = exc.read(500).decode("utf-8", errors="replace")
+              print("STATUS", exc.code)
+              print("BODY", body)
+          except Exception as exc:
+              print("ERROR", type(exc).__name__, str(exc))
+          PY
