@@ -1,8 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["fra1"],
+  "regions": ["sin1"],
   "functions": {
     "api/radar.js": {
+      "regions": ["sin1"],
       "maxDuration": 60
     }
   }
