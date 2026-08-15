@@ -11,19 +11,9 @@ const ELEMENTS = {
   apiStatus: document.getElementById('api-status'),
 };
 
-const CONFIG = {
-  endpoint: '/api/radar',
-  requestTimeoutMs: 65000,
-};
-
-class RadarError extends Error {
-  constructor(message, status = null, upstreamStatus = null) {
-    super(message);
-    this.name = 'RadarError';
-    this.status = status;
-    this.upstreamStatus = upstreamStatus;
-  }
-}
+const IS_VERCEL = location.hostname.endsWith('.vercel.app');
+const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const API_URL = window.RADAR_API_BASE || ((IS_VERCEL || IS_LOCAL) ? '/api/radar' : null);
 
 function setStatus(text, level = 'normal') {
   if (!ELEMENTS.apiStatus) return;
@@ -69,31 +59,33 @@ function renderTable(items) {
   if (!items.length) {
     setEmptyState(
       'No pairs match the strategy right now.',
-      'The server completed a live Binance Futures scan successfully, but no symbol currently passes every filter.'
+      'The server-side Binance scan completed successfully; no symbol currently passes every filter.'
     );
     return;
   }
 
   clearEmptyState();
 
-  items.forEach((item) => {
+  for (const item of items) {
     const row = document.createElement('tr');
     const rankDisplay = item.rank ? `#${item.rank}` : '-';
-    const fundingClass = item.fundingApr >= 0 ? 'funding-positive' : 'funding-negative';
-    const depthAdvice = getDepthAdvice(item.depthRatio);
-    const depthDisplay = Number.isFinite(item.depthRatio)
-      ? `${depthAdvice.icon} ${item.depthRatio.toFixed(2)}X (${formatCompactUsd(item.bidPower)}/${formatCompactUsd(item.askPower)})`
+    const fundingApr = Number(item.fundingApr || 0);
+    const fundingClass = fundingApr >= 0 ? 'funding-positive' : 'funding-negative';
+    const ratio = Number(item.depthRatio);
+    const depthAdvice = getDepthAdvice(ratio);
+    const depthDisplay = Number.isFinite(ratio)
+      ? `${depthAdvice.icon} ${ratio.toFixed(2)}X (${formatCompactUsd(Number(item.bidPower))}/${formatCompactUsd(Number(item.askPower))})`
       : `${depthAdvice.icon} -`;
     const tradeLink = `https://www.binance.com/en/futures/${encodeURIComponent(item.symbol)}`;
 
     row.innerHTML = `
       <td class="symbol-cell" title="Click to copy">${item.symbol}</td>
       <td class="rank-cell">${rankDisplay}</td>
-      <td class="${fundingClass}">${item.fundingApr >= 0 ? '+' : ''}${item.fundingApr.toFixed(2)}% <span class="interval-tag">(${item.interval}h)</span></td>
-      <td class="rsi-extreme">${item.rsi1h.toFixed(1)}</td>
-      <td class="rsi-extreme">${item.rsi4h.toFixed(1)}</td>
-      <td class="depth-cell ${depthAdvice.className}" title="Top 100 levels">${depthDisplay}<div class="depth-advice">${depthAdvice.text}</div></td>
-      <td><a href="${tradeLink}" target="_blank" rel="noopener noreferrer" class="action-btn">Trade</a></td>
+      <td class="${fundingClass}">${fundingApr >= 0 ? '+' : ''}${fundingApr.toFixed(2)}% <span class="interval-tag">(${item.interval || 8}h)</span></td>
+      <td class="rsi-extreme">${Number(item.rsi1h).toFixed(1)}</td>
+      <td class="rsi-extreme">${Number(item.rsi4h).toFixed(1)}</td>
+      <td class="depth-cell ${depthAdvice.className}">${depthDisplay}<div class="depth-advice">${depthAdvice.text}</div></td>
+      <td><a href="${tradeLink}" target="_blank" rel="noopener" class="action-btn">Trade</a></td>
     `;
 
     const symbolCell = row.querySelector('.symbol-cell');
@@ -105,20 +97,24 @@ function renderTable(items) {
         symbolCell.textContent = 'Copied!';
         setTimeout(() => { symbolCell.textContent = original; }, 800);
       } catch (_) {
-        // Clipboard may be unavailable in embedded browsers.
+        // Clipboard is optional and should never break the table.
       }
     });
 
     ELEMENTS.tableBody.appendChild(row);
-  });
+  }
 }
 
 async function fetchRadar() {
+  if (!API_URL) {
+    throw new Error('Server backend is not configured for this host. Open the Vercel deployment instead of GitHub Pages.');
+  }
+
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), CONFIG.requestTimeoutMs);
+  const timer = setTimeout(() => controller.abort(), 70000);
 
   try {
-    const response = await fetch(CONFIG.endpoint, {
+    const response = await fetch(API_URL, {
       method: 'GET',
       cache: 'no-store',
       headers: { Accept: 'application/json' },
@@ -129,44 +125,25 @@ async function fetchRadar() {
     try {
       payload = await response.json();
     } catch (_) {
-      // Preserve HTTP status even if an unexpected response is not JSON.
+      // HTTP status still gives us a useful error.
     }
 
     if (!response.ok) {
-      throw new RadarError(
-        payload?.message || payload?.error || `HTTP ${response.status}`,
-        response.status,
-        payload?.upstreamStatus ?? null
-      );
+      const upstream = payload?.upstreamStatus ? ` · Binance HTTP ${payload.upstreamStatus}` : '';
+      throw new Error(`${payload?.message || `Backend HTTP ${response.status}`}${upstream}`);
     }
 
-    if (!payload || !Array.isArray(payload.matches) || !payload.summary) {
-      throw new RadarError('Malformed radar API response', response.status);
+    if (!Array.isArray(payload?.matches) || !payload?.summary) {
+      throw new Error('Radar backend returned malformed data.');
     }
 
     return payload;
   } catch (error) {
-    if (error.name === 'AbortError') {
-      throw new RadarError('Radar scan timed out.');
-    }
-    if (error instanceof RadarError) throw error;
-    throw new RadarError(error.message || 'Unable to reach radar backend.');
+    if (error.name === 'AbortError') throw new Error('Radar scan timed out.');
+    throw error;
   } finally {
     clearTimeout(timer);
   }
-}
-
-function describeError(error) {
-  if (error.upstreamStatus === 451) {
-    return 'The radar server is running, but Binance rejected its server region with HTTP 451.';
-  }
-  if (error.upstreamStatus === 429) {
-    return 'Binance rate-limited the radar server (HTTP 429).';
-  }
-  if (error.status) {
-    return `Radar backend failed: HTTP ${error.status}${error.message ? ` · ${error.message}` : ''}`;
-  }
-  return error.message || 'Unable to reach radar backend.';
 }
 
 async function updateData() {
@@ -175,32 +152,29 @@ async function updateData() {
   ELEMENTS.tableBody.innerHTML = '';
   ELEMENTS.totalPairs.textContent = 'Scanning…';
   ELEMENTS.filteredPairs.textContent = 'Matches: --';
-  ELEMENTS.updatedTime.textContent = 'Last Updated: --:--';
-  setStatus('Server is scanning live Binance Futures data…');
+  setStatus('Running server-side Binance Futures scan…');
 
   try {
     const payload = await fetchRadar();
     renderTable(payload.matches);
 
-    const generated = payload.generatedAt ? new Date(payload.generatedAt) : new Date();
-    ELEMENTS.updatedTime.textContent = `Last Updated: ${generated.toLocaleTimeString()}`;
+    const generatedAt = payload.generatedAt ? new Date(payload.generatedAt) : new Date();
+    ELEMENTS.updatedTime.textContent = `Last Updated: ${generatedAt.toLocaleTimeString()}`;
     ELEMENTS.totalPairs.textContent = `Scanned: ${payload.summary.totalPairs}`;
     ELEMENTS.filteredPairs.textContent = `Matches: ${payload.summary.matches}`;
 
-    const suffix = payload.summary.symbolErrors
-      ? ` · ${payload.summary.symbolErrors} symbol requests failed`
-      : '';
-    setStatus(
-      `Server-side live scan · ${payload.summary.totalPairs} pairs · ${(payload.durationMs / 1000).toFixed(1)}s${suffix}`,
-      payload.summary.symbolErrors ? 'warning' : 'success'
-    );
+    const duration = Number(payload.durationMs || 0) / 1000;
+    const errors = Number(payload.summary.symbolErrors || 0);
+    const rankNote = payload.summary.rankAvailable ? '' : ' · rank source unavailable';
+    const errorNote = errors ? ` · ${errors} symbol API errors` : '';
+    setStatus(`Server scan OK · ${duration.toFixed(1)}s${errorNote}${rankNote}`, errors ? 'warning' : 'success');
   } catch (error) {
-    console.error('Radar update failed', error);
-    const message = describeError(error);
+    console.error('Radar load failed', error);
     ELEMENTS.totalPairs.textContent = 'Pairs: --';
     ELEMENTS.filteredPairs.textContent = 'Matches: --';
-    setStatus(message, 'error');
-    setEmptyState('Live market data is unavailable.', message);
+    ELEMENTS.updatedTime.textContent = 'Last Updated: --:--';
+    setStatus(error.message || 'Radar backend unavailable', 'error');
+    setEmptyState('Live market data is unavailable.', error.message || 'Radar backend unavailable');
   } finally {
     setLoading(false);
   }
