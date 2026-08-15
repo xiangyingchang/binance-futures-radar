@@ -7,7 +7,6 @@
     <meta name="referrer" content="no-referrer">
     <title>Binance Futures Radar</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Optional for future -->
 </head>
 
 <body>
@@ -21,15 +20,16 @@
                     <div class="loading-indicator hidden" id="loading-indicator"></div>
                 </div>
             </div>
-            <div class="filters">
 
+            <div class="filters">
                 <div class="filter-item">
-                    <label>RSI Filter:</label>
-                    <span>1h ≥ 90 OR 4h ≥ 80</span>
+                    <label>Strategy:</label>
+                    <span>1h RSI &gt; 90 AND 4h RSI ≥ 80 · Funding APR &gt; -500% · Rank &gt; 100 when known · 24h change &lt; 35%</span>
                 </div>
+                <div id="api-status" class="filter-item">Connecting to live Binance Futures API…</div>
                 <div class="status-bar">
-                    <span id="total-pairs">Pairs: 0</span>
-                    <span id="filtered-pairs">Matches: 0</span>
+                    <span id="total-pairs">Pairs: --</span>
+                    <span id="filtered-pairs">Matches: --</span>
                 </div>
             </div>
         </header>
@@ -54,12 +54,13 @@
                 </table>
             </div>
             <div id="empty-state" class="empty-state hidden">
-                <p>No pairs match the high RSI criteria right now.</p>
-                <p class="sub-text">Scanning market...</p>
+                <p id="empty-title">No pairs match the strategy right now.</p>
+                <p id="empty-detail" class="sub-text">Scanning market…</p>
             </div>
         </main>
     </div>
-    <script src="app.js"></script>
+
+    <script src="app-v2.js?v=2"></script>
 </body>
 
 </html>
