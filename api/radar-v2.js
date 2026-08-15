@@ -23,7 +23,6 @@ const RUNTIME = Object.freeze({
   intradayKlineLimit: 80,
   initialConcurrency: 16,
   detailConcurrency: 5,
-  depthLimit: 100,
   fundingLookbackDays: 90,
   oiLookbackHours: 169,
 });
@@ -46,29 +45,18 @@ async function fetchJson(url, params = {}, timeoutMs = RUNTIME.requestTimeoutMs)
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(target, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'binance-futures-radar/3.0',
-      },
+      headers: { Accept: 'application/json', 'User-Agent': 'binance-futures-radar/5.0' },
       signal: controller.signal,
     });
-
     let payload = null;
-    try {
-      payload = await response.json();
-    } catch (_) {
-      // Keep HTTP status when upstream sends a non-JSON body.
-    }
-
+    try { payload = await response.json(); } catch (_) {}
     if (!response.ok) {
       const message = payload?.msg || payload?.message || `HTTP ${response.status}`;
       throw new UpstreamError(message, 502, response.status);
     }
     return payload;
   } catch (error) {
-    if (error.name === 'AbortError') {
-      throw new UpstreamError(`Request timed out after ${timeoutMs / 1000}s`, 504);
-    }
+    if (error.name === 'AbortError') throw new UpstreamError(`Request timed out after ${timeoutMs / 1000}s`, 504);
     if (error instanceof UpstreamError) throw error;
     throw new UpstreamError(error.message || 'Unable to reach upstream');
   } finally {
@@ -111,9 +99,7 @@ function buildBinanceRankMap(productList) {
     if (item?.q !== 'USDT' || item?.cs == null) continue;
     const price = Number(item.c || 0);
     const supply = Number(item.cs || 0);
-    if (price > 0 && supply > 0) {
-      marketCaps.push({ base: String(item.b || '').toUpperCase(), marketCap: price * supply });
-    }
+    if (price > 0 && supply > 0) marketCaps.push({ base: String(item.b || '').toUpperCase(), marketCap: price * supply });
   }
   marketCaps.sort((a, b) => b.marketCap - a.marketCap);
   const map = new Map();
@@ -127,35 +113,24 @@ function buildCoinGeckoRankMap(rows) {
   const symbolCounts = new Map();
   for (const coin of Array.isArray(rows) ? rows : []) {
     const symbol = String(coin?.symbol || '').toUpperCase();
-    if (!symbol) continue;
-    symbolCounts.set(symbol, (symbolCounts.get(symbol) || 0) + 1);
+    if (symbol) symbolCounts.set(symbol, (symbolCounts.get(symbol) || 0) + 1);
   }
-
   const map = new Map();
   for (const coin of Array.isArray(rows) ? rows : []) {
     const symbol = String(coin?.symbol || '').toUpperCase();
     const rank = Number(coin?.market_cap_rank);
-    if (!symbol || !Number.isFinite(rank) || symbolCounts.get(symbol) !== 1) continue;
-    map.set(symbol, rank);
+    if (symbol && Number.isFinite(rank) && symbolCounts.get(symbol) === 1) map.set(symbol, rank);
   }
   return map;
 }
 
 async function fetchCoinGeckoRanks() {
-  const shared = {
-    vs_currency: 'usd',
-    order: 'market_cap_desc',
-    per_page: 250,
-    sparkline: 'false',
-  };
+  const shared = { vs_currency: 'usd', order: 'market_cap_desc', per_page: 250, sparkline: 'false' };
   const [page1, page2] = await Promise.all([
     fetchJson(COINGECKO_MARKETS, { ...shared, page: 1 }, RUNTIME.coinGeckoTimeoutMs),
     fetchJson(COINGECKO_MARKETS, { ...shared, page: 2 }, RUNTIME.coinGeckoTimeoutMs),
   ]);
-  return buildCoinGeckoRankMap([
-    ...(Array.isArray(page1) ? page1 : []),
-    ...(Array.isArray(page2) ? page2 : []),
-  ]);
+  return buildCoinGeckoRankMap([...(Array.isArray(page1) ? page1 : []), ...(Array.isArray(page2) ? page2 : [])]);
 }
 
 function resolveRank(base, coinGeckoMap, binanceMap) {
@@ -168,28 +143,13 @@ function resolveRank(base, coinGeckoMap, binanceMap) {
   return { rank: null, rankSource: 'unavailable' };
 }
 
-function analyzeDepth(data) {
-  if (!Array.isArray(data?.bids) || !Array.isArray(data?.asks)) {
-    return { depthRatio: null, bidPower: null, askPower: null };
-  }
-  const bidPower = data.bids.reduce((sum, [price, qty]) => sum + Number(price) * Number(qty), 0);
-  const askPower = data.asks.reduce((sum, [price, qty]) => sum + Number(price) * Number(qty), 0);
-  return {
-    depthRatio: askPower > 0 ? bidPower / askPower : null,
-    bidPower,
-    askPower,
-  };
-}
-
 async function runPool(items, worker, concurrency) {
   const results = [];
   const errors = [];
   let cursor = 0;
-
   async function runner() {
     while (true) {
-      const index = cursor;
-      cursor += 1;
+      const index = cursor++;
       if (index >= items.length) return;
       try {
         const result = await worker(items[index], index);
@@ -199,7 +159,6 @@ async function runPool(items, worker, concurrency) {
       }
     }
   }
-
   const count = Math.min(Math.max(1, concurrency), items.length || 1);
   await Promise.all(Array.from({ length: count }, runner));
   return { results, errors };
@@ -209,14 +168,8 @@ async function fetchFundingHistory(symbol, now) {
   const startTime = now - (RUNTIME.fundingLookbackDays * 24 * 60 * 60 * 1000);
   const rows = [];
   let cursor = startTime;
-
   for (let page = 0; page < 4 && cursor < now; page += 1) {
-    const batch = await futuresGet('/fapi/v1/fundingRate', {
-      symbol,
-      startTime: cursor,
-      endTime: now,
-      limit: 1000,
-    });
+    const batch = await futuresGet('/fapi/v1/fundingRate', { symbol, startTime: cursor, endTime: now, limit: 1000 });
     if (!Array.isArray(batch) || batch.length === 0) break;
     rows.push(...batch);
     if (batch.length < 1000) break;
@@ -224,7 +177,6 @@ async function fetchFundingHistory(symbol, now) {
     if (!Number.isFinite(lastTime) || lastTime < cursor) break;
     cursor = lastTime + 1;
   }
-
   return rows;
 }
 
@@ -232,11 +184,10 @@ function computeOiChanges(rows) {
   const data = Array.isArray(rows) ? rows : [];
   if (data.length < 2) return { oi24hPct: null, oi7dPct: null, oiSamples: data.length };
   const current = Number(data.at(-1)?.sumOpenInterest);
-  if (!Number.isFinite(current) || current <= 0) {
+  const currentTs = Number(data.at(-1)?.timestamp || 0);
+  if (!Number.isFinite(current) || current <= 0 || !Number.isFinite(currentTs)) {
     return { oi24hPct: null, oi7dPct: null, oiSamples: data.length };
   }
-
-  const currentTs = Number(data.at(-1)?.timestamp || 0);
   const nearestBefore = (hours) => {
     const target = currentTs - (hours * 60 * 60 * 1000);
     let best = null;
@@ -248,7 +199,6 @@ function computeOiChanges(rows) {
     }
     return best?.value ?? null;
   };
-
   const prior24h = nearestBefore(24);
   const prior7d = nearestBefore(24 * 7);
   return {
@@ -268,37 +218,25 @@ async function enrichCandidate(candidate, context) {
   const { premiumMap, fundingIntervalMap } = context;
   const now = Date.now();
   const dataErrors = [];
-
   const safe = async (name, fn, fallback) => {
-    try {
-      return await fn();
-    } catch (error) {
+    try { return await fn(); }
+    catch (error) {
       dataErrors.push(`${name}: ${error.message || 'failed'}`);
       return fallback;
     }
   };
 
-  const [fundingHistory, oiHistory, k1hRaw, k4hRaw, depthData] = await Promise.all([
+  const [fundingHistory, oiHistory, k1hRaw, k4hRaw] = await Promise.all([
     safe('funding_history', () => fetchFundingHistory(candidate.symbol, now), []),
     safe('oi_history', () => futuresGet('/futures/data/openInterestHist', {
-      symbol: candidate.symbol,
-      period: '1h',
-      limit: RUNTIME.oiLookbackHours,
+      symbol: candidate.symbol, period: '1h', limit: RUNTIME.oiLookbackHours,
     }), []),
     safe('1h_klines', () => futuresGet('/fapi/v1/klines', {
-      symbol: candidate.symbol,
-      interval: '1h',
-      limit: RUNTIME.intradayKlineLimit,
+      symbol: candidate.symbol, interval: '1h', limit: RUNTIME.intradayKlineLimit,
     }), []),
     safe('4h_klines', () => futuresGet('/fapi/v1/klines', {
-      symbol: candidate.symbol,
-      interval: '4h',
-      limit: RUNTIME.intradayKlineLimit,
+      symbol: candidate.symbol, interval: '4h', limit: RUNTIME.intradayKlineLimit,
     }), []),
-    safe('depth', () => futuresGet('/fapi/v1/depth', {
-      symbol: candidate.symbol,
-      limit: RUNTIME.depthLimit,
-    }), null),
   ]);
 
   const interval = fundingIntervalMap[candidate.symbol] || 8;
@@ -312,23 +250,15 @@ async function enrichCandidate(candidate, context) {
     closedCandles(parseKlines(k1hRaw), now),
     closedCandles(parseKlines(k4hRaw), now),
   );
-  const score = scoreCandidate({
-    ...candidate,
-    fundingPercentile,
-    ...oi,
-    reversal,
-  });
-  const finalStatus = score.status === 'SHORT_SETUP' && candidate.rankSource !== 'coingecko'
+  const scored = scoreCandidate({ ...candidate, fundingPercentile, ...oi, reversal });
+  const finalStatus = scored.status === 'SHORT_SETUP' && candidate.rankSource !== 'coingecko'
     ? 'STRONG_WATCH'
-    : score.status;
+    : scored.status;
 
   const riskFlags = [];
-  if (Number.isFinite(reversal.invalidationDistancePct) && reversal.invalidationDistancePct > 25) {
-    riskFlags.push('wide_invalidation_gt_25pct');
-  }
   if (candidate.rankSource !== 'coingecko') riskFlags.push('rank_uses_proxy_source');
   if (candidate.dailyRsiConfirmed === false) riskFlags.push('live_daily_rsi_not_closed_confirmed');
-  if (dataErrors.length) riskFlags.push('incomplete_market_data');
+  if (dataErrors.length) riskFlags.push('incomplete_reference_data');
 
   return {
     ...candidate,
@@ -339,18 +269,17 @@ async function enrichCandidate(candidate, context) {
     fundingHistorySamples: historicalRates.length,
     ...oi,
     reversal,
-    ...analyzeDepth(depthData),
-    ...score,
+    ...scored,
     status: finalStatus,
     riskFlags,
     dataErrors,
     catalystReviewRequired: true,
     autoTrade: false,
     decisionGate: finalStatus === 'SHORT_SETUP'
-      ? 'CATALYST_REVIEW_REQUIRED'
+      ? 'MANUAL_CATALYST_AND_SIZE_REVIEW_REQUIRED'
       : candidate.rankSource !== 'coingecko'
         ? 'RANK_SOURCE_REVIEW_REQUIRED'
-        : 'WAIT_FOR_BETTER_SETUP',
+        : 'WAIT_FOR_FUNDING_P90',
   };
 }
 
@@ -364,7 +293,6 @@ async function scanMarket() {
     futuresGet('/fapi/v1/ticker/24hr'),
     futuresGet('/fapi/v1/premiumIndex'),
   ]);
-
   if (!Array.isArray(exchangeInfo?.symbols) || !Array.isArray(tickerList) || !Array.isArray(premiumList)) {
     throw new UpstreamError('Malformed Binance metadata response');
   }
@@ -388,8 +316,7 @@ async function scanMarket() {
   const tickerMap = Object.fromEntries(tickerList.map((item) => [item.symbol, item]));
   const premiumMap = Object.fromEntries(premiumList.map((item) => [item.symbol, item]));
   const fundingIntervalMap = Object.fromEntries(
-    (Array.isArray(fundingInfoList) ? fundingInfoList : [])
-      .map((item) => [item.symbol, Number(item.fundingIntervalHours || 8)])
+    (Array.isArray(fundingInfoList) ? fundingInfoList : []).map((item) => [item.symbol, Number(item.fundingIntervalHours || 8)])
   );
 
   const active = exchangeInfo.symbols.filter((s) => (
@@ -398,24 +325,18 @@ async function scanMarket() {
     && s.contractType === 'PERPETUAL'
     && s.underlyingType === 'COIN'
   ));
-  if (!active.length) {
-    throw new UpstreamError('Binance returned zero active USDT perpetual crypto symbols');
-  }
+  if (!active.length) throw new UpstreamError('Binance returned zero active USDT perpetual crypto symbols');
 
   const universe = [];
   const universeRejectCounts = {};
-  const bump = (reason) => {
-    universeRejectCounts[reason] = (universeRejectCounts[reason] || 0) + 1;
-  };
+  const bump = (reason) => { universeRejectCounts[reason] = (universeRejectCounts[reason] || 0) + 1; };
 
   for (const info of active) {
     const base = String(info.baseAsset || '').toUpperCase();
     const ticker = tickerMap[info.symbol];
     const { rank, rankSource } = resolveRank(base, coinGeckoMap, binanceRankMap);
     const onboardDate = Number(info.onboardDate || 0);
-    const listingAgeDays = onboardDate > 0
-      ? (now - onboardDate) / (24 * 60 * 60 * 1000)
-      : null;
+    const listingAgeDays = onboardDate > 0 ? (now - onboardDate) / 86_400_000 : null;
     const quoteVolumeUsd = Number(ticker?.quoteVolume || 0);
 
     let reason = null;
@@ -424,11 +345,7 @@ async function scanMarket() {
     else if (rank < STRATEGY.rankMin || rank > STRATEGY.rankMax) reason = 'rank_outside_101_500';
     else if (!Number.isFinite(listingAgeDays) || listingAgeDays < STRATEGY.minListingAgeDays) reason = 'listing_age_lt_90d';
     else if (!Number.isFinite(quoteVolumeUsd) || quoteVolumeUsd < STRATEGY.minQuoteVolumeUsd) reason = 'volume_lt_20m';
-
-    if (reason) {
-      bump(reason);
-      continue;
-    }
+    if (reason) { bump(reason); continue; }
 
     universe.push({
       symbol: info.symbol,
@@ -443,17 +360,11 @@ async function scanMarket() {
   }
 
   const dailyStage = await runPool(universe, async (item) => {
-    const raw = await futuresGet('/fapi/v1/klines', {
-      symbol: item.symbol,
-      interval: '1d',
-      limit: RUNTIME.dailyKlineLimit,
-    });
+    const raw = await futuresGet('/fapi/v1/klines', { symbol: item.symbol, interval: '1d', limit: RUNTIME.dailyKlineLimit });
     const allCandles = parseKlines(raw);
-    if (allCandles.length < 22) return null;
-
+    if (allCandles.length < 10) return null;
     const liveCloses = allCandles.map((c) => c.close);
-    const closed = closedCandles(allCandles, now);
-    const closedCloses = closed.map((c) => c.close);
+    const closedCloses = closedCandles(allCandles, now).map((c) => c.close);
     const dailyRsi = currentRsi(liveCloses, STRATEGY.rsiPeriod);
     const closedDailyRsi = currentRsi(closedCloses, STRATEGY.rsiPeriod);
     const return7dPct = liveCloses.length >= 8 ? pctChange(liveCloses.at(-1), liveCloses.at(-8)) : null;
@@ -466,25 +377,21 @@ async function scanMarket() {
       return7dPct,
     };
     const reasons = hardFilterReasons(candidate);
-    if (reasons.length) return { rejected: true, reasons, candidate };
-    return { rejected: false, candidate };
+    return reasons.length ? { rejected: true, reasons, candidate } : { rejected: false, candidate };
   }, RUNTIME.initialConcurrency);
 
   const dailyRejectCounts = {};
   const baseCandidates = [];
   for (const row of dailyStage.results) {
     if (row.rejected) {
-      for (const reason of row.reasons) {
-        dailyRejectCounts[reason] = (dailyRejectCounts[reason] || 0) + 1;
-      }
+      for (const reason of row.reasons) dailyRejectCounts[reason] = (dailyRejectCounts[reason] || 0) + 1;
     } else {
       baseCandidates.push(row.candidate);
     }
   }
 
   const detailedStage = await runPool(baseCandidates, (candidate) => enrichCandidate(candidate, {
-    premiumMap,
-    fundingIntervalMap,
+    premiumMap, fundingIntervalMap,
   }), RUNTIME.detailConcurrency);
 
   const candidates = detailedStage.results.sort((a, b) => (
@@ -493,13 +400,9 @@ async function scanMarket() {
     || b.dailyRsi - a.dailyRsi
   ));
 
-  const shortSetups = candidates.filter((item) => item.status === 'SHORT_SETUP').length;
-  const strongWatch = candidates.filter((item) => item.status === 'STRONG_WATCH').length;
-  const watch = candidates.filter((item) => item.status === 'WATCH').length;
-
   return {
     source: 'binance-futures-radar-vercel',
-    strategyVersion: 'exhaustion-short-radar-v2-live-daily',
+    strategyVersion: 'exhaustion-short-radar-v5-rsi6-funding-pilot',
     generatedAt: new Date().toISOString(),
     durationMs: Date.now() - startedAt,
     summary: {
@@ -507,9 +410,9 @@ async function scanMarket() {
       rankedLiquidUniverse: universe.length,
       baseCandidates: baseCandidates.length,
       matches: candidates.length,
-      shortSetups,
-      strongWatch,
-      watch,
+      shortSetups: candidates.filter((item) => item.status === 'SHORT_SETUP').length,
+      strongWatch: candidates.filter((item) => item.status === 'STRONG_WATCH').length,
+      watch: candidates.filter((item) => item.status === 'WATCH').length,
       dailyStageErrors: dailyStage.errors.length,
       detailStageErrors: detailedStage.errors.length,
       coinGeckoRankSymbols: coinGeckoMap.size,
@@ -518,15 +421,16 @@ async function scanMarket() {
     },
     strategy: {
       universe: 'Binance USDT perpetual crypto contracts',
-      rank: '101-300 primary; 301-500 secondary',
+      rank: '101-500; Top 100 excluded',
       listingAge: '>=90 days',
       quoteVolume24h: '>=20m USDT',
-      dailyRsi14: '>90 (live current daily candle)',
-      closedDailyRsi14: 'reported for confirmation context only',
-      return7d: '>50% (live current price vs 7d ago)',
-      crowding: 'Funding percentile + OI growth',
-      reversal: '1h/4h closed-candle exhaustion signals',
-      shortSetupGate: 'score>=85 + CoinGecko rank + funding>=P90 + strong OI + >=2 reversal signals',
+      dailyRsi6: '>93 (live current daily candle)',
+      closedDailyRsi6: 'reported for confirmation context only',
+      return7d: '>20% (live current price vs 7d ago)',
+      shortSetupGate: 'core heat/liquidity/rank gate + CoinGecko rank + funding >= P90',
+      fundingWatch: 'P75-P90 => STRONG_WATCH',
+      oiAndReversal: 'reference/scoring only; never hard gates',
+      pilotExit: 'max 3 days; hard stop if price rises 30% from entry',
       catalystReview: 'required before any trade',
       autoTrade: false,
     },
@@ -545,20 +449,17 @@ module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-
   try {
     const payload = await scanMarket();
     res.setHeader('Cache-Control', 'public, s-maxage=120, stale-while-revalidate=600');
     return res.status(200).json(payload);
   } catch (error) {
-    const upstream = error instanceof UpstreamError ? error.upstreamStatus : null;
     return res.status(error.status || 500).json({
       error: 'Radar scan failed',
       message: error.message || 'Unknown error',
-      upstreamStatus: upstream,
+      upstreamStatus: error instanceof UpstreamError ? error.upstreamStatus : null,
       generatedAt: new Date().toISOString(),
     });
   }
