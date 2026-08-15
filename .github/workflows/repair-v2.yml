@@ -55,43 +55,64 @@ jobs:
           assert marker in s
           s = s.replace(marker, helper + marker, 1)
 
-          pattern = re.compile(r"safe\('funding_history', \(\) => futuresGet\('/fapi/v1/fundingRate', \{.*?\}\), \[\]\),\n\s*safe\('oi_history'", re.S)
-          s, n = pattern.subn("safe('funding_history', () => fetchFundingHistory(candidate.symbol, now), []),\n    safe('oi_history'", s, count=1)
+          funding_pattern = re.compile(
+              r"safe\('funding_history', \(\) => futuresGet\('/fapi/v1/fundingRate', \{.*?\}\), \[\]\),\n\s*safe\('oi_history'",
+              re.S,
+          )
+          s, n = funding_pattern.subn(
+              "safe('funding_history', () => fetchFundingHistory(candidate.symbol, now), []),\n    safe('oi_history'",
+              s,
+              count=1,
+          )
           assert n == 1
 
-          score_block = '''  const score = scoreCandidate({
-            ...candidate,
-            fundingPercentile,
-            ...oi,
-            reversal,
-          });
-          '''
-          assert score_block in s
-          s = s.replace(score_block, score_block + '''  const finalStatus = score.status === 'SHORT_SETUP' && candidate.rankSource !== 'coingecko'
-            ? 'STRONG_WATCH'
-            : score.status;
-          ''', 1)
+          score_pattern = re.compile(
+              r"  const score = scoreCandidate\(\{\n"
+              r"\s+\.\.\.candidate,\n"
+              r"\s+fundingPercentile,\n"
+              r"\s+\.\.\.oi,\n"
+              r"\s+reversal,\n"
+              r"\s+\}\);\n"
+          )
+          m = score_pattern.search(s)
+          assert m
+          final_status = "  const finalStatus = score.status === 'SHORT_SETUP' && candidate.rankSource !== 'coingecko'\n    ? 'STRONG_WATCH'\n    : score.status;\n"
+          s = s[:m.end()] + final_status + s[m.end():]
 
           assert '    ...score,\n    riskFlags,' in s
-          s = s.replace('    ...score,\n    riskFlags,', '    ...score,\n    status: finalStatus,\n    riskFlags,', 1)
+          s = s.replace(
+              '    ...score,\n    riskFlags,',
+              '    ...score,\n    status: finalStatus,\n    riskFlags,',
+              1,
+          )
 
-          old_gate = '''    decisionGate: score.status === 'SHORT_SETUP'
-              ? 'CATALYST_REVIEW_REQUIRED'
-              : 'WAIT_FOR_BETTER_SETUP',
-          '''
-          new_gate = '''    decisionGate: finalStatus === 'SHORT_SETUP'
-              ? 'CATALYST_REVIEW_REQUIRED'
-              : candidate.rankSource !== 'coingecko'
-                ? 'RANK_SOURCE_REVIEW_REQUIRED'
-                : 'WAIT_FOR_BETTER_SETUP',
-          '''
-          assert old_gate in s
-          s = s.replace(old_gate, new_gate, 1)
+          gate_pattern = re.compile(
+              r"    decisionGate: score\.status === 'SHORT_SETUP'\n"
+              r"\s+\? 'CATALYST_REVIEW_REQUIRED'\n"
+              r"\s+: 'WAIT_FOR_BETTER_SETUP',"
+          )
+          gate_replacement = "    decisionGate: finalStatus === 'SHORT_SETUP'\n      ? 'CATALYST_REVIEW_REQUIRED'\n      : candidate.rankSource !== 'coingecko'\n        ? 'RANK_SOURCE_REVIEW_REQUIRED'\n        : 'WAIT_FOR_BETTER_SETUP',"
+          s, n = gate_pattern.subn(gate_replacement, s, count=1)
+          assert n == 1
 
           assert '    const candles = parseKlines(raw);' in s
-          s = s.replace('    const candles = parseKlines(raw);', '    const candles = closedCandles(parseKlines(raw), now);', 1)
-          s = s.replace("dailyRsi14: '>90 (live daily candle)',", "dailyRsi14: '>90 (last closed daily candle)',", 1)
-          s = s.replace("shortSetupGate: 'score>=85 + funding>=P90 + strong OI + >=2 reversal signals',", "shortSetupGate: 'score>=85 + CoinGecko rank + funding>=P90 + strong OI + >=2 reversal signals',", 1)
+          s = s.replace(
+              '    const candles = parseKlines(raw);',
+              '    const candles = closedCandles(parseKlines(raw), now);',
+              1,
+          )
+          assert "dailyRsi14: '>90 (live daily candle)'," in s
+          s = s.replace(
+              "dailyRsi14: '>90 (live daily candle)',",
+              "dailyRsi14: '>90 (last closed daily candle)',",
+              1,
+          )
+          assert "shortSetupGate: 'score>=85 + funding>=P90 + strong OI + >=2 reversal signals'," in s
+          s = s.replace(
+              "shortSetupGate: 'score>=85 + funding>=P90 + strong OI + >=2 reversal signals',",
+              "shortSetupGate: 'score>=85 + CoinGecko rank + funding>=P90 + strong OI + >=2 reversal signals',",
+              1,
+          )
 
           p.write_text(s)
           PY
