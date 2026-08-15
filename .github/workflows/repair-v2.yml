@@ -1,0 +1,118 @@
+name: Repair V2 Branch
+
+on:
+  push:
+    branches:
+      - agent/exhaustion-short-radar-v2
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore known-good API and apply reviewed fixes
+        shell: bash
+        run: |
+          git show 183fe4227a479e58161314fc1d1959e5661ed607:api/radar-v2.js > api/radar-v2.js
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('api/radar-v2.js')
+          s = p.read_text()
+
+          marker = 'function computeOiChanges(rows) {'
+          helper = '''async function fetchFundingHistory(symbol, now) {
+            const startTime = now - (RUNTIME.fundingLookbackDays * 24 * 60 * 60 * 1000);
+            const rows = [];
+            let cursor = startTime;
+
+            for (let page = 0; page < 4 && cursor < now; page += 1) {
+              const batch = await futuresGet('/fapi/v1/fundingRate', {
+                symbol,
+                startTime: cursor,
+                endTime: now,
+                limit: 1000,
+              });
+              if (!Array.isArray(batch) || batch.length === 0) break;
+              rows.push(...batch);
+              if (batch.length < 1000) break;
+              const lastTime = Number(batch.at(-1)?.fundingTime);
+              if (!Number.isFinite(lastTime) || lastTime < cursor) break;
+              cursor = lastTime + 1;
+            }
+
+            return rows;
+          }
+
+          '''
+          assert marker in s
+          s = s.replace(marker, helper + marker, 1)
+
+          pattern = re.compile(r"safe\('funding_history', \(\) => futuresGet\('/fapi/v1/fundingRate', \{.*?\}\), \[\]\),\n\s*safe\('oi_history'", re.S)
+          s, n = pattern.subn("safe('funding_history', () => fetchFundingHistory(candidate.symbol, now), []),\n    safe('oi_history'", s, count=1)
+          assert n == 1
+
+          score_block = '''  const score = scoreCandidate({
+            ...candidate,
+            fundingPercentile,
+            ...oi,
+            reversal,
+          });
+          '''
+          assert score_block in s
+          s = s.replace(score_block, score_block + '''  const finalStatus = score.status === 'SHORT_SETUP' && candidate.rankSource !== 'coingecko'
+            ? 'STRONG_WATCH'
+            : score.status;
+          ''', 1)
+
+          assert '    ...score,\n    riskFlags,' in s
+          s = s.replace('    ...score,\n    riskFlags,', '    ...score,\n    status: finalStatus,\n    riskFlags,', 1)
+
+          old_gate = '''    decisionGate: score.status === 'SHORT_SETUP'
+              ? 'CATALYST_REVIEW_REQUIRED'
+              : 'WAIT_FOR_BETTER_SETUP',
+          '''
+          new_gate = '''    decisionGate: finalStatus === 'SHORT_SETUP'
+              ? 'CATALYST_REVIEW_REQUIRED'
+              : candidate.rankSource !== 'coingecko'
+                ? 'RANK_SOURCE_REVIEW_REQUIRED'
+                : 'WAIT_FOR_BETTER_SETUP',
+          '''
+          assert old_gate in s
+          s = s.replace(old_gate, new_gate, 1)
+
+          assert '    const candles = parseKlines(raw);' in s
+          s = s.replace('    const candles = parseKlines(raw);', '    const candles = closedCandles(parseKlines(raw), now);', 1)
+          s = s.replace("dailyRsi14: '>90 (live daily candle)',", "dailyRsi14: '>90 (last closed daily candle)',", 1)
+          s = s.replace("shortSetupGate: 'score>=85 + funding>=P90 + strong OI + >=2 reversal signals',", "shortSetupGate: 'score>=85 + CoinGecko rank + funding>=P90 + strong OI + >=2 reversal signals',", 1)
+
+          p.write_text(s)
+          PY
+
+      - name: Verify repaired source
+        run: |
+          node --check api/radar-v2.js
+          node --check lib/strategy.js
+          node tests/strategy.test.js
+          grep -q "fetchFundingHistory" api/radar-v2.js
+          grep -q "last closed daily candle" api/radar-v2.js
+          grep -q "RANK_SOURCE_REVIEW_REQUIRED" api/radar-v2.js
+
+      - name: Commit repaired API
+        run: |
+          if git diff --quiet -- api/radar-v2.js; then
+            echo "No repair needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/radar-v2.js
+          git commit -m "repair reviewed v2 signal gates"
+          git push origin HEAD:agent/exhaustion-short-radar-v2
