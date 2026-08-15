@@ -327,6 +327,7 @@ async function enrichCandidate(candidate, context) {
     riskFlags.push('wide_invalidation_gt_25pct');
   }
   if (candidate.rankSource !== 'coingecko') riskFlags.push('rank_uses_proxy_source');
+  if (candidate.dailyRsiConfirmed === false) riskFlags.push('live_daily_rsi_not_closed_confirmed');
   if (dataErrors.length) riskFlags.push('incomplete_market_data');
 
   return {
@@ -447,12 +448,23 @@ async function scanMarket() {
       interval: '1d',
       limit: RUNTIME.dailyKlineLimit,
     });
-    const candles = closedCandles(parseKlines(raw), now);
-    if (candles.length < 22) return null;
-    const closes = candles.map((c) => c.close);
-    const dailyRsi = currentRsi(closes, STRATEGY.rsiPeriod);
-    const return7dPct = closes.length >= 8 ? pctChange(closes.at(-1), closes.at(-8)) : null;
-    const candidate = { ...item, dailyRsi, return7dPct };
+    const allCandles = parseKlines(raw);
+    if (allCandles.length < 22) return null;
+
+    const liveCloses = allCandles.map((c) => c.close);
+    const closed = closedCandles(allCandles, now);
+    const closedCloses = closed.map((c) => c.close);
+    const dailyRsi = currentRsi(liveCloses, STRATEGY.rsiPeriod);
+    const closedDailyRsi = currentRsi(closedCloses, STRATEGY.rsiPeriod);
+    const return7dPct = liveCloses.length >= 8 ? pctChange(liveCloses.at(-1), liveCloses.at(-8)) : null;
+    const candidate = {
+      ...item,
+      dailyRsi,
+      closedDailyRsi,
+      dailyRsiMode: 'live',
+      dailyRsiConfirmed: Number.isFinite(closedDailyRsi) && closedDailyRsi > STRATEGY.dailyRsiMinExclusive,
+      return7dPct,
+    };
     const reasons = hardFilterReasons(candidate);
     if (reasons.length) return { rejected: true, reasons, candidate };
     return { rejected: false, candidate };
@@ -487,7 +499,7 @@ async function scanMarket() {
 
   return {
     source: 'binance-futures-radar-vercel',
-    strategyVersion: 'exhaustion-short-radar-v2',
+    strategyVersion: 'exhaustion-short-radar-v2-live-daily',
     generatedAt: new Date().toISOString(),
     durationMs: Date.now() - startedAt,
     summary: {
@@ -509,8 +521,9 @@ async function scanMarket() {
       rank: '101-300 primary; 301-500 secondary',
       listingAge: '>=90 days',
       quoteVolume24h: '>=20m USDT',
-      dailyRsi14: '>90 (last closed daily candle)',
-      return7d: '>50%',
+      dailyRsi14: '>90 (live current daily candle)',
+      closedDailyRsi14: 'reported for confirmation context only',
+      return7d: '>50% (live current price vs 7d ago)',
       crowding: 'Funding percentile + OI growth',
       reversal: '1h/4h closed-candle exhaustion signals',
       shortSetupGate: 'score>=85 + CoinGecko rank + funding>=P90 + strong OI + >=2 reversal signals',
