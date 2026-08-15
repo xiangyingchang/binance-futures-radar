@@ -30,3 +30,6 @@ jobs:
           except Exception as exc:
               print("ERROR", type(exc).__name__, str(exc))
           PY
+
+      - name: Mark probe complete
+        run: echo "probe complete"
