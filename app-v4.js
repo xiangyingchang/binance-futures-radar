@@ -20,6 +20,8 @@ const ELEMENTS = {
 const IS_VERCEL = location.hostname.endsWith('.vercel.app');
 const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 const API_URL = window.RADAR_API_BASE || ((IS_VERCEL || IS_LOCAL) ? '/api/radar-v2' : null);
+const FETCH_ATTEMPTS = 3;
+const RETRY_DELAYS_MS = [0, 800, 2000];
 
 function setLoading(value) {
   ELEMENTS.refreshBtn.disabled = value;
@@ -39,6 +41,10 @@ function showEmpty(title, detail) {
 
 function hideEmpty() {
   ELEMENTS.emptyState.classList.add('hidden');
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function fmt(value, digits = 1, suffix = '') {
@@ -161,8 +167,16 @@ function renderRows(items) {
   }
 }
 
-async function fetchRadar() {
-  if (!API_URL) throw new Error('Open the Vercel deployment; this host has no radar backend.');
+function makeFetchError(message, retryable = false, kind = 'backend') {
+  const error = new Error(message);
+  error.retryable = retryable;
+  error.kind = kind;
+  return error;
+}
+
+async function fetchRadarOnce() {
+  if (!API_URL) throw makeFetchError('Open the Vercel deployment; this host has no radar backend.', false, 'config');
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 70000);
   try {
@@ -174,18 +188,51 @@ async function fetchRadar() {
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
       const upstream = payload?.upstreamStatus ? ` · upstream HTTP ${payload.upstreamStatus}` : '';
-      throw new Error(`${payload?.message || `Backend HTTP ${response.status}`}${upstream}`);
+      const message = `${payload?.message || `Backend HTTP ${response.status}`}${upstream}`;
+      throw makeFetchError(message, response.status === 429 || response.status >= 500, 'backend');
     }
     if (!payload?.summary || !Array.isArray(payload?.matches)) {
-      throw new Error('Malformed radar response');
+      throw makeFetchError('Malformed radar response', false, 'data');
     }
     return payload;
   } catch (error) {
-    if (error.name === 'AbortError') throw new Error('Radar scan timed out');
-    throw error;
+    if (error.name === 'AbortError') {
+      throw makeFetchError('Radar scan timed out', true, 'network');
+    }
+    if (error?.retryable !== undefined) throw error;
+
+    const raw = String(error?.message || error || '').trim();
+    const isNetworkFailure = error instanceof TypeError
+      || /load failed|failed to fetch|network request failed|networkerror/i.test(raw);
+    if (isNetworkFailure) {
+      throw makeFetchError('Temporary network failure while contacting the radar backend', true, 'network');
+    }
+    throw makeFetchError(raw || 'Unable to load radar data', true, 'network');
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function fetchRadar() {
+  let lastError = null;
+  for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt += 1) {
+    if (attempt > 1) {
+      setStatus(`Connection interrupted · retrying ${attempt}/${FETCH_ATTEMPTS}…`, 'warning');
+      await sleep(RETRY_DELAYS_MS[attempt - 1]);
+    }
+
+    try {
+      return await fetchRadarOnce();
+    } catch (error) {
+      lastError = error;
+      if (!error.retryable || attempt === FETCH_ATTEMPTS) break;
+    }
+  }
+
+  if (lastError?.kind === 'network') {
+    throw new Error('Network request failed after 3 attempts. The radar backend may still be healthy; check the connection and refresh again.');
+  }
+  throw lastError || new Error('Radar unavailable');
 }
 
 async function updateData() {
