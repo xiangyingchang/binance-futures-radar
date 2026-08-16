@@ -1,46 +1,62 @@
 'use strict';
 
-const ELEMENTS = {
+const GLOBAL = {
   updatedTime: document.getElementById('last-updated'),
   refreshBtn: document.getElementById('refresh-btn'),
   loading: document.getElementById('loading-indicator'),
-  tableBody: document.getElementById('table-body'),
-  emptyState: document.getElementById('empty-state'),
-  emptyTitle: document.getElementById('empty-title'),
-  emptyDetail: document.getElementById('empty-detail'),
-  totalPairs: document.getElementById('total-pairs'),
-  universeCount: document.getElementById('universe-count'),
-  candidateCount: document.getElementById('candidate-count'),
-  setupCount: document.getElementById('setup-count'),
-  strongCount: document.getElementById('strong-count'),
-  watchCount: document.getElementById('watch-count'),
-  apiStatus: document.getElementById('api-status'),
+};
+
+const V2 = {
+  apiStatus: document.getElementById('v2-api-status'),
+  tableBody: document.getElementById('v2-table-body'),
+  emptyState: document.getElementById('v2-empty-state'),
+  emptyTitle: document.getElementById('v2-empty-title'),
+  emptyDetail: document.getElementById('v2-empty-detail'),
+  totalPairs: document.getElementById('v2-total-pairs'),
+  universeCount: document.getElementById('v2-universe-count'),
+  candidateCount: document.getElementById('v2-candidate-count'),
+  setupCount: document.getElementById('v2-setup-count'),
+  strongCount: document.getElementById('v2-strong-count'),
+  watchCount: document.getElementById('v2-watch-count'),
+};
+
+const V1 = {
+  apiStatus: document.getElementById('v1-api-status'),
+  tableBody: document.getElementById('v1-table-body'),
+  emptyState: document.getElementById('v1-empty-state'),
+  emptyTitle: document.getElementById('v1-empty-title'),
+  emptyDetail: document.getElementById('v1-empty-detail'),
+  totalPairs: document.getElementById('v1-total-pairs'),
+  matchCount: document.getElementById('v1-match-count'),
+  errorCount: document.getElementById('v1-error-count'),
 };
 
 const IS_VERCEL = location.hostname.endsWith('.vercel.app');
 const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-const API_URL = window.RADAR_API_BASE || ((IS_VERCEL || IS_LOCAL) ? '/api/radar-v2' : null);
+const API_BASE = (IS_VERCEL || IS_LOCAL) ? '' : null;
+const V2_API = window.RADAR_V2_API || (API_BASE !== null ? `${API_BASE}/api/radar-v2` : null);
+const V1_API = window.RADAR_V1_API || (API_BASE !== null ? `${API_BASE}/api/radar` : null);
 const FETCH_ATTEMPTS = 3;
 const RETRY_DELAYS_MS = [0, 800, 2000];
 
 function setLoading(value) {
-  ELEMENTS.refreshBtn.disabled = value;
-  ELEMENTS.loading.classList.toggle('hidden', !value);
+  GLOBAL.refreshBtn.disabled = value;
+  GLOBAL.loading.classList.toggle('hidden', !value);
 }
 
-function setStatus(text, level = 'normal') {
-  ELEMENTS.apiStatus.textContent = text;
-  ELEMENTS.apiStatus.dataset.level = level;
+function setStatus(element, text, level = 'normal') {
+  element.textContent = text;
+  element.dataset.level = level;
 }
 
-function showEmpty(title, detail) {
-  ELEMENTS.emptyState.classList.remove('hidden');
-  ELEMENTS.emptyTitle.textContent = title;
-  ELEMENTS.emptyDetail.textContent = detail;
+function showEmpty(group, title, detail) {
+  group.emptyState.classList.remove('hidden');
+  group.emptyTitle.textContent = title;
+  group.emptyDetail.textContent = detail;
 }
 
-function hideEmpty() {
-  ELEMENTS.emptyState.classList.add('hidden');
+function hideEmpty(group) {
+  group.emptyState.classList.add('hidden');
 }
 
 function sleep(ms) {
@@ -65,6 +81,68 @@ function compactUsd(value) {
   if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
   if (n >= 1e3) return `$${(n / 1e3).toFixed(0)}K`;
   return `$${n.toFixed(0)}`;
+}
+
+function makeFetchError(message, retryable = false, kind = 'backend') {
+  const error = new Error(message);
+  error.retryable = retryable;
+  error.kind = kind;
+  return error;
+}
+
+async function fetchJsonOnce(url) {
+  if (!url) throw makeFetchError('This host has no radar backend.', false, 'config');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 70000);
+  try {
+    const response = await fetch(url, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      const upstream = payload?.upstreamStatus ? ` · upstream HTTP ${payload.upstreamStatus}` : '';
+      throw makeFetchError(
+        `${payload?.message || `Backend HTTP ${response.status}`}${upstream}`,
+        response.status === 429 || response.status >= 500,
+        'backend'
+      );
+    }
+    return payload;
+  } catch (error) {
+    if (error.name === 'AbortError') throw makeFetchError('Radar scan timed out', true, 'network');
+    if (error?.retryable !== undefined) throw error;
+    const raw = String(error?.message || error || '').trim();
+    const isNetworkFailure = error instanceof TypeError
+      || /load failed|failed to fetch|network request failed|networkerror/i.test(raw);
+    if (isNetworkFailure) {
+      throw makeFetchError('Temporary network failure while contacting the radar backend', true, 'network');
+    }
+    throw makeFetchError(raw || 'Unable to load radar data', true, 'network');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchWithRetry(url, label, statusElement) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt += 1) {
+    if (attempt > 1) {
+      setStatus(statusElement, `${label} connection interrupted · retrying ${attempt}/${FETCH_ATTEMPTS}…`, 'warning');
+      await sleep(RETRY_DELAYS_MS[attempt - 1]);
+    }
+    try {
+      return await fetchJsonOnce(url);
+    } catch (error) {
+      lastError = error;
+      if (!error.retryable || attempt === FETCH_ATTEMPTS) break;
+    }
+  }
+  if (lastError?.kind === 'network') {
+    throw new Error(`${label} network request failed after 3 attempts`);
+  }
+  throw lastError || new Error(`${label} unavailable`);
 }
 
 function statusMeta(status) {
@@ -97,11 +175,9 @@ function riskText(item) {
   const pieces = [];
   const maxHoldDays = Number(item?.maxHoldDays);
   const hardStopPct = Number(item?.hardStopPct);
-  if (Number.isFinite(maxHoldDays) && Number.isFinite(hardStopPct)) {
-    pieces.push(`${maxHoldDays}D max · +${hardStopPct.toFixed(0)}% stop`);
-  } else {
-    pieces.push('3D max · +30% stop');
-  }
+  pieces.push(Number.isFinite(maxHoldDays) && Number.isFinite(hardStopPct)
+    ? `${maxHoldDays}D max · +${hardStopPct.toFixed(0)}% stop`
+    : '3D max · +30% stop');
   if (Number.isFinite(Number(item?.reversal?.invalidationDistancePct))) {
     pieces.push(`ATR ref ${fmtSigned(item.reversal.invalidationDistancePct, 1)}`);
   }
@@ -112,31 +188,33 @@ function riskText(item) {
   return [...new Set(pieces)].join(' · ');
 }
 
-function renderRows(items) {
-  ELEMENTS.tableBody.innerHTML = '';
+function addCopyHandler(cell, symbol) {
+  cell.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(symbol);
+      const old = cell.textContent;
+      cell.textContent = 'Copied';
+      setTimeout(() => { cell.textContent = old; }, 700);
+    } catch (_) {
+      // Clipboard is optional.
+    }
+  });
+}
+
+function renderV2(items) {
+  V2.tableBody.innerHTML = '';
   if (!items.length) {
-    showEmpty(
-      'No extreme short candidates right now.',
-      'The scan completed successfully. This strategy should often return zero rather than force a trade.'
-    );
+    showEmpty(V2, 'No V2 candidates right now.', 'The strict V2 scan completed successfully. Staying idle is a valid result.');
     return;
   }
-
-  hideEmpty();
+  hideEmpty(V2);
   for (const item of items) {
     const row = document.createElement('tr');
     const status = statusMeta(item.status);
-    const fundingPctl = Number.isFinite(Number(item.fundingPercentile))
-      ? `P${Math.round(Number(item.fundingPercentile))}`
-      : 'P—';
-    const fundingApr = Number.isFinite(Number(item.fundingApr))
-      ? `${fmtSigned(item.fundingApr, 1)}/yr`
-      : '—';
+    const fundingPctl = Number.isFinite(Number(item.fundingPercentile)) ? `P${Math.round(Number(item.fundingPercentile))}` : 'P—';
+    const fundingApr = Number.isFinite(Number(item.fundingApr)) ? `${fmtSigned(item.fundingApr, 1)}/yr` : '—';
     const tradeLink = `https://www.binance.com/en/futures/${encodeURIComponent(item.symbol)}`;
-    const tierClass = item.rankTier === 'TARGET_101_500' || item.rankTier === 'PRIMARY_101_300'
-      ? 'primary-tier'
-      : 'secondary-tier';
-
+    const tierClass = item.rankTier === 'TARGET_101_500' || item.rankTier === 'PRIMARY_101_300' ? 'primary-tier' : 'secondary-tier';
     row.innerHTML = `
       <td class="symbol-cell" title="Tap to copy">${item.symbol}</td>
       <td><span class="status-pill ${status.className}">${status.label}</span></td>
@@ -151,132 +229,118 @@ function renderRows(items) {
       <td class="risk-cell">${riskText(item)}</td>
       <td><a class="action-btn" href="${tradeLink}" target="_blank" rel="noopener">Binance</a></td>
     `;
-
-    const symbol = row.querySelector('.symbol-cell');
-    symbol.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(item.symbol);
-        const old = symbol.textContent;
-        symbol.textContent = 'Copied';
-        setTimeout(() => { symbol.textContent = old; }, 700);
-      } catch (_) {
-        // Clipboard is optional.
-      }
-    });
-    ELEMENTS.tableBody.appendChild(row);
+    addCopyHandler(row.querySelector('.symbol-cell'), item.symbol);
+    V2.tableBody.appendChild(row);
   }
 }
 
-function makeFetchError(message, retryable = false, kind = 'backend') {
-  const error = new Error(message);
-  error.retryable = retryable;
-  error.kind = kind;
-  return error;
-}
-
-async function fetchRadarOnce() {
-  if (!API_URL) throw makeFetchError('Open the Vercel deployment; this host has no radar backend.', false, 'config');
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 70000);
-  try {
-    const response = await fetch(API_URL, {
-      cache: 'no-store',
-      headers: { Accept: 'application/json' },
-      signal: controller.signal,
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) {
-      const upstream = payload?.upstreamStatus ? ` · upstream HTTP ${payload.upstreamStatus}` : '';
-      const message = `${payload?.message || `Backend HTTP ${response.status}`}${upstream}`;
-      throw makeFetchError(message, response.status === 429 || response.status >= 500, 'backend');
-    }
-    if (!payload?.summary || !Array.isArray(payload?.matches)) {
-      throw makeFetchError('Malformed radar response', false, 'data');
-    }
-    return payload;
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      throw makeFetchError('Radar scan timed out', true, 'network');
-    }
-    if (error?.retryable !== undefined) throw error;
-
-    const raw = String(error?.message || error || '').trim();
-    const isNetworkFailure = error instanceof TypeError
-      || /load failed|failed to fetch|network request failed|networkerror/i.test(raw);
-    if (isNetworkFailure) {
-      throw makeFetchError('Temporary network failure while contacting the radar backend', true, 'network');
-    }
-    throw makeFetchError(raw || 'Unable to load radar data', true, 'network');
-  } finally {
-    clearTimeout(timer);
+function renderV1(items) {
+  V1.tableBody.innerHTML = '';
+  if (!items.length) {
+    showEmpty(V1, 'No V1 matches right now.', 'The legacy V1 scan completed successfully and found no high-RSI matches.');
+    return;
+  }
+  hideEmpty(V1);
+  for (const item of items) {
+    const row = document.createElement('tr');
+    const tradeLink = `https://www.binance.com/en/futures/${encodeURIComponent(item.symbol)}`;
+    const rank = Number.isFinite(Number(item.rank)) ? `#${Number(item.rank)}` : '—';
+    row.innerHTML = `
+      <td class="symbol-cell" title="Tap to copy">${item.symbol}</td>
+      <td>${rank}</td>
+      <td class="hot">${fmt(item.rsi1h, 1)}</td>
+      <td class="hot">${fmt(item.rsi4h, 1)}</td>
+      <td>${fmtSigned(item.change24h, 1)}</td>
+      <td>${compactUsd(item.volume)}</td>
+      <td>${fmtSigned(item.fundingApr, 1)}/yr</td>
+      <td>${fmt(item.depthRatio, 2)}</td>
+      <td><a class="action-btn" href="${tradeLink}" target="_blank" rel="noopener">Binance</a></td>
+    `;
+    addCopyHandler(row.querySelector('.symbol-cell'), item.symbol);
+    V1.tableBody.appendChild(row);
   }
 }
 
-async function fetchRadar() {
-  let lastError = null;
-  for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt += 1) {
-    if (attempt > 1) {
-      setStatus(`Connection interrupted · retrying ${attempt}/${FETCH_ATTEMPTS}…`, 'warning');
-      await sleep(RETRY_DELAYS_MS[attempt - 1]);
-    }
-
-    try {
-      return await fetchRadarOnce();
-    } catch (error) {
-      lastError = error;
-      if (!error.retryable || attempt === FETCH_ATTEMPTS) break;
-    }
+function applyV2(payload) {
+  if (!payload?.summary || !Array.isArray(payload?.matches) || !payload?.strategyVersion) {
+    throw new Error('Malformed V2 radar response');
   }
+  renderV2(payload.matches);
+  const s = payload.summary;
+  V2.totalPairs.textContent = `Pairs: ${s.totalPairs}`;
+  V2.universeCount.textContent = `Universe: ${s.rankedLiquidUniverse}`;
+  V2.candidateCount.textContent = `Candidates: ${s.matches}`;
+  V2.setupCount.textContent = s.shortSetups;
+  V2.strongCount.textContent = s.strongWatch;
+  V2.watchCount.textContent = s.watch;
+  const warnings = payload?.diagnostics?.warnings?.length || 0;
+  const errors = Number(s.dailyStageErrors || 0) + Number(s.detailStageErrors || 0);
+  const duration = (Number(payload.durationMs || 0) / 1000).toFixed(1);
+  const note = [warnings ? `${warnings} source warning${warnings > 1 ? 's' : ''}` : '', errors ? `${errors} symbol error${errors > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
+  setStatus(V2.apiStatus, `V2 OK · ${duration}s${note ? ` · ${note}` : ''}`, warnings || errors ? 'warning' : 'success');
+}
 
-  if (lastError?.kind === 'network') {
-    throw new Error('Network request failed after 3 attempts. The radar backend may still be healthy; check the connection and refresh again.');
-  }
-  throw lastError || new Error('Radar unavailable');
+function applyV1(payload) {
+  const validLegacy = payload?.summary && Array.isArray(payload?.matches) && payload?.strategy?.rsi1h;
+  if (!validLegacy) throw new Error('Malformed V1 response or V1 endpoint is not serving the legacy scanner');
+  renderV1(payload.matches);
+  const s = payload.summary;
+  V1.totalPairs.textContent = `Pairs: ${s.totalPairs}`;
+  V1.matchCount.textContent = `Matches: ${s.matches}`;
+  V1.errorCount.textContent = `Symbol errors: ${s.symbolErrors}`;
+  const duration = (Number(payload.durationMs || 0) / 1000).toFixed(1);
+  setStatus(V1.apiStatus, `V1 OK · ${duration}s`, Number(s.symbolErrors || 0) ? 'warning' : 'success');
+}
+
+function failSection(group, label, error) {
+  setStatus(group.apiStatus, error.message || `${label} unavailable`, 'error');
+  group.tableBody.innerHTML = '';
+  showEmpty(group, `${label} unavailable.`, error.message || 'Unknown backend error');
 }
 
 async function updateData() {
   setLoading(true);
-  hideEmpty();
-  ELEMENTS.tableBody.innerHTML = '';
-  setStatus('Running RSI(6) + funding + rank-consensus scan…');
-  try {
-    const payload = await fetchRadar();
-    renderRows(payload.matches);
-    const s = payload.summary;
-    ELEMENTS.totalPairs.textContent = `Pairs: ${s.totalPairs}`;
-    ELEMENTS.universeCount.textContent = `Universe: ${s.rankedLiquidUniverse}`;
-    ELEMENTS.candidateCount.textContent = `Candidates: ${s.matches}`;
-    ELEMENTS.setupCount.textContent = s.shortSetups;
-    ELEMENTS.strongCount.textContent = s.strongWatch;
-    ELEMENTS.watchCount.textContent = s.watch;
-    ELEMENTS.updatedTime.textContent = `Last updated: ${new Date(payload.generatedAt).toLocaleString()}`;
+  V2.tableBody.innerHTML = '';
+  V1.tableBody.innerHTML = '';
+  hideEmpty(V2);
+  hideEmpty(V1);
+  setStatus(V2.apiStatus, 'Running V2 strict scan…');
+  setStatus(V1.apiStatus, 'Running V1 legacy scan…');
 
-    const warnings = payload?.diagnostics?.warnings?.length || 0;
-    const errors = Number(s.dailyStageErrors || 0) + Number(s.detailStageErrors || 0);
-    const duration = (Number(payload.durationMs || 0) / 1000).toFixed(1);
-    const note = [
-      warnings ? `${warnings} source warning${warnings > 1 ? 's' : ''}` : '',
-      errors ? `${errors} symbol error${errors > 1 ? 's' : ''}` : '',
-    ].filter(Boolean).join(' · ');
-    setStatus(
-      `Pilot scan OK · ${duration}s${note ? ` · ${note}` : ''}`,
-      (warnings || errors) ? 'warning' : 'success'
-    );
-  } catch (error) {
-    console.error(error);
-    setStatus(error.message || 'Radar unavailable', 'error');
-    showEmpty('Live scan unavailable.', error.message || 'Unknown backend error');
-    ['totalPairs', 'universeCount', 'candidateCount'].forEach((key) => {
-      ELEMENTS[key].textContent = '—';
-    });
-    ['setupCount', 'strongCount', 'watchCount'].forEach((key) => {
-      ELEMENTS[key].textContent = '—';
-    });
-  } finally {
-    setLoading(false);
+  const [v2Result, v1Result] = await Promise.allSettled([
+    fetchWithRetry(V2_API, 'V2', V2.apiStatus),
+    fetchWithRetry(V1_API, 'V1', V1.apiStatus),
+  ]);
+
+  const timestamps = [];
+  if (v2Result.status === 'fulfilled') {
+    try {
+      applyV2(v2Result.value);
+      if (v2Result.value.generatedAt) timestamps.push(new Date(v2Result.value.generatedAt));
+    } catch (error) {
+      failSection(V2, 'V2', error);
+    }
+  } else {
+    failSection(V2, 'V2', v2Result.reason);
   }
+
+  if (v1Result.status === 'fulfilled') {
+    try {
+      applyV1(v1Result.value);
+      if (v1Result.value.generatedAt) timestamps.push(new Date(v1Result.value.generatedAt));
+    } catch (error) {
+      failSection(V1, 'V1', error);
+    }
+  } else {
+    failSection(V1, 'V1', v1Result.reason);
+  }
+
+  const validTimes = timestamps.filter((date) => !Number.isNaN(date.getTime()));
+  GLOBAL.updatedTime.textContent = validTimes.length
+    ? `Last updated: ${new Date(Math.max(...validTimes.map((date) => date.getTime()))).toLocaleString()}`
+    : 'Last updated: failed';
+  setLoading(false);
 }
 
-ELEMENTS.refreshBtn.addEventListener('click', updateData);
+GLOBAL.refreshBtn.addEventListener('click', updateData);
 updateData();
