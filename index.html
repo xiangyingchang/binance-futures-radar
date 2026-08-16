@@ -1,106 +1,107 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
   <meta name="color-scheme" content="dark">
-  <title>Binance Futures Radar</title>
-  <link rel="stylesheet" href="style.css?v=8">
+  <meta name="theme-color" content="#090b10">
+  <title>币安永续合约做空雷达</title>
+  <link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
   <div class="app-shell">
     <header class="hero">
-      <div>
-        <div class="eyebrow">BINANCE USDT PERPETUALS · LIVE PILOT</div>
-        <h1>Binance Futures Radar</h1>
-        <p class="hero-copy">V2 is the current strict exhaustion-short strategy. V1 is kept visible as a legacy high-RSI reference radar. No automatic trading.</p>
+      <div class="hero-main">
+        <div class="eyebrow">BINANCE USDT 永续合约 · 实时扫描</div>
+        <h1>做空雷达</h1>
+        <p class="hero-copy">V2 是当前严格策略，V1 是旧版高 RSI 参考。只展示信号，不自动交易。</p>
       </div>
       <div class="hero-actions">
-        <span id="last-updated" class="muted">Last updated: --</span>
-        <button id="refresh-btn" class="refresh-btn">Refresh both</button>
-        <div class="loading-indicator hidden" id="loading-indicator" aria-label="Loading"></div>
+        <span id="last-updated" class="muted">最后更新：--</span>
+        <button id="refresh-btn" class="refresh-btn" type="button">刷新两个版本</button>
+        <div class="loading-indicator hidden" id="loading-indicator" aria-label="加载中"></div>
       </div>
     </header>
 
     <section class="version-section current-version">
       <div class="version-header">
         <div>
-          <span class="version-badge current">V2 · CURRENT</span>
-          <h2>Exhaustion Short Radar</h2>
-          <p>Strict live setup used for the current forward test.</p>
+          <span class="version-badge current">V2 · 当前策略</span>
+          <h2>极端过热做空策略</h2>
+          <p>当前 Forward Test 使用的严格版本。</p>
         </div>
-        <div id="v2-api-status" class="api-status">Connecting to V2…</div>
+        <div id="v2-api-status" class="api-status">正在连接 V2…</div>
       </div>
 
       <section class="rules-panel">
-        <div class="rule"><span>Universe</span><strong>Rank 101–500</strong><small>CMC primary · any trusted source Top100 rejects</small></div>
-        <div class="rule"><span>Heat</span><strong>Daily RSI(6) &gt; 93</strong><small>7D return &gt; 20%</small></div>
-        <div class="rule"><span>Liquidity</span><strong>24H volume ≥ $20M</strong><small>Listed ≥ 90 days</small></div>
-        <div class="rule"><span>Crowding</span><strong>Funding ≥ P90</strong><small>90D percentile · OI reference only</small></div>
-        <div class="rule"><span>Pilot plan</span><strong>Max hold 3 days</strong><small>Hard stop: +30% against short</small></div>
+        <div class="rule"><span>市值范围</span><strong>Rank 101–500</strong><small>CMC 主源；任一可信源 ≤100 即剔除</small></div>
+        <div class="rule"><span>过热条件</span><strong>日线 RSI(6) &gt; 93</strong><small>7 日涨幅 &gt; 20%</small></div>
+        <div class="rule"><span>流动性</span><strong>24H 成交额 ≥ $20M</strong><small>上线时间 ≥ 90 天</small></div>
+        <div class="rule"><span>拥挤度</span><strong>资金费率 ≥ P90</strong><small>90 天分位；OI 仅作参考</small></div>
+        <div class="rule"><span>持仓计划</span><strong>最长 72 小时</strong><small>硬止损：价格上涨 +30%</small></div>
       </section>
 
       <section class="status-strip compact-status">
         <div class="metrics">
-          <span id="v2-total-pairs">Pairs: --</span>
-          <span id="v2-universe-count">Universe: --</span>
-          <span id="v2-candidate-count">Candidates: --</span>
+          <span id="v2-total-pairs">交易对：--</span>
+          <span id="v2-universe-count">筛选池：--</span>
+          <span id="v2-candidate-count">候选：--</span>
         </div>
       </section>
 
       <section class="summary-grid">
-        <div class="summary-card danger"><span>Short setup</span><strong id="v2-setup-count">--</strong><small>CMC-verified core gate · manual review</small></div>
-        <div class="summary-card warning"><span>Strong watch</span><strong id="v2-strong-count">--</strong><small>Funding P75–P90 or rank verification incomplete</small></div>
-        <div class="summary-card"><span>Watch</span><strong id="v2-watch-count">--</strong><small>Heat gate passed, crowding incomplete</small></div>
+        <div class="summary-card danger"><span>做空候选</span><strong id="v2-setup-count">--</strong><small>核心条件全部通过，仍需人工核查</small></div>
+        <div class="summary-card warning"><span>强关注</span><strong id="v2-strong-count">--</strong><small>接近核心条件或排名待确认</small></div>
+        <div class="summary-card"><span>观察</span><strong id="v2-watch-count">--</strong><small>过热通过，拥挤度尚不足</small></div>
       </section>
 
       <div class="table-container">
         <table id="v2-crypto-table">
-          <thead><tr><th>Pair</th><th>Status</th><th>Score</th><th>Rank</th><th>RSI(6)</th><th>7D</th><th>24H Vol</th><th>Funding</th><th>OI 24H / 7D</th><th>Reversal ref.</th><th>Risk / Plan</th><th></th></tr></thead>
+          <thead><tr><th>交易对</th><th>状态</th><th>评分</th><th>市值排名</th><th>日线 RSI(6)</th><th>7 日</th><th>24H 成交额</th><th>资金费率</th><th>OI 24H / 7D</th><th>反转参考</th><th>风险 / 计划</th><th></th></tr></thead>
           <tbody id="v2-table-body"></tbody>
         </table>
       </div>
-      <div id="v2-empty-state" class="empty-state hidden"><h3 id="v2-empty-title">No V2 candidates right now.</h3><p id="v2-empty-detail">That is a valid result. V2 is designed to stay idle most of the time.</p></div>
+      <div id="v2-empty-state" class="empty-state hidden"><h3 id="v2-empty-title">当前没有 V2 候选。</h3><p id="v2-empty-detail">扫描正常完成。这个策略本来就应该大部分时间没有交易。</p></div>
     </section>
 
     <section class="version-section legacy-version">
       <div class="version-header">
         <div>
-          <span class="version-badge legacy">V1 · LEGACY</span>
-          <h2>High-RSI Legacy Radar</h2>
-          <p>Older, looser scanner kept for comparison only. A V1 match is not a V2 trade signal.</p>
+          <span class="version-badge legacy">V1 · 旧版参考</span>
+          <h2>高 RSI 旧版雷达</h2>
+          <p>规则更宽松，仅用于对照；V1 命中不等于 V2 交易信号。</p>
         </div>
-        <div id="v1-api-status" class="api-status">Connecting to V1…</div>
+        <div id="v1-api-status" class="api-status">正在连接 V1…</div>
       </div>
 
       <section class="rules-panel legacy-rules">
-        <div class="rule"><span>Momentum</span><strong>1H RSI &gt; 90</strong><small>Fast overheat screen</small></div>
-        <div class="rule"><span>4H confirmation</span><strong>4H RSI ≥ 80</strong><small>Legacy confirmation</small></div>
-        <div class="rule"><span>Rank</span><strong>&gt; 100 when known</strong><small>Binance market-cap proxy</small></div>
-        <div class="rule"><span>24H move</span><strong>&lt; +35%</strong><small>Legacy anti-chase filter</small></div>
-        <div class="rule"><span>Use</span><strong>Reference only</strong><small>Not part of V2 forward-test stats</small></div>
+        <div class="rule"><span>短周期过热</span><strong>1H RSI &gt; 90</strong><small>快速筛选极端上涨</small></div>
+        <div class="rule"><span>4H 确认</span><strong>4H RSI ≥ 80</strong><small>旧版确认条件</small></div>
+        <div class="rule"><span>市值排名</span><strong>&gt; 100（有数据时）</strong><small>Binance 市值代理排名</small></div>
+        <div class="rule"><span>24H 涨幅</span><strong>&lt; +35%</strong><small>避免追在单日最极端位置</small></div>
+        <div class="rule"><span>用途</span><strong>仅作参考</strong><small>不计入 V2 Forward Test</small></div>
       </section>
 
       <section class="status-strip compact-status">
         <div class="metrics">
-          <span id="v1-total-pairs">Pairs: --</span>
-          <span id="v1-match-count">Matches: --</span>
-          <span id="v1-error-count">Symbol errors: --</span>
+          <span id="v1-total-pairs">交易对：--</span>
+          <span id="v1-match-count">命中：--</span>
+          <span id="v1-error-count">异常：--</span>
         </div>
       </section>
 
       <div class="table-container legacy-table-container">
         <table id="v1-crypto-table" class="legacy-table">
-          <thead><tr><th>Pair</th><th>Rank</th><th>1H RSI</th><th>4H RSI</th><th>24H</th><th>24H Vol</th><th>Funding APR</th><th>Depth ratio</th><th></th></tr></thead>
+          <thead><tr><th>交易对</th><th>排名</th><th>1H RSI</th><th>4H RSI</th><th>24H 涨幅</th><th>24H 成交额</th><th>资金费率年化</th><th>盘口比</th><th></th></tr></thead>
           <tbody id="v1-table-body"></tbody>
         </table>
       </div>
-      <div id="v1-empty-state" class="empty-state hidden"><h3 id="v1-empty-title">No V1 matches right now.</h3><p id="v1-empty-detail">The legacy scanner completed successfully and found no matches.</p></div>
+      <div id="v1-empty-state" class="empty-state hidden"><h3 id="v1-empty-title">当前没有 V1 命中。</h3><p id="v1-empty-detail">旧版扫描正常完成，目前没有高 RSI 标的。</p></div>
     </section>
 
-    <footer><strong>Important:</strong> V2 is the strategy under forward test. V1 is displayed only for comparison and diagnostics; do not combine the two rule sets into a new entry rule after seeing the result.</footer>
+    <footer><strong>注意：</strong>V2 才是当前 Forward Test 策略；V1 只用于对照和排查，不要把两个版本的规则临时拼成新的入场条件。</footer>
   </div>
-  <script src="app-v4.js?v=8"></script>
+  <script src="app-v4.js?v=9"></script>
 </body>
 </html>
