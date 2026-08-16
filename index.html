@@ -5,80 +5,102 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <meta name="color-scheme" content="dark">
-  <title>Exhaustion Short Radar</title>
-  <link rel="stylesheet" href="style.css?v=7">
+  <title>Binance Futures Radar</title>
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
   <div class="app-shell">
     <header class="hero">
       <div>
         <div class="eyebrow">BINANCE USDT PERPETUALS · LIVE PILOT</div>
-        <h1>Exhaustion Short Radar</h1>
-        <p class="hero-copy">Production pilot for the RSI(6) + funding crowding setup, with CMC-led multi-source rank verification. No automatic trading.</p>
+        <h1>Binance Futures Radar</h1>
+        <p class="hero-copy">V2 is the current strict exhaustion-short strategy. V1 is kept visible as a legacy high-RSI reference radar. No automatic trading.</p>
       </div>
       <div class="hero-actions">
         <span id="last-updated" class="muted">Last updated: --</span>
-        <button id="refresh-btn" class="refresh-btn">Refresh scan</button>
+        <button id="refresh-btn" class="refresh-btn">Refresh both</button>
         <div class="loading-indicator hidden" id="loading-indicator" aria-label="Loading"></div>
       </div>
     </header>
 
-    <section class="rules-panel">
-      <div class="rule"><span>Universe</span><strong>Rank 101–500</strong><small>CMC primary · any trusted source Top100 rejects</small></div>
-      <div class="rule"><span>Heat</span><strong>Daily RSI(6) &gt; 93</strong><small>7D return &gt; 20%</small></div>
-      <div class="rule"><span>Liquidity</span><strong>24H volume ≥ $20M</strong><small>Listed ≥ 90 days</small></div>
-      <div class="rule"><span>Crowding</span><strong>Funding ≥ P90</strong><small>90D percentile · OI is reference only</small></div>
-      <div class="rule"><span>Pilot plan</span><strong>Max hold 3 days</strong><small>Hard stop: +30% against short</small></div>
-    </section>
-
-    <section class="status-strip">
-      <div id="api-status" class="api-status">Connecting to server-side radar…</div>
-      <div class="metrics">
-        <span id="total-pairs">Pairs: --</span>
-        <span id="universe-count">Universe: --</span>
-        <span id="candidate-count">Candidates: --</span>
+    <section class="version-section current-version">
+      <div class="version-header">
+        <div>
+          <span class="version-badge current">V2 · CURRENT</span>
+          <h2>Exhaustion Short Radar</h2>
+          <p>Strict live setup used for the current forward test.</p>
+        </div>
+        <div id="v2-api-status" class="api-status">Connecting to V2…</div>
       </div>
-    </section>
 
-    <section class="summary-grid">
-      <div class="summary-card danger"><span>Short setup</span><strong id="setup-count">--</strong><small>CMC-verified core gate · manual review</small></div>
-      <div class="summary-card warning"><span>Strong watch</span><strong id="strong-count">--</strong><small>Funding P75–P90 or rank verification incomplete</small></div>
-      <div class="summary-card"><span>Watch</span><strong id="watch-count">--</strong><small>Heat gate passed, crowding incomplete</small></div>
-    </section>
+      <section class="rules-panel">
+        <div class="rule"><span>Universe</span><strong>Rank 101–500</strong><small>CMC primary · any trusted source Top100 rejects</small></div>
+        <div class="rule"><span>Heat</span><strong>Daily RSI(6) &gt; 93</strong><small>7D return &gt; 20%</small></div>
+        <div class="rule"><span>Liquidity</span><strong>24H volume ≥ $20M</strong><small>Listed ≥ 90 days</small></div>
+        <div class="rule"><span>Crowding</span><strong>Funding ≥ P90</strong><small>90D percentile · OI reference only</small></div>
+        <div class="rule"><span>Pilot plan</span><strong>Max hold 3 days</strong><small>Hard stop: +30% against short</small></div>
+      </section>
 
-    <main>
+      <section class="status-strip compact-status">
+        <div class="metrics">
+          <span id="v2-total-pairs">Pairs: --</span>
+          <span id="v2-universe-count">Universe: --</span>
+          <span id="v2-candidate-count">Candidates: --</span>
+        </div>
+      </section>
+
+      <section class="summary-grid">
+        <div class="summary-card danger"><span>Short setup</span><strong id="v2-setup-count">--</strong><small>CMC-verified core gate · manual review</small></div>
+        <div class="summary-card warning"><span>Strong watch</span><strong id="v2-strong-count">--</strong><small>Funding P75–P90 or rank verification incomplete</small></div>
+        <div class="summary-card"><span>Watch</span><strong id="v2-watch-count">--</strong><small>Heat gate passed, crowding incomplete</small></div>
+      </section>
+
       <div class="table-container">
-        <table id="crypto-table">
-          <thead>
-            <tr>
-              <th>Pair</th>
-              <th>Status</th>
-              <th>Score</th>
-              <th>Rank</th>
-              <th>RSI(6)</th>
-              <th>7D</th>
-              <th>24H Vol</th>
-              <th>Funding</th>
-              <th>OI 24H / 7D</th>
-              <th>Reversal ref.</th>
-              <th>Risk / Plan</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="table-body"></tbody>
+        <table id="v2-crypto-table">
+          <thead><tr><th>Pair</th><th>Status</th><th>Score</th><th>Rank</th><th>RSI(6)</th><th>7D</th><th>24H Vol</th><th>Funding</th><th>OI 24H / 7D</th><th>Reversal ref.</th><th>Risk / Plan</th><th></th></tr></thead>
+          <tbody id="v2-table-body"></tbody>
         </table>
       </div>
+      <div id="v2-empty-state" class="empty-state hidden"><h3 id="v2-empty-title">No V2 candidates right now.</h3><p id="v2-empty-detail">That is a valid result. V2 is designed to stay idle most of the time.</p></div>
+    </section>
 
-      <div id="empty-state" class="empty-state hidden">
-        <h2 id="empty-title">No candidates right now.</h2>
-        <p id="empty-detail">That is a valid result. The strategy is designed to stay idle most of the time.</p>
+    <section class="version-section legacy-version">
+      <div class="version-header">
+        <div>
+          <span class="version-badge legacy">V1 · LEGACY</span>
+          <h2>High-RSI Legacy Radar</h2>
+          <p>Older, looser scanner kept for comparison only. A V1 match is not a V2 trade signal.</p>
+        </div>
+        <div id="v1-api-status" class="api-status">Connecting to V1…</div>
       </div>
-    </main>
 
-    <footer>
-      <strong>Important:</strong> SHORT_SETUP means the live core market-data gate passed, including CMC-led rank verification; it still does not mean “short now”. Manual catalyst review and independent position sizing remain required. The +30% stop is a strategy-level test parameter, not a recommended account risk.
-    </footer>
+      <section class="rules-panel legacy-rules">
+        <div class="rule"><span>Momentum</span><strong>1H RSI &gt; 90</strong><small>Fast overheat screen</small></div>
+        <div class="rule"><span>4H confirmation</span><strong>4H RSI ≥ 80</strong><small>Legacy confirmation</small></div>
+        <div class="rule"><span>Rank</span><strong>&gt; 100 when known</strong><small>Binance market-cap proxy</small></div>
+        <div class="rule"><span>24H move</span><strong>&lt; +35%</strong><small>Legacy anti-chase filter</small></div>
+        <div class="rule"><span>Use</span><strong>Reference only</strong><small>Not part of V2 forward-test stats</small></div>
+      </section>
+
+      <section class="status-strip compact-status">
+        <div class="metrics">
+          <span id="v1-total-pairs">Pairs: --</span>
+          <span id="v1-match-count">Matches: --</span>
+          <span id="v1-error-count">Symbol errors: --</span>
+        </div>
+      </section>
+
+      <div class="table-container legacy-table-container">
+        <table id="v1-crypto-table" class="legacy-table">
+          <thead><tr><th>Pair</th><th>Rank</th><th>1H RSI</th><th>4H RSI</th><th>24H</th><th>24H Vol</th><th>Funding APR</th><th>Depth ratio</th><th></th></tr></thead>
+          <tbody id="v1-table-body"></tbody>
+        </table>
+      </div>
+      <div id="v1-empty-state" class="empty-state hidden"><h3 id="v1-empty-title">No V1 matches right now.</h3><p id="v1-empty-detail">The legacy scanner completed successfully and found no matches.</p></div>
+    </section>
+
+    <footer><strong>Important:</strong> V2 is the strategy under forward test. V1 is displayed only for comparison and diagnostics; do not combine the two rule sets into a new entry rule after seeing the result.</footer>
   </div>
-  <script src="app-v4.js?v=7"></script>
+  <script src="app-v4.js?v=8"></script>
 </body>
 </html>
