@@ -24,9 +24,15 @@ jobs:
           node --check api/radar-v2.js
           node --check lib/strategy.js
           node --check tests/strategy.test.js
+          if [ -f research/reversal-entry-backtest-19.js ]; then node --check research/reversal-entry-backtest-19.js; fi
 
       - name: Run strategy unit tests
         run: node tests/strategy.test.js
+
+      - name: Run reversal entry research
+        if: ${{ github.head_ref == 'research/reversal-entry-19-20260819' }}
+        timeout-minutes: 10
+        run: node research/reversal-entry-backtest-19.js
 
       - name: Check Python syntax
         run: python -m py_compile scanner.py scanner_optimized.py
