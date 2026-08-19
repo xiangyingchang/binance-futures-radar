@@ -39,6 +39,7 @@
         <div class="rule"><span>过热条件</span><strong>日线 RSI(6) &gt; 93</strong><small>7 日涨幅 &gt; 20%</small></div>
         <div class="rule"><span>流动性</span><strong>24H 成交额 ≥ $20M</strong><small>上线时间 ≥ 90 天</small></div>
         <div class="rule"><span>拥挤度</span><strong>资金费率 ≥ P90</strong><small>90 天分位；OI 仅作参考</small></div>
+        <div class="rule"><span>人工否决</span><strong>CEX 大额流出 + 新钱包吸筹</strong><small>标记 SQUEEZE_RISK：暂不做空，等流出停止或回流后再评估</small></div>
         <div class="rule"><span>持仓计划</span><strong>最长 72 小时</strong><small>硬止损：价格上涨 +30%</small></div>
       </section>
 
@@ -100,7 +101,7 @@
       <div id="v1-empty-state" class="empty-state hidden"><h3 id="v1-empty-title">当前没有 V1 命中。</h3><p id="v1-empty-detail">旧版扫描正常完成，目前没有高 RSI 标的。</p></div>
     </section>
 
-    <footer><strong>注意：</strong>V2 才是当前 Forward Test 策略；V1 只用于对照和排查，不要把两个版本的规则临时拼成新的入场条件。</footer>
+    <footer><strong>注意：</strong>V2 才是当前 Forward Test 策略；V1 只用于对照和排查，不要把两个版本的规则临时拼成新的入场条件。链上供给风险属于人工核查项，雷达不会自动判断 CEX 流出或新钱包吸筹。</footer>
   </div>
   <script src="app-v4.js?v=10"></script>
 </body>

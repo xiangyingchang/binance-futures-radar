@@ -51,6 +51,28 @@ const scored = scoreCandidate({
 assert.strictEqual(scored.status, 'SHORT_SETUP');
 assert.ok(scored.score >= 85);
 
+const squeezeRisk = scoreCandidate({
+  rank: 180,
+  listingAgeDays: 120,
+  quoteVolumeUsd: 50_000_000,
+  dailyRsi: 94,
+  return7dPct: 80,
+  fundingPercentile: 96,
+  oi24hPct: 35,
+  oi7dPct: 55,
+  manualSqueezeRisk: true,
+  reversal: {
+    bearishDivergence: true,
+    structureBreak4h: true,
+    rsi1hCrossBelow80: false,
+    structureBreak1h: false,
+    reversalCount: 2,
+  },
+});
+assert.strictEqual(squeezeRisk.status, 'WATCH', 'manual SQUEEZE_RISK must veto a new short setup');
+assert.strictEqual(squeezeRisk.manualVetoApplied, true);
+assert.ok(squeezeRisk.score >= 85, 'veto should preserve signal quality score for later re-evaluation');
+
 const degraded = scoreCandidate({
   rank: 180,
   listingAgeDays: 120,
