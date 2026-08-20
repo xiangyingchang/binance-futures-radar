@@ -22,6 +22,7 @@ jobs:
           node --check app-v4.js
           node --check api/radar.js
           node --check api/radar-v2.js
+          node --check api/tp-backtest-180d.js
           node --check lib/strategy.js
           node --check tests/strategy.test.js
 
