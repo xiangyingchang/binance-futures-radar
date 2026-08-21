@@ -75,23 +75,7 @@
     return { label: '资金流/待确认', className: 'whale-neutral' };
   }
 
-  function renderUnconfigured(payload) {
-    const addresses = payload?.entities?.flatMap((x) => x.addresses || []) || [];
-    els.addressCount.textContent = `地址：${addresses.length}`;
-    els.state.textContent = '未配置数据源';
-    els.state.className = 'whale-state whale-neutral';
-    els.stateReason.textContent = '在 Vercel Environment Variables 添加 ETHERSCAN_API_KEY 后即可读取链上数据。Etherscan 免费 API 已足够当前单地址使用。';
-    els.eth24h.textContent = '—';
-    els.stable24h.textContent = '—';
-    els.eth7d.textContent = '—';
-    els.tableBody.innerHTML = '';
-    els.empty.classList.remove('hidden');
-    els.empty.textContent = '数据源未配置。地址已经写入系统，配置 API Key 后无需改代码。';
-    setStatus('等待 ETHERSCAN_API_KEY', 'warning');
-  }
-
   function render(payload) {
-    if (!payload?.configured) return renderUnconfigured(payload);
     const snap = payload?.snapshots?.[0];
     if (!snap) throw new Error('没有返回巨鲸快照');
 
@@ -109,7 +93,7 @@
     els.tableBody.innerHTML = '';
     if (!actions.length) {
       els.empty.classList.remove('hidden');
-      els.empty.textContent = '近 7 天当前地址没有 ≥$1M 或 ≥500 ETH 的显著动作。';
+      els.empty.textContent = '近 7 天当前登记地址没有 ≥$1M 或 ≥500 ETH 的显著 WETH/稳定币动作。';
     } else {
       els.empty.classList.add('hidden');
       for (const action of actions) {
@@ -124,24 +108,24 @@
           <td>${compactUsd(action.stableNetUsd)}</td>
           <td>${assets}</td>
           <td>${protocols}</td>
-          <td><a class="action-btn" href="https://etherscan.io/tx/${encodeURIComponent(action.hash)}" target="_blank" rel="noreferrer">Etherscan</a></td>
+          <td><a class="action-btn" href="https://etherscan.io/tx/${encodeURIComponent(action.hash)}" target="_blank" rel="noreferrer">查看交易</a></td>
         `;
         els.tableBody.appendChild(tr);
       }
     }
-    setStatus('Etherscan V2 正常', 'success');
+    setStatus(`Ethereum RPC 正常${payload.rpcHost ? ` · ${payload.rpcHost}` : ''}`, 'success');
   }
 
   async function load() {
     els.refresh.disabled = true;
-    setStatus('正在读取链上数据…');
+    setStatus('正在直接读取 Ethereum 链上 logs…');
     try {
       const response = await fetch(API, { cache: 'no-store', headers: { Accept: 'application/json' } });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.message || `HTTP ${response.status}`);
       render(payload);
     } catch (error) {
-      setStatus('链上数据暂不可用', 'error');
+      setStatus('链上 RPC 暂不可用', 'error');
       els.state.textContent = 'DATA UNAVAILABLE';
       els.state.className = 'whale-state whale-negative';
       els.stateReason.textContent = error.message || '读取失败';
