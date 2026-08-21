@@ -7,7 +7,7 @@
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#090b10">
   <title>币安永续合约做空雷达</title>
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <div class="app-shell">
@@ -15,7 +15,7 @@
       <div class="hero-main">
         <div class="eyebrow">BINANCE USDT 永续合约 · 实时扫描</div>
         <h1>做空雷达</h1>
-        <p class="hero-copy">V2 是当前严格策略，V1 是旧版高 RSI 参考。只展示信号，不自动交易。</p>
+        <p class="hero-copy">V2 是当前严格策略，V1 是旧版高 RSI 参考。Whale Intelligence 独立展示链上巨鲸行为，不直接改变 V1/V2 信号。</p>
       </div>
       <div class="hero-actions">
         <span id="last-updated" class="muted">最后更新：--</span>
@@ -23,6 +23,60 @@
         <div class="loading-indicator hidden" id="loading-indicator" aria-label="加载中"></div>
       </div>
     </header>
+
+    <section id="whale-section" class="version-section whale-version">
+      <div class="version-header">
+        <div>
+          <span class="version-badge whale-badge">WHALE INTELLIGENCE</span>
+          <h2>7 Siblings 链上行为</h2>
+          <p>当前先基于手工登记地址监控；后续发现新地址时继续补充地址集。链上模块独立于 V1/V2，不自动生成交易指令。</p>
+        </div>
+        <div class="whale-header-actions">
+          <div id="whale-api-status" class="api-status">正在读取链上数据…</div>
+          <button id="whale-refresh-btn" class="refresh-btn" type="button">刷新链上</button>
+        </div>
+      </div>
+
+      <section class="status-strip compact-status">
+        <div class="metrics">
+          <span id="whale-address-count">地址：1</span>
+          <span id="whale-updated">链上更新：--</span>
+          <span>数据源：Ethereum Public RPC + Chainlink</span>
+        </div>
+      </section>
+
+      <section class="whale-summary-grid">
+        <div class="summary-card">
+          <span>当前状态</span>
+          <strong id="whale-state" class="whale-state whale-neutral">LOADING</strong>
+          <small id="whale-state-reason">正在汇总最近 24H 资金流。</small>
+        </div>
+        <div class="summary-card">
+          <span>24H ETH / WETH 净流</span>
+          <strong id="whale-eth-24h">—</strong>
+          <small>RPC MVP 主要基于 WETH Transfer；正数 = 当前地址净收到</small>
+        </div>
+        <div class="summary-card">
+          <span>24H 稳定币净流</span>
+          <strong id="whale-stable-24h">—</strong>
+          <small>USDC / USDT / DAI / USDS；正数 = 净收到</small>
+        </div>
+        <div class="summary-card">
+          <span>7D ETH / WETH 净流</span>
+          <strong id="whale-eth-7d">—</strong>
+          <small>用于观察连续积累 / 分发，而不是单笔噪音</small>
+        </div>
+      </section>
+
+      <div class="table-container whale-table-container">
+        <table class="whale-table">
+          <thead><tr><th>时间</th><th>动作</th><th>ETH/WETH 净流</th><th>稳定币净流</th><th>资产</th><th>协议提示</th><th></th></tr></thead>
+          <tbody id="whale-actions-body"></tbody>
+        </table>
+      </div>
+      <div id="whale-empty" class="empty-state hidden">当前没有显著链上动作。</div>
+      <p class="whale-note">注意：当前无需 API Key，直接读取 Ethereum 公共 RPC 的 WETH/USDC/USDT/DAI/USDS Transfer logs。第一版不完整覆盖纯原生 ETH 转账、internal trace、CEX 标签，以及未登记代理/新钱包；低置信度资金流不强行解释。</p>
+    </section>
 
     <section class="version-section current-version">
       <div class="version-header">
@@ -101,8 +155,9 @@
       <div id="v1-empty-state" class="empty-state hidden"><h3 id="v1-empty-title">当前没有 V1 命中。</h3><p id="v1-empty-detail">旧版扫描正常完成，目前没有高 RSI 标的。</p></div>
     </section>
 
-    <footer><strong>注意：</strong>V2 才是当前 Forward Test 策略；V1 只用于对照和排查，不要把两个版本的规则临时拼成新的入场条件。链上供给风险属于人工核查项，雷达不会自动判断 CEX 流出或新钱包吸筹。</footer>
+    <footer><strong>注意：</strong>V2 才是当前 Forward Test 策略；V1 只用于对照和排查，不要把两个版本的规则临时拼成新的入场条件。链上供给风险属于人工核查项，Whale Intelligence 也只作为独立辅助信息，不自动改变做空信号。</footer>
   </div>
   <script src="app-v4.js?v=10"></script>
+  <script src="whale.js?v=2"></script>
 </body>
 </html>
