@@ -6,6 +6,7 @@ const ETHERSCAN_BASE = 'https://api.etherscan.io/v2/api';
 const CHAIN_ID = 1;
 const LOOKBACK_DAYS = 7;
 const REQUEST_TIMEOUT_MS = 12000;
+const MIN_REQUEST_GAP_MS = 360; // Etherscan Free: 3 calls/sec. Keep a little headroom.
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,38 +14,50 @@ function cors(res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
-async function fetchEtherscan(apiKey, params) {
-  const url = new URL(ETHERSCAN_BASE);
-  const merged = { chainid: CHAIN_ID, apikey: apiKey, ...params };
-  for (const [key, value] of Object.entries(merged)) {
-    if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
-  }
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const response = await fetch(url, {
-      headers: { Accept: 'application/json', 'User-Agent': 'binance-futures-radar-whale/1.0' },
-      signal: controller.signal,
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(`Etherscan HTTP ${response.status}`);
-    if (!payload) throw new Error('Etherscan returned an empty response');
+function createEtherscanClient(apiKey) {
+  let lastRequestStartedAt = 0;
 
-    const noTransactions = payload.status === '0'
-      && /no transactions found/i.test(String(payload.message || payload.result || ''));
-    if (noTransactions) return [];
+  return async function call(params) {
+    const elapsed = Date.now() - lastRequestStartedAt;
+    if (elapsed < MIN_REQUEST_GAP_MS) await sleep(MIN_REQUEST_GAP_MS - elapsed);
+    lastRequestStartedAt = Date.now();
 
-    if (payload.status === '0' && !Array.isArray(payload.result)) {
-      throw new Error(String(payload.result || payload.message || 'Etherscan API error'));
+    const url = new URL(ETHERSCAN_BASE);
+    const merged = { chainid: CHAIN_ID, apikey: apiKey, ...params };
+    for (const [key, value] of Object.entries(merged)) {
+      if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
     }
-    return payload.result;
-  } catch (error) {
-    if (error.name === 'AbortError') throw new Error('Etherscan request timed out');
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json', 'User-Agent': 'binance-futures-radar-whale/1.0' },
+        signal: controller.signal,
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(`Etherscan HTTP ${response.status}`);
+      if (!payload) throw new Error('Etherscan returned an empty response');
+
+      const noTransactions = payload.status === '0'
+        && /no transactions found/i.test(String(payload.message || payload.result || ''));
+      if (noTransactions) return [];
+
+      if (payload.status === '0' && !Array.isArray(payload.result)) {
+        throw new Error(String(payload.result || payload.message || 'Etherscan API error'));
+      }
+      return payload.result;
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('Etherscan request timed out');
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 }
 
 async function handler(req, res) {
@@ -66,21 +79,20 @@ async function handler(req, res) {
     });
   }
 
+  const etherscan = createEtherscanClient(apiKey);
   const now = Date.now();
   const since = Math.floor((now - LOOKBACK_DAYS * 24 * 60 * 60 * 1000) / 1000);
   try {
-    const [startBlockRaw, ethPriceRaw] = await Promise.all([
-      fetchEtherscan(apiKey, {
-        module: 'block',
-        action: 'getblocknobytime',
-        timestamp: since,
-        closest: 'before',
-      }),
-      fetchEtherscan(apiKey, {
-        module: 'stats',
-        action: 'ethprice',
-      }),
-    ]);
+    const startBlockRaw = await etherscan({
+      module: 'block',
+      action: 'getblocknobytime',
+      timestamp: since,
+      closest: 'before',
+    });
+    const ethPriceRaw = await etherscan({
+      module: 'stats',
+      action: 'ethprice',
+    });
 
     const startBlock = Number(startBlockRaw);
     const ethPriceUsd = Number(ethPriceRaw?.ethusd || 0);
@@ -89,8 +101,6 @@ async function handler(req, res) {
 
     const snapshots = [];
     for (const entity of WATCHED_ENTITIES) {
-      // One address for now; append addresses to lib/whale-intelligence.js as the cluster expands.
-      // For multiple addresses we fetch each separately and merge the raw rows before classification.
       const normalRows = [];
       const internalRows = [];
       const tokenRows = [];
@@ -106,11 +116,9 @@ async function handler(req, res) {
           sort: 'desc',
         };
 
-        const [normal, token, internal] = await Promise.all([
-          fetchEtherscan(apiKey, { ...common, action: 'txlist' }),
-          fetchEtherscan(apiKey, { ...common, action: 'tokentx' }),
-          fetchEtherscan(apiKey, { ...common, action: 'txlistinternal' }),
-        ]);
+        const normal = await etherscan({ ...common, action: 'txlist' });
+        const token = await etherscan({ ...common, action: 'tokentx' });
+        const internal = await etherscan({ ...common, action: 'txlistinternal' });
         normalRows.push(...(Array.isArray(normal) ? normal : []));
         tokenRows.push(...(Array.isArray(token) ? token : []));
         internalRows.push(...(Array.isArray(internal) ? internal : []));
