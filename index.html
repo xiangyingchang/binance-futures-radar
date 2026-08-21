@@ -41,7 +41,7 @@
         <div class="metrics">
           <span id="whale-address-count">地址：1</span>
           <span id="whale-updated">链上更新：--</span>
-          <span>数据源：Etherscan V2</span>
+          <span>数据源：Ethereum Public RPC + Chainlink</span>
         </div>
       </section>
 
@@ -54,7 +54,7 @@
         <div class="summary-card">
           <span>24H ETH / WETH 净流</span>
           <strong id="whale-eth-24h">—</strong>
-          <small>正数 = 当前地址净收到 ETH/WETH</small>
+          <small>RPC MVP 主要基于 WETH Transfer；正数 = 当前地址净收到</small>
         </div>
         <div class="summary-card">
           <span>24H 稳定币净流</span>
@@ -75,7 +75,7 @@
         </table>
       </div>
       <div id="whale-empty" class="empty-state hidden">当前没有显著链上动作。</div>
-      <p class="whale-note">注意：当前只覆盖手工登记的 7 Siblings 地址。若资金经由未登记代理钱包、新钱包或 CEX 内部账户移动，系统可能漏报；协议分类仅在直接调用或资金流足够明确时给出。</p>
+      <p class="whale-note">注意：当前无需 API Key，直接读取 Ethereum 公共 RPC 的 WETH/USDC/USDT/DAI/USDS Transfer logs。第一版不完整覆盖纯原生 ETH 转账、internal trace、CEX 标签，以及未登记代理/新钱包；低置信度资金流不强行解释。</p>
     </section>
 
     <section class="version-section current-version">
@@ -158,6 +158,6 @@
     <footer><strong>注意：</strong>V2 才是当前 Forward Test 策略；V1 只用于对照和排查，不要把两个版本的规则临时拼成新的入场条件。链上供给风险属于人工核查项，Whale Intelligence 也只作为独立辅助信息，不自动改变做空信号。</footer>
   </div>
   <script src="app-v4.js?v=10"></script>
-  <script src="whale.js?v=1"></script>
+  <script src="whale.js?v=2"></script>
 </body>
 </html>
