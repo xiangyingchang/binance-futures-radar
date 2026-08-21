@@ -1,6 +1,11 @@
 'use strict';
 
 (() => {
+  const css = document.createElement('link');
+  css.rel = 'stylesheet';
+  css.href = 'whale.css?v=1';
+  document.head.appendChild(css);
+
   const root = document.getElementById('whale-section');
   if (!root) return;
 
