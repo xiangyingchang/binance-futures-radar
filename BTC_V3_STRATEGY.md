@@ -1,56 +1,53 @@
 # BTC V3 — Dynamic Exposure / BTC Accumulator
 
-> Status: **Independent review complete; implementation blocked on contract/margin model decision**  
+> Status: **Implementation candidate in PR #16; read-only Forward Test only**  
 > Research freeze date: **2026-08-22**  
-> Intended forward-test start: **2026-08-23 or the first day after implementation is merged**  
-> Strategy family: **Long-biased BTC dynamic exposure**  
-> Primary objective: **increase BTC-equivalent NAV versus 1 BTC HODL without relying on hidden external capital**
+> Canonical instrument approved: **Binance COIN-M `BTCUSD_PERP`**  
+> Signal price source: **Binance BTCUSD Index Price daily candles**  
+> Strategy version: **`btc-v3.1-coinm`**  
+> Primary objective: **increase BTC wealth versus 1 BTC HODL without hidden external capital**
 
-## 1. Why V3 exists
+## 1. Purpose
 
-V1/V2 are altcoin exhaustion-short research tools. V3 is intentionally separate.
+V1/V2 are altcoin exhaustion-short tools. V3 is intentionally separate.
 
-V3 is designed for a different objective:
+V3 is a long-biased BTC inventory / dynamic-beta strategy:
 
-> Keep BTC as the long-term asset, dynamically change net BTC exposure through market regimes, and end with more BTC-equivalent wealth than passive BTC HODL.
+> Start with BTC, change net BTC exposure across market regimes, and try to finish with more BTC than passive HODL while controlling catastrophic drawdown risk.
 
-V3 is **not** an altcoin short strategy, not a fixed grid, and not a generic leveraged BTC long strategy.
+V3 is not a grid, not a generic 2x BTC strategy, and not an automatic trading system.
 
-## 2. Reviewer conclusion
+## 2. Independent reviewer decision
 
-The core strategy thesis remains valid:
+The 2026-08-22 review kept the core thesis but found that earlier exploratory backtests had not fully specified futures collateral. That was a material accounting problem.
 
-- BTC has a long-run positive drift, so the strategy should remain structurally long-biased.
-- Trend should decide whether risk can be increased.
-- Valuation should influence how much risk to take, but should not independently trigger aggressive dip-buying.
-- Realized volatility should cap exposure.
-- A slow bear-regime lock is more robust than reacting to fast moving-average noise.
-- 2.0x should be a tactical permission, not the normal target.
+The owner approved the reviewer recommendation to use **COIN-M** as the canonical implementation.
 
-However, the independent review found two implementation blockers that must be resolved before production code is allowed to place or model real trades:
+Why:
 
-1. **The derivative instrument / margin model was never fully specified.**
-2. **A live API alone cannot provide auditable forward-test history on the current Vercel architecture.**
+- `BTCUSD_PERP` is BTC-margined and BTC-settled;
+- no extra USDT reserve is required to make the strategy work;
+- derivative PnL naturally increases or decreases BTC;
+- the benchmark can honestly remain `1 BTC -> X BTC`;
+- USDⓈ-M exploratory results do not get silently carried into the production statistics.
 
-The first blocker changes strategy accounting and liquidation risk, so it requires explicit owner approval before implementation.
+All old V3 USDⓈ-M results (`1.62 BTC`, `1.47 BTC`, etc.) are therefore classified as **strategy-family exploration only**, not canonical V3 performance.
 
 ## 3. Frozen V3.1 signal model
 
-These parameters are frozen as the V3.1 research baseline. Do not tune them after observing future performance.
+These parameters were frozen on 2026-08-22. Future performance is not a reason to tune V3.1.
 
 ### 3.1 Trend score
 
-Daily closed candles only.
+Use **fully closed BTCUSD Index Price daily candles**.
 
-Add one point for each condition:
+Add one point for each:
 
 1. `Close > MA200`
 2. `EMA15 > EMA30`
 3. `MA200 slope over 30 days > 0`
 
-Base target exposure:
-
-| Trend score | Base target |
+| Trend score | Base target exposure |
 | --- | ---: |
 | 0 | 0.50x |
 | 1 | 0.75x |
@@ -66,308 +63,253 @@ If both are true:
 
 then:
 
-`signal target exposure = 0.00x`
+`valuation_adjusted_target = 0.00x`
 
-This means the portfolio is hedged to approximately zero net BTC beta. It does **not** mean selling the long-term BTC core by default.
+This is an economic hedge of the BTC beta using COIN-M futures. It does not mean V3 sells the long-term BTC asset by default.
 
 ### 3.3 Valuation adjustment
 
-Valuation is subordinate to trend.
+Valuation can increase exposure only when trend has already improved.
 
-Research baseline:
-
-- `cheap`: drawdown from trailing 365D high <= -20% **or** price <= 90% of MA200
-- `very cheap`: drawdown from trailing 365D high <= -35% **or** price <= 80% of MA200
+- `cheap`: trailing 365D drawdown <= -20% **or** MA200 deviation <= -10%
+- `very cheap`: trailing 365D drawdown <= -35% **or** MA200 deviation <= -20%
 
 Adjustment:
 
-- Trend score 2 + cheap → target up to 1.25x
-- Trend score 3 + cheap → target up to 1.50x
-- Trend score 3 + very cheap → tactical target may request up to 2.00x
+- Trend 2 + cheap -> up to `1.25x`
+- Trend 3 + cheap -> up to `1.50x`
+- Trend 3 + very cheap -> raw tactical request may reach `2.00x`
 
-A falling market is never allowed to request 2.00x solely because price is cheap.
+A falling market never gets 2.00x simply because price is cheap.
 
-### 3.4 Volatility cap
+### 3.4 Volatility gate
 
-Use 30D realized volatility from closed daily returns.
-
-Research baseline:
+Use 30D realized volatility from closed daily simple returns, annualized with 365 days.
 
 `volatility_cap = clamp(0.60 / RV30, 0.50, 2.00)`
 
-The current V3.1 Balanced version uses a 60% target portfolio volatility.
+### 3.5 Margin gate
 
-### 3.5 Final signal target
+`2.00x` remains a tactical permission, not the normal production target.
 
-Before margin constraints:
+The first public/read-only V3.1 implementation uses a conservative static:
 
-`signal_target = min(regime_target, valuation_adjusted_target, volatility_cap)`
+`public_margin_cap = 1.50x`
 
-After the live account model is defined:
+Therefore:
 
-`final_target = min(signal_target, margin_cap)`
+`raw_signal_target = bear_lock ? 0 : min(valuation_adjusted_target, volatility_cap, 2.00)`
 
-The margin cap is not optional.
+`final_target = min(raw_signal_target, margin_cap)`
 
-## 4. Exposure interpretation
+This corrects a formula typo in the first review document. The previous written formula included `regime_target` inside the final `min(...)`, which would have made the valuation adjustment mathematically unable to increase exposure. The implementation follows the intended and previously backtested logic above.
 
-Net exposure is portfolio-level BTC beta, not exchange leverage setting.
+A future account-aware implementation may allow a final target above 1.50x only after a separate margin/liquidation review. That would be a new implementation revision, not a silent V3.1 parameter edit.
 
-Conceptual examples:
+## 4. Exposure meaning
 
-| Net BTC exposure | Meaning |
+Net BTC exposure is portfolio beta, **not the Binance leverage selector**.
+
+| Target | Meaning |
 | ---: | --- |
-| 0.00x | BTC core economically hedged |
-| 0.50x | half BTC beta |
+| 0.00x | BTC beta economically hedged |
+| 0.50x | defensive half-beta |
 | 0.75x | defensive long |
-| 1.00x | equivalent to BTC HODL beta |
-| 1.25x | moderate tactical long overlay |
-| 1.50x | aggressive but normal V3 upper range |
-| 2.00x | rare tactical maximum only |
+| 1.00x | BTC HODL-equivalent beta |
+| 1.25x | moderate long overlay |
+| 1.50x | normal aggressive V3 upper range |
+| 2.00x | tactical research permission only |
 
-The exchange leverage selector must never be confused with target net exposure.
+For a 1 BTC reference account and a $100 COIN-M contract size, the futures overlay is approximately:
 
-## 5. Independent review blocker: derivative and margin model
+`overlay_btc = (target_exposure - 1) * equity_btc`
 
-This is the largest issue found in review.
+`contracts ~= overlay_btc * BTC_price / contract_size_usd`
 
-The earlier exploratory backtests implicitly combined:
+Contract quantity is integer-rounded, so realized exposure will not exactly equal the theoretical target for very small accounts.
 
-- `1 BTC spot core`
-- a USDⓈ-M futures overlay
-- portfolio-level accounting
+## 5. Canonical COIN-M accounting
 
-but did not fully specify where futures margin came from.
+The implementation uses inverse COIN-M payoff math.
 
-That creates three materially different systems.
+For signed contract quantity `q` (positive long, negative short):
 
-### Option A — USDⓈ-M with dedicated USDT reserve
+`PnL_BTC = q * contract_size_usd * (1 / price_start - 1 / price_end)`
 
-Pros:
+Funding is modeled in BTC from actual COIN-M funding rates:
 
-- simple linear PnL;
-- easy to model;
-- operationally clear.
+`funding_PnL_BTC = -(q * contract_size_usd / mark_price) * funding_rate`
 
-Problem:
+Positive funding therefore costs long positions and pays short positions.
 
-- if the initial state is `1 BTC + extra USDT`, the strategy has external capital and cannot honestly report `1 BTC → X BTC` against a pure 1 BTC benchmark;
-- if BTC is sold to create the USDT reserve, the portfolio no longer starts with a 1 BTC core.
+The strategy starts from **1 BTC**, with no extra USDT capital injected into the benchmark.
 
-### Option B — USDⓈ-M using BTC as collateral / portfolio or multi-asset margin
+## 6. Data separation
 
-Pros:
+To avoid silently changing the strategy:
 
-- preserves the visible BTC core;
-- keeps linear BTCUSDT futures exposure.
+- **Signal:** BTCUSD Index Price daily candles
+- **Execution instrument:** `BTCUSD_PERP` COIN-M perpetual
+- **Funding:** `BTCUSD_PERP` COIN-M funding history
+- **Mark price for funding/backtest:** `BTCUSD_PERP` mark-price candles
+- **Contract metadata:** COIN-M exchange info, including live `contractSize` and `marginAsset`
 
-Problems:
+Using index price for the signal preserves the frozen BTC-market regime logic. Perpetual basis/funding noise should affect execution economics, not redefine the trend signal.
 
-- collateral haircut must be modeled;
-- BTC collateral and long futures deteriorate together during a crash (wrong-way collateral risk);
-- historical margin rules, collateral ratios and liquidation mechanics can change over time;
-- the earlier simplified liquidation stress test is not a production-grade margin simulation.
+## 7. Anti-overfitting / data-bias protocol
 
-### Option C — COIN-M BTC-margined perpetual
+### 7.1 No look-ahead
 
-Pros:
+- only fully closed daily candles enter the signal;
+- the snapshot stores candle timestamps and observation timestamps;
+- historical backtest signal for day T is executed no earlier than the next day;
+- same-timestamp midnight funding is processed before the next rebalance in the canonical backtest model.
 
-- margined and settled in BTC;
-- no hidden external USDT capital is required;
-- realized derivative PnL naturally accumulates or loses BTC;
-- accounting aligns directly with the V3 objective.
+### 7.2 Instrument availability
 
-Problems:
+Executable COIN-M backtest begins no earlier than the actual `BTCUSD_PERP` onboard date returned by Binance exchange metadata.
 
-- COIN-M contracts have different payoff mechanics from USDⓈ-M;
-- historical funding and contract data must be rebuilt from COIN-M data;
-- all earlier USDⓈ-M backtest numbers become exploratory evidence only and cannot be carried forward as production statistics.
+Older BTC history can be used for regime research only.
 
-### Reviewer recommendation
+### 7.3 Point-in-time limits
 
-**Prefer Option C (COIN-M) for the canonical V3 forward-test model**, because the strategy objective is explicitly BTC accumulation and the benchmark starts from BTC without external capital.
+Historical exchange maintenance-margin tiers are not assumed to be identical to today's rules. When exact historical tier data is unavailable, the canonical backtest uses a deliberately conservative static maintenance-rate stress test and labels it approximate.
 
-USDⓈ-M can remain a secondary implementation later if the account-level capital model is explicitly defined.
+Do not manufacture false precision.
 
-This recommendation is a **major strategy implementation change** and requires owner approval before code proceeds.
+### 7.4 Costs
 
-## 6. Historical evidence: how to treat prior backtests
+Canonical backtest includes:
 
-Earlier research found promising results for the V3 family, including materially higher BTC-equivalent terminal wealth than HODL and lower drawdown after adding Bear Lock.
-
-These results are now classified as:
-
-> **Exploratory strategy-family evidence, not production backtest evidence.**
-
-Reasons:
-
-- earlier runs did not fully freeze the execution instrument;
-- some runs used simplified carry assumptions before real funding was added;
-- execution timing assumptions changed during review;
-- the exact margin source was not fully specified;
-- pre-instrument periods cannot be treated as executable history.
-
-No production claim should quote the old `1.62 BTC`, `1.47 BTC`, or similar values without also stating the exact instrument, data period and execution model.
-
-Once the derivative model is approved, V3 must receive a new canonical backtest using only point-in-time available data for that exact instrument.
-
-## 7. Anti-overfitting protocol
-
-### 7.1 Frozen research family
-
-V3.1 parameters above are frozen on 2026-08-22.
-
-Future poor or good performance is not a reason to edit V3.1.
-
-A material signal change must create a new version, e.g. V3.2, while V3.1 keeps running.
-
-### 7.2 No look-ahead
-
-- Only fully closed daily candles may enter the signal.
-- Signal timestamp and candle close timestamp must be recorded.
-- Execution must happen only after the signal is known.
-- Backtests must model the chosen execution delay explicitly.
-
-### 7.3 Point-in-time data
-
-Do not use today's exchange rules, collateral ratios, funding history or contract metadata as if they existed unchanged in prior years.
-
-If point-in-time risk parameters are unavailable, use conservative stress assumptions and label the result as approximate rather than fabricating precision.
-
-### 7.4 Instrument availability
-
-No period before the selected production instrument existed may count as executable backtest performance.
-
-Older BTC price history may be used only for regime robustness research.
-
-### 7.5 Costs
-
-Canonical backtests must include:
-
-- trading fees;
+- inverse COIN-M payoff;
+- trading fee assumption;
 - slippage assumption;
-- actual historical funding where available;
-- conversion / spot fees when the implementation requires spot conversion;
-- liquidation / margin constraints.
+- actual historical COIN-M funding;
+- integer contract rounding;
+- intraday high/low maintenance stress.
 
-### 7.6 Parameter robustness
+Default research assumptions in `scripts/btc-v3-backtest.js`:
 
-A new rule is not accepted because one exact parameter point looks good.
+- futures fee: `5 bps`
+- execution slippage: `5 bps`
+- stress maintenance rate: `10%`
 
-Requirements:
+These may be changed only for explicit sensitivity analysis. They are not signal parameters.
 
-- nearby parameters should retain the same qualitative behavior;
-- ablation should show which module contributes value;
-- forward-test evidence outranks further in-sample optimization.
+### 7.5 Forward data outranks more optimization
 
-## 8. Forward-test architecture requirement
+V3.1 remains frozen after launch. A material signal change creates V3.2 while V3.1 continues to log.
 
-The current repository is deployed mainly as stateless Vercel Functions. A real-time endpoint can calculate today's signal but cannot by itself create a trustworthy historical forward-test ledger.
+## 8. Forward-test architecture
 
-V3 therefore needs an append-only daily snapshot mechanism.
+Vercel functions are stateless, so the live API is not the forward-test ledger.
 
-Recommended repository-native first version:
+Implemented structure:
 
-1. `lib/btc-v3-strategy.js` — pure deterministic signal calculations
-2. `api/btc-v3.js` — current read-only signal endpoint
-3. `tests/btc-v3-strategy.test.js` — deterministic unit tests
-4. `data/btc-v3-forward-test.jsonl` — append-only observed snapshots
-5. `.github/workflows/btc-v3-forward-test.yml` — scheduled daily runner that calculates the signal after candle close and commits one immutable observation
-6. `BTC_V3_STRATEGY.md` — this continuously maintained decision record
+- `lib/btc-v3-strategy.js` — deterministic signal + inverse-contract math
+- `lib/binance-coinm.js` — Binance COIN-M public market-data adapter
+- `lib/btc-v3-snapshot.js` — auditable current snapshot builder
+- `api/btc-v3.js` — current read-only V3 endpoint
+- `tests/btc-v3-strategy.test.js` — deterministic strategy tests
+- `scripts/btc-v3-backtest.js` — exact-instrument canonical research backtest
+- `scripts/btc-v3-forward-test.js` — append-only live observation writer
+- `data/btc-v3-forward-test.jsonl` — immutable observation ledger
+- `.github/workflows/btc-v3-forward-test.yml` — scheduled daily snapshot after UTC candle close
+- `btc-v3.html` / `btc-v3.js` / `btc-v3.css` — independent V3 dashboard
 
-If GitHub Actions proves unreliable for market data access, move persistence to a dedicated database, but do not silently replace missing dates with reconstructed history.
+The scheduled workflow runs at **00:17 UTC**. This intentionally leaves a short buffer after the 00:00 UTC daily close.
 
-## 9. Forward-test record schema
+## 9. Forward-test integrity rules
 
-Every observed day should record at minimum:
+Each successful record stores:
 
 - strategy version;
-- observation timestamp;
-- latest closed candle open/close time;
-- OHLC;
-- EMA15;
-- EMA30;
-- MA200;
-- MA200 slope 30D;
-- trailing 365D drawdown;
+- candle date and closed OHLC;
+- EMA15 / EMA30 / MA200;
+- MA200 30D slope;
+- 365D drawdown;
 - MA200 deviation;
 - RV30;
-- trend score;
-- Bear Lock state;
+- Trend score / Bear Lock;
 - cheap / very-cheap flags;
-- raw regime target;
-- volatility cap;
-- signal target;
-- margin cap if account-aware;
-- final target;
-- data source;
-- source request timestamp;
+- regime / valuation / volatility / margin gates;
+- raw and final target exposure;
+- current funding context;
+- 1 BTC reference contract sizing;
 - data-quality flags;
-- code commit SHA.
+- code commit SHA;
+- `reconstructed=false`;
+- `autoTrade=false`.
 
-If execution is later enabled, additionally record actual fill time, fill price, quantity, fee, funding, account equity, margin ratio and execution error.
+Rules:
 
-## 10. Forward-test integrity rules
+- never overwrite an observed date;
+- never backfill a missing date and call it live;
+- a failed fetch is appended as a failure record instead of disappearing;
+- reruns do not overwrite a successful record;
+- reconstructed research data, if ever added, must be explicitly tagged and excluded from primary Forward Test stats.
 
-- Never backfill a missing daily observation as if it had been observed live.
-- A reconstructed date must be explicitly tagged `reconstructed=true` and excluded from primary forward-test statistics.
-- A failed data fetch is a valid observation and should be logged as failure, not hidden.
-- Daily records are append-only; corrections should be new records referencing the original record rather than editing historical values in place.
-- Store the code commit SHA with each observation so a future reviewer can reproduce the exact signal logic.
+## 10. V3 and V2 separation
 
-## 11. V3 must stay separate from V2
+V2 remains the altcoin exhaustion-short Forward Test.
 
-Current repository naming already contains old frontend files named `app-v2.js`, `app-v3.js`, and `app-v4.js`. These are UI iteration names, not strategy versions.
+V3 code uses explicit `btc-v3-*` naming. Existing historical frontend files such as `app-v3.js` are unrelated UI versions and must not be reused for the BTC strategy.
 
-To avoid collisions, new BTC strategy code must use explicit names such as:
+No V1/V2 entry rule is changed by V3.
 
-- `btc-v3-strategy.js`
-- `btc-v3.js`
-- `btc-v3-forward-test.jsonl`
+## 11. Automation scope
 
-Do not reuse `app-v3.js` for the BTC strategy.
+Current implementation is intentionally:
 
-V2 altcoin logic must remain untouched while V3 is developed.
+> **read-only signal + auditable Forward Test**
 
-## 12. Automation scope
+`autoTrade=false`.
 
-V3 implementation should begin as:
+No API key, signed order endpoint, leverage-change endpoint or autonomous execution code is included in V3.1.
 
-> **read-only signal + auditable forward test**
+Live capital requires a separate approval after:
 
-not automatic trading.
+1. canonical COIN-M backtest completes and is reviewed;
+2. Forward Test accumulates real unseen observations;
+3. account-aware margin/liquidation model is reviewed;
+4. execution sizing, fill handling and kill-switch logic receive a separate code review.
 
-`autoTrade=false` remains the default until:
+## 12. Acceptance criteria before live capital
 
-- the derivative/margin model is approved;
-- the canonical exact-instrument backtest is complete;
-- forward-test data accumulates;
-- authenticated execution code has separate risk review.
+- [x] canonical derivative chosen: `BTCUSD_PERP` COIN-M
+- [x] BTC margin/settlement model chosen
+- [x] deterministic signal module implemented
+- [x] inverse payoff/funding math tested
+- [x] read-only API implemented
+- [x] append-only daily Forward Test implemented
+- [x] V3 kept separate from V1/V2
+- [x] `autoTrade=false`
+- [ ] canonical COIN-M backtest run reviewed and recorded
+- [ ] meaningful unseen Forward Test sample accumulated
+- [ ] account-aware Margin Gate approved for any target >1.50x
+- [ ] authenticated execution receives separate review
 
-## 13. Acceptance criteria before live capital
+## 13. Change log
 
-At minimum:
+### 2026-08-22 — Implementation candidate / PR #16
 
-1. Exact production derivative instrument is frozen.
-2. Exact margin source and collateral model are frozen.
-3. Canonical backtest is rerun on that instrument.
-4. No look-ahead / timing audit passes.
-5. Fees, funding and slippage are included.
-6. Liquidation stress test passes.
-7. Daily forward-test snapshots are persisted without backfill.
-8. Strategy code has deterministic unit tests.
-9. V3.1 remains frozen while forward testing.
-10. Auto-trading stays disabled until a separate execution review.
-
-## 14. Change log
+- Owner approved COIN-M as the canonical V3 instrument model.
+- Frozen `BTCUSD_PERP`, BTC margin/settlement and BTCUSD Index signal source.
+- Added deterministic V3.1 signal module.
+- Added inverse COIN-M PnL and funding helpers.
+- Added conservative public Margin Cap of 1.50x; tactical 2.00x remains non-executable in the read-only public model.
+- Added current `/api/btc-v3` signal endpoint.
+- Added standalone `/btc-v3.html` dashboard.
+- Added append-only GitHub Actions Forward Test at 00:17 UTC.
+- Added canonical exact-instrument backtest script using index, perpetual, mark-price and funding data.
+- Added V3 files to CI and Vercel Singapore region configuration.
+- Corrected the first-review final-target formula typo; no strategy parameter was tuned.
+- Auto-trading remains disabled.
 
 ### 2026-08-22 — Independent review v1
 
-- Separated V3 conceptually from V1/V2.
-- Reclassified prior V3 backtests as exploratory evidence because the derivative/margin model was underspecified.
-- Identified instrument/margin model as a production blocker.
-- Recommended COIN-M as the canonical model for owner review because it aligns settlement and collateral with the BTC accumulation objective.
-- Added append-only forward-test persistence requirement.
-- Added code-commit provenance and no-backfill rules.
-- Added explicit naming rule to avoid conflict with the existing historical `app-v3.js` frontend file.
-- Kept V3.1 signal parameters frozen; no parameter tuning was performed during this review.
+- Separated V3 from V1/V2.
+- Reclassified prior USDⓈ-M results as exploratory evidence.
+- Identified the derivative/margin model as a blocker.
+- Recommended COIN-M for owner approval.
+- Added append-only persistence, provenance and no-backfill requirements.
