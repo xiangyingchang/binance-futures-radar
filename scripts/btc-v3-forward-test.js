@@ -2,9 +2,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { buildBtcV3Snapshot } = require('../lib/btc-v3-snapshot');
 
 const LEDGER = path.join(__dirname, '..', 'data', 'btc-v3-forward-test.jsonl');
+const SNAPSHOT_URL = process.env.BTC_V3_SNAPSHOT_URL
+  || 'https://binance-futures-radar.vercel.app/api/btc-v3';
+const REQUEST_TIMEOUT_MS = Number(process.env.BTC_V3_SNAPSHOT_TIMEOUT_MS || 30000);
 
 function readLedger() {
   if (!fs.existsSync(LEDGER)) return [];
@@ -23,6 +25,27 @@ function append(record) {
   fs.appendFileSync(LEDGER, `${JSON.stringify(record)}\n`, 'utf8');
 }
 
+async function fetchRemoteSnapshot() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(SNAPSHOT_URL, {
+      headers: { Accept: 'application/json', 'User-Agent': 'btc-v3-forward-test-ledger/1.0' },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    let payload = null;
+    try { payload = await response.json(); } catch (_) {}
+    if (!response.ok) throw new Error(payload?.message || payload?.error || `snapshot HTTP ${response.status}`);
+    if (!payload || payload.autoTrade !== false || payload.executionMode !== 'READ_ONLY_FORWARD_TEST') {
+      throw new Error('snapshot safety contract invalid');
+    }
+    return payload;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function compactSnapshot(snapshot) {
   const candle = snapshot.latestClosedCandle;
   const signal = snapshot.signal;
@@ -32,6 +55,9 @@ function compactSnapshot(snapshot) {
     strategyVersion: snapshot.strategyVersion,
     candleDate,
     observedAt: snapshot.observedAt,
+    collectedAt: new Date().toISOString(),
+    snapshotUrl: SNAPSHOT_URL,
+    signalPriceSource: snapshot.signalPriceSource,
     latestClosedCandle: candle,
     instrument: snapshot.instrument,
     signal: {
@@ -65,7 +91,9 @@ function compactSnapshot(snapshot) {
     },
     referenceSizingForOneBtc: snapshot.referenceSizingForOneBtc,
     dataQualityFlags: snapshot.dataQualityFlags,
-    codeCommitSha: process.env.GITHUB_SHA || process.env.VERCEL_GIT_COMMIT_SHA || 'local-unknown',
+    signalCodeCommitSha: snapshot.codeCommitSha || 'deployment-sha-unavailable',
+    deploymentEnvironment: snapshot.deploymentEnvironment || null,
+    ledgerWriterCommitSha: process.env.GITHUB_SHA || 'writer-sha-unavailable',
     reconstructed: false,
     autoTrade: false,
   };
@@ -74,9 +102,10 @@ function compactSnapshot(snapshot) {
 async function main() {
   const existing = readLedger();
   try {
-    const snapshot = await buildBtcV3Snapshot();
+    const snapshot = await fetchRemoteSnapshot();
     const record = compactSnapshot(snapshot);
     if (!record.candleDate) throw new Error('latest closed candle date unavailable');
+    if (!snapshot.signal?.ready) throw new Error(`snapshot signal not ready: ${snapshot.signal?.reason || 'unknown'}`);
     const alreadyObserved = existing.some((item) => item.recordType === 'signal'
       && item.candleDate === record.candleDate
       && item.reconstructed !== true);
@@ -95,8 +124,9 @@ async function main() {
       strategyVersion: 'btc-v3.1-coinm',
       candleDate: intended,
       observedAt: now.toISOString(),
-      error: error.message || 'unknown forward-test failure',
-      codeCommitSha: process.env.GITHUB_SHA || 'local-unknown',
+      snapshotUrl: SNAPSHOT_URL,
+      error: error.name === 'AbortError' ? `snapshot timeout after ${REQUEST_TIMEOUT_MS}ms` : (error.message || 'unknown forward-test failure'),
+      ledgerWriterCommitSha: process.env.GITHUB_SHA || 'writer-sha-unavailable',
       reconstructed: false,
       autoTrade: false,
     });
