@@ -1,0 +1,17 @@
+{
+  "strategyVersion": "btc-v3.1-coinm",
+  "status": "ok",
+  "candleDate": "2026-08-21",
+  "generatedAt": "2026-08-22T16:56:51.562Z",
+  "timezone": "Asia/Shanghai",
+  "label": "适度进攻",
+  "headline": "趋势正在修复，但长期趋势尚未完全转正；低估条件支持把目标提高到 1.25x，当前波动率没有进一步压仓。",
+  "summary": "BTC 已重新站上 MA200，EMA15 也高于 EMA30，但 MA200 的 30 日斜率仍为负，因此 Trend Score 为 2/3，基础敞口仍是 1.00x。过去 365 天回撤约 37.2%，触发 Very Cheap；由于趋势已经修复到 2/3，估值层允许把目标提高到 1.25x。30D 实现波动率约 44.9%，对应 Volatility Cap 约 1.34x，高于 1.25x，因此当前没有进一步压低仓位。Funding 为正，对多头是轻微持仓成本，但不参与方向判断。",
+  "trend": "价格高于 MA200 约 13.6%，EMA15 > EMA30；但 MA200 30D slope 约 -5.1%，长期趋势仍未完全确认。",
+  "valuation": "365D Drawdown 约 -37.2%，处于 Very Cheap；V3 只在趋势已改善后才允许低估加仓，因此从基础 1.00x 提高到 1.25x。",
+  "risk": "30D RV 约 44.9%，Volatility Cap 约 1.34x，生产 Margin Cap 1.50x；两者目前都没有把 1.25x 目标继续压低。",
+  "marketGuidance": "当日正式目标维持 1.25x。属于有条件进攻，不等于全面牛市确认；不要因为盘中上涨自行提高到 1.5x 或 2x。",
+  "targetExposure": 1.25,
+  "sourceObservedAt": "2026-08-22T16:56:51.562Z",
+  "autoTrade": false
+}
