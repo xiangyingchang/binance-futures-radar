@@ -9,7 +9,7 @@ h1 { margin:8px 0 10px; font-size:clamp(32px,6vw,60px); line-height:1; }
 .hero p { max-width:780px; color:#aeb8c8; line-height:1.65; }
 button { border:1px solid #30394a; background:#151b26; color:#fff; padding:10px 16px; border-radius:10px; cursor:pointer; }
 button:disabled { opacity:.5; cursor:wait; }
-.status-card,.panel,article { border:1px solid #202839; background:rgba(16,21,31,.88); box-shadow:0 16px 50px rgba(0,0,0,.18); }
+.status-card,.panel,article,.state-brief { border:1px solid #202839; background:rgba(16,21,31,.88); box-shadow:0 16px 50px rgba(0,0,0,.18); }
 .status-card { margin-top:28px; padding:24px; border-radius:18px; display:flex; justify-content:space-between; gap:20px; align-items:center; }
 .target span,article span,.gate-grid span,.account-inputs span,.action-card span { color:#8995a9; font-size:13px; }
 .target strong { display:block; font-size:52px; margin:5px 0; }
@@ -17,6 +17,18 @@ button:disabled { opacity:.5; cursor:wait; }
 .regime { padding:10px 14px; border:1px solid #344057; border-radius:999px; font-weight:700; }
 .regime.bear { border-color:#7b3037; color:#ff9aa2; }
 .regime.bull { border-color:#276a52; color:#7ee2b8; }
+.state-brief { margin-top:12px; padding:20px; border-radius:16px; background:linear-gradient(180deg,rgba(18,25,38,.98),rgba(12,17,26,.96)); border-color:#30415a; }
+.brief-head { margin-bottom:8px; }
+.brief-head h2 { margin:4px 0 0; font-size:19px; }
+.brief-label { padding:7px 11px; border-radius:999px; border:1px solid #3c4961; color:#c7d2e6; font-size:12px; font-weight:800; }
+.brief-label.risk-on { border-color:#286b53; color:#7ee2b8; background:#10251d; }
+.brief-label.defensive { border-color:#704046; color:#ffacb4; background:#231216; }
+.brief-summary { margin:0; color:#dce5f4; font-size:17px; line-height:1.75; }
+.brief-points { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }
+.brief-points > div { padding:13px; border-radius:11px; background:#0b1018; border:1px solid #1b2636; }
+.brief-points span { color:#8190a6; font-size:11px; letter-spacing:.08em; }
+.brief-points p { margin:6px 0 0; color:#9eacc0; font-size:13px; line-height:1.65; }
+.brief-action { margin:12px 0 0; padding:12px 14px; border-radius:10px; background:#111927; border:1px solid #2d3c55; color:#e1e8f4; font-size:14px; line-height:1.65; font-weight:650; }
 .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:12px; }
 article { padding:18px; border-radius:14px; }
 article strong { display:block; font-size:24px; margin:7px 0; }
@@ -75,6 +87,6 @@ td:nth-child(2) { color:#f2f5fa; font-weight:800; }
 .discipline-grid span { display:block; color:#79869b; margin-top:5px; font-size:12px; line-height:1.45; }
 footer { display:flex; gap:18px; flex-wrap:wrap; margin-top:24px; color:#697489; font-size:13px; }
 a { color:#a8b6d1; }
-@media (max-width:900px) { .strategy-flow { grid-template-columns:repeat(2,1fr); } .exposure-strip { grid-template-columns:repeat(4,1fr); } .discipline-grid { grid-template-columns:repeat(2,1fr); } }
-@media (max-width:760px) { .hero { flex-direction:column; } .grid { grid-template-columns:repeat(2,1fr); } .gate-grid { grid-template-columns:repeat(2,1fr); } .status-card { align-items:flex-start; } .target strong { font-size:44px; } .account-inputs,.rule-columns { grid-template-columns:1fr; } .section-head { align-items:flex-start; } }
+@media (max-width:900px) { .strategy-flow { grid-template-columns:repeat(2,1fr); } .exposure-strip { grid-template-columns:repeat(4,1fr); } .discipline-grid { grid-template-columns:repeat(2,1fr); } .brief-points { grid-template-columns:1fr; } }
+@media (max-width:760px) { .hero { flex-direction:column; } .grid { grid-template-columns:repeat(2,1fr); } .gate-grid { grid-template-columns:repeat(2,1fr); } .status-card { align-items:flex-start; } .target strong { font-size:44px; } .account-inputs,.rule-columns { grid-template-columns:1fr; } .section-head { align-items:flex-start; } .brief-summary { font-size:15px; } }
 @media (max-width:520px) { .grid,.strategy-flow,.discipline-grid { grid-template-columns:1fr; } .status-card,.action-card { flex-direction:column; align-items:flex-start; } .exposure-strip { grid-template-columns:repeat(2,1fr); } .action-side { width:100%; } }
