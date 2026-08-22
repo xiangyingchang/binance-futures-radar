@@ -1,59 +1,95 @@
 # Binance Futures Radar — Exhaustion Short V2
 
-A research radar for finding **small/mid-cap Binance USDT perpetuals after extreme upside**, then waiting for crowded longs and intraday exhaustion before considering a short.
+A research radar for finding **small/mid-cap Binance USDT perpetuals after extreme upside**. V2 uses extreme heat/liquidity/rank filters plus funding crowding to surface short candidates; OI and intraday reversal are supporting context, not mandatory entry triggers.
 
 Production domain: `https://binance-futures-radar.vercel.app`
+
+## Strategy layers
+
+- **V1 — High RSI Radar:** broad discovery layer for overheated symbols. A V1 hit is not a direct short signal.
+- **V2 — Forward Test strategy:** filters for genuinely extreme short candidates using the rules below.
+- **Manual review:** handles catalyst risk, squeeze risk, CEX outflows, fresh-wallet accumulation and other information that should not be inferred automatically.
 
 ## V2 strategy
 
 ### Hard universe filters
 
 - Binance USDⓈ-M perpetual crypto contracts only
-- Current market-cap rank **101–300 primary**, **301–500 secondary**
+- Current market-cap rank **101–500**
 - Listed on Binance Futures for at least **90 days**
 - 24h quote volume at least **20M USDT**
-- Daily Wilder RSI(14) **> 90**, using the **last closed daily candle**
-- 7-day return **> 50%**
+- Live current-day Wilder **RSI(6) > 93**
+- 7-day return **> 20%**, using the current price versus ~7 days ago
 - Stable/pegged/wrapped assets are excluded
 
-Rank source order:
+The closed daily RSI(6) is reported as confirmation context only; it is **not** the hard gate used by the live scanner.
 
-1. CoinGecko current top-500 rank when the ticker is unambiguous
-2. Binance spot circulating-supply × price rank as a fallback proxy
-3. Unknown rank is rejected rather than silently admitted
+### Rank verification
 
-A proxy-ranked candidate may be shown as a watch item, but **cannot become `SHORT_SETUP`** until CoinGecko rank is available.
+Current production rank logic uses:
 
-### Crowding layer
+1. **CoinMarketCap** as the primary rank source
+2. **CoinGecko** as a cross-check
+3. Binance circulating-supply × price market-cap proxy as an additional cross-check
 
-Only hard-filter survivors receive the expensive requests:
+Safety rules:
 
-- Current funding percentile versus ~90 days of that symbol's funding history (paged when needed)
-- Open-interest change over ~24h and ~7d
-- 1h / 4h intraday candles
-- Top-100 order-book depth
+- If any trusted source places the asset in the **top 100**, reject it from the V2 target universe.
+- Cross-boundary rank conflicts are rejected rather than silently admitted.
+- A `SHORT_SETUP` requires CoinMarketCap verification inside the **101–500** target range.
 
-Strong crowding means:
+### Funding gate
 
-- Funding percentile >= P90
-- OI 24h >= +20% **or** OI 7d >= +30%
+Funding percentile is measured against roughly 90 days of that symbol's funding history.
 
-### Reversal layer
+- Funding **>= P90** → eligible for `SHORT_SETUP`
+- Funding **P75–P90** → `STRONG_WATCH`
+- Funding **< P75** → `WATCH`
 
-Closed 1h/4h candles are used to avoid repainting the trigger layer. Signals include:
+Funding is the current hard crowding gate. A very negative funding rate is therefore not treated as a short confirmation merely because price and RSI are extreme.
 
+### OI and reversal context
+
+Open interest and intraday reversal signals are **reference/scoring inputs only**. They are deliberately **not hard gates** for V2 entry classification.
+
+Tracked context includes:
+
+- OI change over ~24h and ~7d
 - 4h bearish RSI divergence
 - 4h close below the previous 4h low
 - 1h RSI back below 80 after recently exceeding 90
 - 1h close below the prior three-candle low
 
+The radar does not require OI to fall or a fixed number of reversal signals before a symbol can become `SHORT_SETUP`. This is intentional: prior Forward Test review showed that waiting for full reversal confirmation can turn a good fade into a late chase.
+
+### Manual `SQUEEZE_RISK` veto
+
+If credible external evidence shows a combination such as:
+
+- material CEX net outflow
+- fresh-wallet accumulation
+- shrinking exchange-side available supply
+
+mark the symbol as `SQUEEZE_RISK` and veto new shorts until the squeeze risk is re-evaluated.
+
+This is a **manual veto**, not an automatic on-chain classifier. Wallet ownership, exchange internal addresses, market makers and custodial flows are too easy to misclassify.
+
 ### Status logic
 
-- `WATCH`: base setup exists, but crowding/reversal confirmation is weak
-- `STRONG_WATCH`: score >= 75, or a high-scoring setup whose rank is only from the proxy source
-- `SHORT_SETUP`: score >= 85 **and** CoinGecko rank is available **and** funding >= P90 **and** strong OI **and** at least two reversal signals **and** critical crowding data is complete
+- `WATCH`: V2 base heat/liquidity/rank setup exists, but funding has not reached P75
+- `STRONG_WATCH`: base setup passes and funding is in P75–P90
+- `SHORT_SETUP`: base setup passes, CoinMarketCap rank is verified in 101–500, funding is >= P90, and no manual squeeze veto is active
 
-`SHORT_SETUP` is **not an automatic trade signal**. Every candidate is marked `CATALYST_REVIEW_REQUIRED` and `autoTrade=false`.
+The numeric score is useful for ranking candidates, but it does **not** replace the gates above.
+
+`SHORT_SETUP` is **not an automatic trade signal**. Every candidate requires catalyst/manual sizing review and `autoTrade=false`.
+
+## Forward Test risk rules
+
+- Maximum pilot holding period: **3 days / 72 hours**
+- Hard stop: **+30% price move against the short from entry**
+- Do not add new hard entry conditions solely because they look intuitive; validate them against Forward Test samples first
+- OI/reversal confirmation remains auxiliary until enough evidence shows it improves outcomes without creating systematic late entries
 
 ## Architecture
 
@@ -61,7 +97,7 @@ Browser → `/api/radar-v2` Vercel Function → staged market scan
 
 The original `/api/radar` endpoint remains untouched as a compatibility and rollback path.
 
-The staged scanner is intentional: it does not request 90-day funding/OI history for all 500+ contracts. Cheap filters run first; expensive data is fetched only for the small number of extreme candidates.
+The staged scanner is intentional: it does not request expensive funding/OI history for all 500+ contracts. Cheap filters run first; detailed data is fetched only for the small number of extreme candidates.
 
 ## Validation
 
