@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - agent/exhaustion-short-radar-v2
+      - agent/btc-v3
 
 permissions:
   contents: read
@@ -21,18 +22,27 @@ jobs:
         run: |
           node --check app-v4.js
           node --check whale.js
+          node --check btc-v3.js
           node --check api/radar.js
           node --check api/radar-v2.js
           node --check api/whale-intelligence.js
+          node --check api/btc-v3.js
           node --check lib/strategy.js
           node --check lib/whale-intelligence.js
+          node --check lib/btc-v3-strategy.js
+          node --check lib/binance-coinm.js
+          node --check lib/btc-v3-snapshot.js
+          node --check scripts/btc-v3-forward-test.js
+          node --check scripts/btc-v3-backtest.js
           node --check tests/strategy.test.js
           node --check tests/whale-intelligence.test.js
+          node --check tests/btc-v3-strategy.test.js
 
       - name: Run strategy unit tests
         run: |
           node tests/strategy.test.js
           node tests/whale-intelligence.test.js
+          node tests/btc-v3-strategy.test.js
 
       - name: Check Python syntax
         run: python -m py_compile scanner.py scanner_optimized.py
