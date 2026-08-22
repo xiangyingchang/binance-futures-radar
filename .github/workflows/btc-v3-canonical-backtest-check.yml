@@ -1,10 +1,11 @@
 name: BTC V3 Canonical Backtest Check
 
 on:
-  push:
-    branches:
-      - agent/btc-v3
+  pull_request:
     paths:
+      - 'lib/btc-v3-*.js'
+      - 'lib/binance-coinm.js'
+      - 'scripts/btc-v3-backtest.js'
       - '.github/workflows/btc-v3-canonical-backtest-check.yml'
   workflow_dispatch:
 
