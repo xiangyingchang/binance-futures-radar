@@ -15,6 +15,8 @@ concurrency:
 jobs:
   snapshot:
     runs-on: ubuntu-latest
+    env:
+      BTC_V3_SNAPSHOT_URL: https://binance-futures-radar.vercel.app/api/btc-v3
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,9 +26,9 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
-      - name: Append observed signal
+      - name: Append observed signal from Singapore deployment
         run: node scripts/btc-v3-forward-test.js
 
       - name: Commit immutable observation
