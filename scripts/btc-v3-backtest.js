@@ -49,19 +49,25 @@ async function fetchFundingRange(symbol, startTime, endTime) {
     .sort((a, b) => a.fundingTime - b.fundingTime);
 }
 
-function nearestMark(markCandles, timestamp) {
+function nearestClosedMark(markCandles, timestamp) {
   let lo = 0;
   let hi = markCandles.length - 1;
   let best = null;
   while (lo <= hi) {
     const mid = Math.floor((lo + hi) / 2);
     const candle = markCandles[mid];
-    if (candle.openTime <= timestamp) {
+    if (candle.closeTime <= timestamp) {
       best = candle;
       lo = mid + 1;
     } else hi = mid - 1;
   }
   return best ? best.close : null;
+}
+
+function slippagePnlBtc(deltaContracts, contractSizeUsd, referencePrice, fillPrice) {
+  // A worse fill must always reduce equity. Revalue the newly traded contracts
+  // from the actual fill back to the reference mark, not the other way around.
+  return inversePnlBtc(deltaContracts, contractSizeUsd, fillPrice, referencePrice);
 }
 
 function maxDrawdown(values) {
@@ -104,6 +110,7 @@ async function main() {
   let contracts = 0;
   let lastPrice = null;
   let totalFeesBtc = 0;
+  let totalSlippageBtc = 0;
   let totalFundingBtc = 0;
   let liquidated = false;
   const closes = [];
@@ -119,10 +126,13 @@ async function main() {
     if (lastPrice !== null) equityBtc += inversePnlBtc(contracts, contract.contractSize, lastPrice, execution.open);
     lastPrice = execution.open;
 
+    // Funding exactly at the UTC day boundary belongs to the old position because
+    // the new target is calculated only after the previous daily candle has closed.
     const midnightFunding = (fundingByDay.get(indexCandle.openTime) || [])
       .filter((row) => row.fundingTime <= indexCandle.openTime);
     for (const item of midnightFunding) {
-      const mark = nearestMark(markCandles, item.fundingTime) || execution.open;
+      // Never use the close of a mark candle that was still forming at fundingTime.
+      const mark = nearestClosedMark(markCandles, item.fundingTime) || execution.open;
       equityBtc += inversePnlBtc(contracts, contract.contractSize, lastPrice, mark);
       lastPrice = mark;
       const fundingPnl = fundingPnlBtc(contracts, contract.contractSize, mark, item.fundingRate);
@@ -134,6 +144,8 @@ async function main() {
       lastPrice = execution.open;
     }
 
+    // closes contains data only through T-1. Therefore the signal used at T open
+    // was knowable before execution and cannot see the current day's close/high/low.
     const previousSignal = closes.length >= CONFIG.valuationLookbackDays ? computeSignal(closes) : null;
     const targetExposure = previousSignal?.ready ? previousSignal.finalTarget : 1;
     const sizing = targetContracts({
@@ -148,15 +160,20 @@ async function main() {
     const delta = sizing.deltaContracts;
     if (delta !== 0) {
       const slip = SLIPPAGE_BPS / 10000;
-      const execPrice = execution.open * (delta > 0 ? (1 + slip) : (1 - slip));
-      equityBtc += inversePnlBtc(delta, contract.contractSize, execution.open, execPrice);
-      const fee = Math.abs(delta) * contract.contractSize / execPrice * (FEE_BPS / 10000);
+      const fillPrice = execution.open * (delta > 0 ? (1 + slip) : (1 - slip));
+      const slippagePnl = slippagePnlBtc(delta, contract.contractSize, execution.open, fillPrice);
+      if (slippagePnl > 1e-12) throw new Error(`Slippage unexpectedly improved PnL on ${new Date(indexCandle.openTime).toISOString()}`);
+      equityBtc += slippagePnl;
+      totalSlippageBtc += slippagePnl;
+      const fee = Math.abs(delta) * contract.contractSize / fillPrice * (FEE_BPS / 10000);
       equityBtc -= fee;
       totalFeesBtc += fee;
       contracts = sizing.signedContracts;
       lastPrice = execution.open;
     }
 
+    // Conservative same-day path stress: after the new position is established,
+    // assume the adverse daily extreme is reached before any favorable extreme.
     const worstPrice = contracts >= 0 ? execution.low : execution.high;
     const stressedEquity = equityBtc + inversePnlBtc(contracts, contract.contractSize, execution.open, worstPrice);
     const stress = maintenanceHeadroom({
@@ -180,7 +197,7 @@ async function main() {
     const intradayFunding = (fundingByDay.get(indexCandle.openTime) || [])
       .filter((row) => row.fundingTime > indexCandle.openTime && row.fundingTime <= execution.closeTime);
     for (const item of intradayFunding) {
-      const mark = nearestMark(markCandles, item.fundingTime) || execution.close;
+      const mark = nearestClosedMark(markCandles, item.fundingTime) || lastPrice;
       equityBtc += inversePnlBtc(contracts, contract.contractSize, lastPrice, mark);
       lastPrice = mark;
       const fundingPnl = fundingPnlBtc(contracts, contract.contractSize, mark, item.fundingRate);
@@ -198,6 +215,7 @@ async function main() {
     rows.push({
       date: new Date(indexCandle.openTime).toISOString().slice(0, 10),
       indexClose: indexCandle.close,
+      perpOpen: execution.open,
       perpClose: execution.close,
       equityBtc,
       navUsd,
@@ -224,12 +242,14 @@ async function main() {
     usdMaxDrawdown: maxDrawdown(usdNav),
     btcMaxDrawdown: maxDrawdown(btcNav),
     totalFeesBtc,
+    totalSlippageBtc,
     totalFundingBtc,
     feeBps: FEE_BPS,
     slippageBps: SLIPPAGE_BPS,
     stressMaintenanceRate: STRESS_MAINTENANCE_RATE,
     liquidated,
     observations: rows.length,
+    timingModel: 'T-1 closed index signal -> T perpetual open rebalance; funding uses only mark candles closed by the funding timestamp',
     caveat: 'Research backtest. Historical exchange maintenance tiers are not reconstructed; a conservative static maintenance-rate stress test is used instead.',
   };
   console.log(JSON.stringify(summary, null, 2));
@@ -239,3 +259,5 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+
+module.exports = { nearestClosedMark, slippagePnlBtc, maxDrawdown };
