@@ -16,7 +16,7 @@ jobs:
   snapshot:
     runs-on: ubuntu-latest
     env:
-      BTC_V3_SNAPSHOT_URL: https://binance-futures-radar.vercel.app/api/btc-v3
+      BTC_V3_SNAPSHOT_URL: https://binance-futures-radar-v3.vercel.app/api/btc-v3
     steps:
       - name: Checkout
         uses: actions/checkout@v4
