@@ -5,7 +5,7 @@ const path = require('path');
 
 const LEDGER = path.join(__dirname, '..', 'data', 'btc-v3-forward-test.jsonl');
 const SNAPSHOT_URL = process.env.BTC_V3_SNAPSHOT_URL
-  || 'https://binance-futures-radar.vercel.app/api/btc-v3';
+  || 'https://binance-futures-radar-v3.vercel.app/api/btc-v3';
 const REQUEST_TIMEOUT_MS = Number(process.env.BTC_V3_SNAPSHOT_TIMEOUT_MS || 30000);
 
 function readLedger() {
@@ -92,6 +92,8 @@ function compactSnapshot(snapshot) {
     referenceSizingForOneBtc: snapshot.referenceSizingForOneBtc,
     dataQualityFlags: snapshot.dataQualityFlags,
     signalCodeCommitSha: snapshot.codeCommitSha || 'deployment-sha-unavailable',
+    signalDeploymentUrl: snapshot.deploymentUrl || null,
+    signalExecutionRegion: snapshot.executionRegion || null,
     deploymentEnvironment: snapshot.deploymentEnvironment || null,
     ledgerWriterCommitSha: process.env.GITHUB_SHA || 'writer-sha-unavailable',
     reconstructed: false,
