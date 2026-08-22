@@ -1,0 +1,45 @@
+name: BTC V3 Forward Test
+
+on:
+  schedule:
+    - cron: '17 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-v3-forward-test
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    env:
+      BTC_V3_SNAPSHOT_URL: https://binance-futures-radar.vercel.app/api/btc-v3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Append observed signal from Singapore deployment
+        run: node scripts/btc-v3-forward-test.js
+
+      - name: Commit immutable observation
+        if: always()
+        run: |
+          if git diff --quiet -- data/btc-v3-forward-test.jsonl; then
+            echo "No new BTC V3 observation to commit."
+            exit 0
+          fi
+          git config user.name "btc-v3-forward-test[bot]"
+          git config user.email "btc-v3-forward-test[bot]@users.noreply.github.com"
+          git add data/btc-v3-forward-test.jsonl
+          git commit -m "data: append BTC V3 forward-test observation"
+          git push

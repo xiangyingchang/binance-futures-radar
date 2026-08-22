@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#090b10">
+  <title>BTC V3 · Dynamic Exposure</title>
+  <link rel="stylesheet" href="btc-v3.css?v=1">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">BTC V3 · COIN-M · FORWARD TEST</div>
+        <h1>BTC Dynamic Exposure</h1>
+        <p>长期目标是积累更多 BTC。信号基于 BTCUSD Index 日线，执行模型使用 BTCUSD_PERP COIN-M；当前仅做只读 Forward Test，不自动交易。</p>
+      </div>
+      <button id="refresh" type="button">刷新</button>
+    </header>
+
+    <section class="status-card">
+      <div class="target">
+        <span>当前目标净敞口</span>
+        <strong id="target">--</strong>
+        <small id="target-note">正在读取最新完整日线…</small>
+      </div>
+      <div class="regime" id="regime">LOADING</div>
+    </section>
+
+    <section class="grid">
+      <article><span>BTC Index</span><strong id="price">--</strong><small id="candle-date">--</small></article>
+      <article><span>Trend Score</span><strong id="trend">--</strong><small>Close/MA200 · EMA15/30 · MA200 slope</small></article>
+      <article><span>30D RV</span><strong id="rv">--</strong><small>60% target vol cap</small></article>
+      <article><span>365D Drawdown</span><strong id="drawdown">--</strong><small>只在趋势允许时影响加仓</small></article>
+      <article><span>MA200 偏离</span><strong id="ma-dev">--</strong><small id="ma200">MA200 --</small></article>
+      <article><span>COIN-M Funding</span><strong id="funding">--</strong><small id="funding-next">--</small></article>
+    </section>
+
+    <section class="panel">
+      <h2>Gate</h2>
+      <div class="gate-grid">
+        <div><span>Regime Target</span><strong id="regime-target">--</strong></div>
+        <div><span>Valuation Adjusted</span><strong id="valuation-target">--</strong></div>
+        <div><span>Volatility Cap</span><strong id="vol-cap">--</strong></div>
+        <div><span>Margin Cap</span><strong id="margin-cap">--</strong></div>
+      </div>
+      <p id="flags" class="flags">--</p>
+    </section>
+
+    <section class="panel">
+      <h2>1 BTC 参考仓位</h2>
+      <div class="gate-grid">
+        <div><span>Overlay</span><strong id="overlay-btc">--</strong></div>
+        <div><span>COIN-M Contracts</span><strong id="contracts">--</strong></div>
+        <div><span>方向</span><strong id="side">--</strong></div>
+        <div><span>Contract Size</span><strong id="contract-size">--</strong></div>
+      </div>
+      <p class="flags">这是 1 BTC equity 的参考 sizing，不读取账户，也不会下单。</p>
+    </section>
+
+    <footer>
+      <span id="updated">最后更新：--</span>
+      <a href="/">返回做空雷达</a>
+      <a href="https://github.com/xiangyingchang/binance-futures-radar/blob/main/BTC_V3_STRATEGY.md" target="_blank" rel="noreferrer">策略文档</a>
+    </footer>
+  </main>
+  <script src="btc-v3.js?v=1"></script>
+</body>
+</html>
