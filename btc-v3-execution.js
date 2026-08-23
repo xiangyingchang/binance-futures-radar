@@ -14,6 +14,7 @@
   let pendingExecutionId = null;
   let pendingFlowId = null;
   let pendingSnapshotId = null;
+  const WRITE_KEY_SESSION_STORAGE = 'btc-v3-tracking-api-key-session';
 
   function number(value) {
     if (value === null || value === undefined || value === '') return null;
@@ -74,6 +75,15 @@
     return (btc >= 0 ? '+' : '') + btc.toFixed(4) + ' BTC / ' + (usd >= 0 ? '+' : '') + '$' + usd.toFixed(2);
   }
 
+  function formatReconciliationStatus(value) {
+    return ({
+      MATCH: '一致',
+      MISMATCH: '不一致',
+      EQUITY_DELTA: '权益有变化',
+      NO_SNAPSHOT: '暂无快照',
+    }[value] || value || '--');
+  }
+
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'\"]/g, (character) => ({
       '&': '&amp;',
@@ -87,6 +97,27 @@
   function setText(id, value) {
     const node = $(id);
     if (node) node.textContent = value;
+  }
+
+  function restoreWriteKey() {
+    const input = $('tracking-api-key');
+    if (!input) return;
+    try {
+      const saved = sessionStorage.getItem(WRITE_KEY_SESSION_STORAGE);
+      if (saved) input.value = saved;
+    } catch (_) {}
+  }
+
+  function rememberWriteKey(value) {
+    if (!value) return;
+    try { sessionStorage.setItem(WRITE_KEY_SESSION_STORAGE, value); } catch (_) {}
+  }
+
+  function clearWriteKey() {
+    try { sessionStorage.removeItem(WRITE_KEY_SESSION_STORAGE); } catch (_) {}
+    const input = $('tracking-api-key');
+    if (input) input.value = '';
+    setText('tracking-key-note', '本页密钥已清除；下次写入前需要重新输入。');
   }
 
   function context() {
@@ -129,23 +160,23 @@
     const detail = $('tracking-action-detail');
     if (!action || !detail) return;
     if (state.targetContracts === null || state.currentActualContracts === null) {
-      action.textContent = 'WAIT';
+      action.textContent = '等待';
       action.dataset.action = 'wait';
-      detail.textContent = '等待 Target、Strategy Equity、Actual Contracts 和 Mark Price 完整。';
+      detail.textContent = '等待策略目标、策略权益、实际合约张数和标记价格完整。';
       return;
     }
     const delta = state.remainingContracts;
     if (delta > 0) {
-      action.textContent = `BUY ${delta} contracts`;
+      action.textContent = `买入 ${delta} 张`;
       action.dataset.action = 'buy';
     } else if (delta < 0) {
-      action.textContent = `SELL ${Math.abs(delta)} contracts`;
+      action.textContent = `卖出 ${Math.abs(delta)} 张`;
       action.dataset.action = 'sell';
     } else {
-      action.textContent = 'NO ACTION';
+      action.textContent = '无需调整';
       action.dataset.action = 'hold';
     }
-    detail.textContent = `Target ${formatContracts(state.targetContracts)} · Actual ${formatContracts(state.currentActualContracts)} · 遵循 V3.1 daily rebalance，不含额外 no-trade band。`;
+    detail.textContent = `目标 ${formatContracts(state.targetContracts)} · 实际 ${formatContracts(state.currentActualContracts)} · 遵循 V3.1 每日再平衡，不包含额外无交易区间。`;
   }
 
   function renderExecutionHistory(equityBtc, contractSizeUsd) {
@@ -161,9 +192,10 @@
       const time = entry.executedAt
         ? formatTime(entry.executedAt) + (entry.executionTimePrecision === 'approximate' ? '（约）' : '')
         : '未提供 · 记录 ' + formatTime(entry.recordedAt);
+      const side = entry.side === 'BUY' ? '买入' : entry.side === 'SELL' ? '卖出' : entry.side;
       return '<tr>'
         + '<td>' + escapeHtml(time) + '</td>'
-        + '<td data-side="' + escapeHtml(entry.side) + '">' + escapeHtml(entry.side) + '</td>'
+        + '<td data-side="' + escapeHtml(entry.side) + '">' + escapeHtml(side) + '</td>'
         + '<td>' + escapeHtml(String(entry.contracts)) + '</td>'
         + '<td>' + escapeHtml(formatPrice(entry.avgFillPrice)) + '</td>'
         + '<td>' + escapeHtml(formatX(entry.targetExposureAtExecution)) + '</td>'
@@ -185,7 +217,7 @@
       const time = entry.effectiveAt
         ? formatTime(entry.effectiveAt) + (entry.effectiveTimePrecision === 'approximate' ? '（约）' : '')
         : '未提供 · 记录 ' + formatTime(entry.recordedAt);
-      const type = entry.flowType === 'INITIAL_CAPITAL' ? 'Initial Capital' : entry.flowType === 'CONTRIBUTION' ? 'Contribution' : entry.flowType === 'WITHDRAWAL' ? 'Withdrawal' : 'Adjustment';
+      const type = entry.flowType === 'INITIAL_CAPITAL' ? '初始本金' : entry.flowType === 'CONTRIBUTION' ? '追加投入' : entry.flowType === 'WITHDRAWAL' ? '提取本金' : '调整';
       return '<tr>'
         + '<td>' + escapeHtml(time) + '</td>'
         + '<td>' + escapeHtml(type) + '</td>'
@@ -201,7 +233,7 @@
     const body = $('snapshot-history-body');
     if (!body) return;
     if (!accountSnapshotRecords.length) {
-      body.innerHTML = '<tr><td colspan="6">暂无 Account Snapshot。</td></tr>';
+      body.innerHTML = '<tr><td colspan="6">暂无账户快照。</td></tr>';
       return;
     }
     const latestId = tracking.latestSnapshot?.snapshotId;
@@ -209,7 +241,7 @@
       const time = entry.capturedAt
         ? formatTime(entry.capturedAt) + (entry.captureTimePrecision === 'approximate' ? '（约）' : '')
         : '未提供 · 记录 ' + formatTime(entry.recordedAt);
-      const reconcile = entry.snapshotId === latestId ? tracking.reconciliation.status : 'HISTORICAL';
+      const reconcile = entry.snapshotId === latestId ? formatReconciliationStatus(tracking.reconciliation.status) : '历史记录';
       return '<tr>'
         + '<td>' + escapeHtml(time) + '</td>'
         + '<td>' + escapeHtml(entry.strategyEquityBtc.toFixed(4) + ' BTC') + '</td>'
@@ -224,13 +256,13 @@
   function render() {
     const { current, tracking } = calculateState();
     const currentMark = tracking.currentMarkPrice ?? current.markPrice;
-    const positionSource = tracking.actualPositionSource === 'account_snapshot' ? 'Account Snapshot' : 'Execution Ledger 推导';
-    const equitySource = tracking.equitySource === 'account_snapshot' ? 'Account Snapshot（当前真实 Equity）' : 'Capital Flow basis（尚无 Equity Snapshot）';
-    const executionStatus = executionError ? 'Execution Ledger 读取失败：' + executionError : 'Execution Ledger 已读取 ' + executionRecords.length + ' 条';
-    const trackingStatus = trackingError ? ' · Tracking Ledger 读取失败：' + trackingError : ' · Capital Flow ' + capitalFlowRecords.length + ' 条 · Account Snapshot ' + accountSnapshotRecords.length + ' 条';
+    const positionSource = tracking.actualPositionSource === 'account_snapshot' ? '账户快照' : '执行账本推导';
+    const equitySource = tracking.equitySource === 'account_snapshot' ? '账户快照（当前真实策略权益）' : '资金流基准（尚无策略权益快照）';
+    const executionStatus = executionError ? '执行账本读取失败：' + executionError : '执行账本已读取 ' + executionRecords.length + ' 条';
+    const trackingStatus = trackingError ? ' · 追踪账本读取失败：' + trackingError : ' · 资金流 ' + capitalFlowRecords.length + ' 条 · 账户快照 ' + accountSnapshotRecords.length + ' 条';
 
     setText('tracking-ledger-status', executionStatus + trackingStatus);
-    setText('tracking-equity-note', `Strategy Equity 来源：${equitySource}。它只代表分配给 V3 的 BTC，不代表用户全部 BTC；Capital Flow 不计入 Strategy PnL。`);
+    setText('tracking-equity-note', `策略权益来源：${equitySource}。它只代表分配给 V3 的 BTC，不代表用户全部 BTC；资金流不计入策略盈亏。`);
     setText('tracking-current-equity', tracking.currentStrategyEquityBtc === null ? '--' : tracking.currentStrategyEquityBtc.toFixed(4) + ' BTC');
     setText('tracking-equity-source', equitySource);
     setText('tracking-current-mark', formatPrice(currentMark));
@@ -251,9 +283,9 @@
     setText('tracking-withdrawals', formatBtc(-tracking.withdrawalsBtc, 4));
     setText('tracking-strategy-pnl', formatBtc(tracking.strategyPnlBtc, 4));
     setText('tracking-strategy-pnl-note', tracking.currentStrategyEquityBtc === null
-      ? '等待当前 Strategy Equity Snapshot'
-      : 'Current Equity − Net Capital；以当前 Snapshot 为准，包含 mark-to-market 及未拆分的 Funding / Fee 影响。');
-    setText('tracking-reconcile', tracking.reconciliation.status);
+      ? '等待当前策略权益快照'
+      : '当前权益 − 净投入本金；以当前快照为准，包含按市价计价及未拆分的资金费 / 手续费影响。');
+    setText('tracking-reconcile', formatReconciliationStatus(tracking.reconciliation.status));
     setText('tracking-reconcile-note', tracking.reconciliation.message);
     setText('execution-ledger-status', executionStatus + trackingStatus);
     renderDailyAction(tracking);
@@ -297,7 +329,9 @@
   }
 
   function writeKey() {
-    return String($('tracking-api-key')?.value || $('execution-api-key')?.value || '').trim();
+    const inputValue = String($('tracking-api-key')?.value || $('execution-api-key')?.value || '').trim();
+    if (inputValue) return inputValue;
+    try { return String(sessionStorage.getItem(WRITE_KEY_SESSION_STORAGE) || '').trim(); } catch (_) { return ''; }
   }
 
   function parseOptionalTime(id, label) {
@@ -330,6 +364,7 @@
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || result.error || ('HTTP ' + response.status));
+      rememberWriteKey(key);
       const loaded = await loadTracking();
       const confirmed = loaded.ok && (ledgerType === 'capital-flow'
         ? capitalFlowRecords.some((record) => record.flowId === id)
@@ -355,11 +390,11 @@
     const contracts = number($('execution-contracts')?.value);
     const avgFillPrice = number($('execution-fill-price')?.value);
     if (!key) return setText('execution-form-status', '请输入写入密钥。');
-    if (targetExposure === null) return setText('execution-form-status', 'V3 Strategy Target 尚未加载，暂不能记录。');
-    if (!Number.isInteger(contracts) || contracts <= 0) return setText('execution-form-status', 'Contracts 必须是正整数。');
-    if (avgFillPrice === null || avgFillPrice <= 0) return setText('execution-form-status', 'Average Fill Price 必须为正数。');
+    if (targetExposure === null) return setText('execution-form-status', 'V3 策略目标尚未加载，暂不能记录。');
+    if (!Number.isInteger(contracts) || contracts <= 0) return setText('execution-form-status', '合约张数必须是正整数。');
+    if (avgFillPrice === null || avgFillPrice <= 0) return setText('execution-form-status', '平均成交价必须为正数。');
     if (!pendingExecutionId) pendingExecutionId = makeId('exec');
-    const executionTime = parseOptionalTime('execution-time', 'Execution Time');
+    const executionTime = parseOptionalTime('execution-time', '成交时间');
     if (executionTime.error) return setText('execution-form-status', executionTime.error);
     const payload = {
       executionId: pendingExecutionId,
@@ -373,7 +408,7 @@
     };
     const submit = $('execution-submit');
     if (submit) submit.disabled = true;
-    setText('execution-form-status', '正在追加 Execution Ledger…');
+    setText('execution-form-status', '正在追加执行账本…');
     try {
       const response = await fetch('/api/btc-v3-execution', {
         method: 'POST',
@@ -387,6 +422,7 @@
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || result.error || ('HTTP ' + response.status));
+      rememberWriteKey(key);
       const submittedId = pendingExecutionId;
       const loaded = await loadTracking();
       const confirmed = loaded.ok && executionRecords.some((record) => record.executionId === submittedId);
@@ -396,7 +432,7 @@
       }
       pendingExecutionId = null;
       $('execution-form')?.reset();
-      setText('execution-form-status', result.duplicate ? '幂等重复提交：历史记录已存在，未追加新行。' : '已追加到 Execution Ledger。');
+      setText('execution-form-status', result.duplicate ? '幂等重复提交：历史记录已存在，未追加新行。' : '已追加到执行账本。');
     } catch (error) {
       setText('execution-form-status', '写入失败：' + (error.message || error) + '；可重试，当前 executionId 会保持不变。');
     } finally {
@@ -407,11 +443,11 @@
   async function submitCapitalFlow(event) {
     event.preventDefault();
     const amount = number($('capital-flow-amount')?.value);
-    if (amount === null || amount <= 0) return setText('capital-flow-form-status', 'BTC Amount 必须为正数。');
-    const flowTime = parseOptionalTime('capital-flow-time', 'Effective Time');
+    if (amount === null || amount <= 0) return setText('capital-flow-form-status', 'BTC 数量必须为正数。');
+    const flowTime = parseOptionalTime('capital-flow-time', '生效时间');
     if (flowTime.error) return setText('capital-flow-form-status', flowTime.error);
     const reason = String($('capital-flow-reason')?.value || '').trim();
-    if (!reason) return setText('capital-flow-form-status', 'Reason 不能为空。');
+    if (!reason) return setText('capital-flow-form-status', '原因不能为空。');
     if (!pendingFlowId) pendingFlowId = makeId('flow');
     const isWithdrawal = $('capital-flow-type')?.value === 'WITHDRAWAL';
     const confirmed = await postTrackingRecord('capital-flow', pendingFlowId, {
@@ -436,10 +472,10 @@
     const strategyEquityBtc = number($('account-snapshot-equity')?.value);
     const actualContracts = number($('account-snapshot-contracts')?.value);
     const markPrice = number($('account-snapshot-mark')?.value);
-    if (strategyEquityBtc === null || strategyEquityBtc < 0) return setText('account-snapshot-form-status', 'Strategy Equity BTC 必须为 0 或正数。');
-    if (!Number.isInteger(actualContracts)) return setText('account-snapshot-form-status', 'Actual Contracts 必须是整数。');
-    if (markPrice !== null && markPrice <= 0) return setText('account-snapshot-form-status', 'Mark Price 必须为正数或留空。');
-    const capturedTime = parseOptionalTime('account-snapshot-time', 'Captured At');
+    if (strategyEquityBtc === null || strategyEquityBtc < 0) return setText('account-snapshot-form-status', '策略权益 BTC 必须为 0 或正数。');
+    if (!Number.isInteger(actualContracts)) return setText('account-snapshot-form-status', '实际合约张数必须是整数。');
+    if (markPrice !== null && markPrice <= 0) return setText('account-snapshot-form-status', '标记价格必须为正数或留空。');
+    const capturedTime = parseOptionalTime('account-snapshot-time', '采集时间');
     if (capturedTime.error) return setText('account-snapshot-form-status', capturedTime.error);
     if (!pendingSnapshotId) pendingSnapshotId = makeId('snapshot');
     const confirmed = await postTrackingRecord('account-snapshot', pendingSnapshotId, {
@@ -466,6 +502,8 @@
   $('execution-form')?.addEventListener('submit', submitExecution);
   $('capital-flow-form')?.addEventListener('submit', submitCapitalFlow);
   $('account-snapshot-form')?.addEventListener('submit', submitSnapshot);
+  $('clear-tracking-key')?.addEventListener('click', clearWriteKey);
   for (const id of ['btc-holdings', 'current-contracts']) $(id)?.addEventListener('input', render);
+  restoreWriteKey();
   loadTracking();
 })();

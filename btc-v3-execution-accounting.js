@@ -470,7 +470,7 @@
         status: 'NO_SNAPSHOT',
         positionDifferenceContracts: null,
         equityDifferenceBtc: null,
-        message: '尚无 Account Snapshot；当前 Actual Position 暂以 Execution Ledger 推导，Strategy Equity 暂以 Capital Flow basis 估算。',
+        message: '尚无账户快照；当前实际仓位暂以执行账本推导，策略权益暂以资金流基准估算。',
       };
     }
     const positionDifferenceContracts = snapshot.actualContracts - executionState.position.contracts;
@@ -482,11 +482,11 @@
     const status = hasPositionMismatch ? 'MISMATCH' : hasEquityDelta ? 'EQUITY_DELTA' : 'MATCH';
     let message;
     if (hasPositionMismatch) {
-      message = `Account Snapshot 与 Execution Ledger 相差 ${positionDifferenceContracts > 0 ? '+' : ''}${positionDifferenceContracts} 张；以 Snapshot 作为当前账户状态。`;
+      message = `账户快照与执行账本相差 ${positionDifferenceContracts > 0 ? '+' : ''}${positionDifferenceContracts} 张；以账户快照作为当前账户状态。`;
     } else if (hasEquityDelta) {
-      message = `合约数量一致，但 Snapshot Equity 与 Capital Flow basis 相差 ${equityDifferenceBtc > 0 ? '+' : ''}${equityDifferenceBtc.toFixed(8)} BTC；这通常包含策略 PnL、Funding 或手续费。`;
+      message = `合约数量一致，但快照权益与资金流基准相差 ${equityDifferenceBtc > 0 ? '+' : ''}${equityDifferenceBtc.toFixed(8)} BTC；这通常包含策略盈亏、资金费或手续费。`;
     } else {
-      message = 'Account Snapshot 与 Execution Ledger 合约数量一致，且 Equity 与 Capital Flow basis 暂无差异。';
+      message = '账户快照与执行账本合约数量一致，且权益与资金流基准暂无差异。';
     }
     return {
       status,
@@ -546,7 +546,7 @@
       reconciliation,
       unrealizedPnl,
       estimatedExecutionPnlBtc,
-      estimatedExecutionPnlNote: '仅含 Execution Ledger 的 realized/unrealized inverse PnL；未含 Funding、手续费和滑点。',
+      estimatedExecutionPnlNote: '仅含执行账本的已实现 / 未实现反向盈亏；未含资金费、手续费和滑点。',
     };
   }
 

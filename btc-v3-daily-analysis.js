@@ -34,7 +34,7 @@ function renderDailyAnalysis(data) {
     }
     if (section) section.dataset.status = 'error';
     setText('daily-analysis-headline', '今天的自动策略分析没有通过数据完整性检查。');
-    setText('daily-analysis-summary', data?.summary || data?.error || '请以实时数据区和 Forward Test 状态为准，暂不根据本模块调仓。');
+    setText('daily-analysis-summary', data?.summary || data?.error || '请以实时数据区和前向测试状态为准，暂不根据本模块调仓。');
     setText('daily-analysis-trend', '--');
     setText('daily-analysis-valuation', '--');
     setText('daily-analysis-risk', '--');
