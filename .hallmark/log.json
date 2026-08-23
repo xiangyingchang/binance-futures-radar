@@ -4,9 +4,9 @@
     "macrostructure": "Workbench",
     "theme": "Midnight Instrument",
     "enrichment": "none",
-    "brief": "Two-page radar app redesign: scan ledger and BTC V3 decision brief",
+    "brief": "Single-shell radar app: scan ledger and BTC V3 decision brief with bottom view rail",
     "scope": "app",
-    "nav": "N9",
+    "nav": "N9 + B2",
     "footer": "Ft2"
   }
 ]

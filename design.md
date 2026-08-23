@@ -9,8 +9,9 @@ Atmospheric 的技术型 app 变体：暗色、克制、数据先于装饰。
 ## Macrostructure family
 
 - App pages: **Workbench**
+  - 单页双视图：`index.html` 作为唯一入口，通过底部 Tab 切换两个 view。
   - 主雷达：Scan ledger，先读扫描状态，再读规则和候选表。
-  - BTC V3：Decision brief，先读目标敞口和人工操作，再读解释、Gate 和纪律。
+  - BTC V3：Decision brief，先读目标敞口和每日策略分析，再读指标、Gate 和纪律。
 - Content pages: 不适用。
 
 ## Theme
@@ -57,6 +58,7 @@ Atmospheric 的技术型 app 变体：暗色、克制、数据先于装饰。
 ## Chrome
 
 - 顶部：N9 edge-aligned utility header，左侧产品/版本身份，右侧刷新动作。
+- 视图切换：移动优先的底部双 Tab rail，`做空雷达` / `BTC V3`；V3 视图按需加载，避免两套页面样式串线。
 - 页尾：Ft2 inline-rule single line，信息单行收束，不添加虚构的 sitemap、徽标或指标。
 
 ## Per-page allowances
@@ -64,6 +66,7 @@ Atmospheric 的技术型 app 变体：暗色、克制、数据先于装饰。
 - App 页面不得使用装饰性图片、虚构指标、渐变文字、玻璃拟态或自动交易 CTA。
 - 保留现有中文文案、实时状态、错误状态和策略免责声明。
 - 允许主雷达与 BTC V3 在同一系统内采用不同的信息节奏，但必须共享 token、字体、状态语义和交互尺寸。
+- V3 只保留带日期和更新时间的「每日策略分析」作为自然语言解释；实时目标、指标、今日操作指导和 Gate 结果继续独立显示。
 
 ## What pages MUST share
 

@@ -259,6 +259,10 @@ article small,
   border-color: var(--color-accent-strong);
 }
 
+.state-brief#daily-analysis .brief-label {
+  min-height: 2.75rem;
+}
+
 .section-head {
   display: flex;
   align-items: center;
@@ -833,6 +837,11 @@ footer a {
 
   .text-link {
     width: 100%;
+  }
+
+  .state-brief#daily-analysis .brief-label {
+    width: 100%;
+    justify-content: center;
   }
 
   footer {

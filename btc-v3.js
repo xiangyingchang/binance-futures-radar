@@ -1,6 +1,10 @@
 'use strict';
 
 const $ = (id) => document.getElementById(id);
+const setTextIfPresent = (id, value) => {
+  const node = $(id);
+  if (node) node.textContent = value;
+};
 const DAY_MS = 86400000;
 const FORWARD_TEST_BUFFER_MS = 17 * 60 * 1000;
 const DEFAULT_BTC_HOLDINGS = 0.57;
@@ -60,37 +64,40 @@ function renderNarrative(data) {
   const volCap = finite(s.volatilityCap);
   const funding = finite(data.funding?.currentRate);
   const label = s.bearLock ? '熊市防守' : target > 1 ? '适度进攻' : target < 1 ? '防守' : '中性';
-  $('brief-label').textContent = label;
-  $('brief-label').className = `brief-label ${s.bearLock || target < 1 ? 'defensive' : target > 1 ? 'risk-on' : ''}`;
+  const briefLabel = $('brief-label');
+  if (briefLabel) {
+    briefLabel.textContent = label;
+    briefLabel.className = `brief-label ${s.bearLock || target < 1 ? 'defensive' : target > 1 ? 'risk-on' : ''}`;
+  }
 
-  if (s.bearLock) $('brief-summary').textContent = `当前 Bear Lock 生效：价格在 MA200 下方且 MA200 继续向下。V3 优先把净 BTC 敞口压到 ${x(target)}，先保护 BTC 本位资产。`;
-  else if (target > 1) $('brief-summary').textContent = `当前允许适度增加 BTC 风险，但还不是全面牛市确认。趋势修复与低估共同把目标推到 ${x(target)}，波动率和 Margin Gate 继续限制更激进的仓位。`;
-  else if (target < 1) $('brief-summary').textContent = `当前趋势不足以支撑满仓 BTC Beta，V3 采用 ${x(target)} 防守敞口，用 COIN-M 空单降低组合对下跌的敏感度。`;
-  else $('brief-summary').textContent = '当前多空信号大致平衡，V3 维持接近 1.00x 的 BTC HODL Beta。';
+  if (s.bearLock) setTextIfPresent('brief-summary', `当前 Bear Lock 生效：价格在 MA200 下方且 MA200 继续向下。V3 优先把净 BTC 敞口压到 ${x(target)}，先保护 BTC 本位资产。`);
+  else if (target > 1) setTextIfPresent('brief-summary', `当前允许适度增加 BTC 风险，但还不是全面牛市确认。趋势修复与低估共同把目标推到 ${x(target)}，波动率和 Margin Gate 继续限制更激进的仓位。`);
+  else if (target < 1) setTextIfPresent('brief-summary', `当前趋势不足以支撑满仓 BTC Beta，V3 采用 ${x(target)} 防守敞口，用 COIN-M 空单降低组合对下跌的敏感度。`);
+  else setTextIfPresent('brief-summary', '当前多空信号大致平衡，V3 维持接近 1.00x 的 BTC HODL Beta。');
 
   const priceVsMa = close !== null && ma200 > 0 ? (close / ma200) - 1 : null;
   const maText = s.aboveMa200 ? `价格高于 MA200 ${signedPct(priceVsMa)}` : `价格低于 MA200 ${signedPct(priceVsMa)}`;
   const emaText = s.emaBull ? 'EMA15 已高于 EMA30，短中期偏多' : 'EMA15 仍低于 EMA30，短中期偏弱';
   const slopeText = slope === null ? 'MA200 斜率不可用' : slope > 0 ? `MA200 30D slope ${signedPct(slope)}，长期趋势改善` : `MA200 30D slope ${signedPct(slope)}，长期趋势仍未完全转正`;
-  $('brief-trend').textContent = `Trend Score ${s.trendScore ?? '--'}/3：${maText}；${emaText}；${slopeText}。基础目标 ${x(s.regimeTarget)}。`;
+  setTextIfPresent('brief-trend', `Trend Score ${s.trendScore ?? '--'}/3：${maText}；${emaText}；${slopeText}。基础目标 ${x(s.regimeTarget)}。`);
 
-  if (s.veryCheap) $('brief-valuation').textContent = `365D 回撤 ${pct(drawdown)}，触发 Very Cheap。只有趋势先改善后才允许低估加仓，当前估值层目标 ${x(s.valuationAdjustedTarget)}。`;
-  else if (s.cheap) $('brief-valuation').textContent = `365D 回撤 ${pct(drawdown)}，当前属于 Cheap，估值层目标 ${x(s.valuationAdjustedTarget)}。`;
-  else $('brief-valuation').textContent = `365D 回撤 ${pct(drawdown)}，没有 Cheap 加成，估值层维持 ${x(s.valuationAdjustedTarget)}。`;
+  if (s.veryCheap) setTextIfPresent('brief-valuation', `365D 回撤 ${pct(drawdown)}，触发 Very Cheap。只有趋势先改善后才允许低估加仓，当前估值层目标 ${x(s.valuationAdjustedTarget)}。`);
+  else if (s.cheap) setTextIfPresent('brief-valuation', `365D 回撤 ${pct(drawdown)}，当前属于 Cheap，估值层目标 ${x(s.valuationAdjustedTarget)}。`);
+  else setTextIfPresent('brief-valuation', `365D 回撤 ${pct(drawdown)}，没有 Cheap 加成，估值层维持 ${x(s.valuationAdjustedTarget)}。`);
 
   let riskText = `30D RV ${pct(rv)}，Volatility Cap ${x(volCap)}，Margin Cap ${x(s.marginCap)}。`;
   if (volCap !== null && volCap <= finite(s.valuationAdjustedTarget, Infinity)) riskText += ' 当前波动率正在压制仓位。';
   else riskText += ' 当前波动率没有进一步压低目标。';
   if (funding > 0) riskText += ` Funding ${pct(funding, 4)}，多头支付 Funding，是轻微成本而不是方向信号。`;
   else if (funding < 0) riskText += ` Funding ${pct(funding, 4)}，多头收取 Funding，但不作为方向信号。`;
-  $('brief-risk').textContent = riskText;
+  setTextIfPresent('brief-risk', riskText);
 
-  if (!sizing) return void ($('brief-action').textContent = '操作结论：仓位数据不足，今天先不要调仓。');
+  if (!sizing) return void setTextIfPresent('brief-action', '操作结论：仓位数据不足，今天先不要调仓。');
   const action = actionLabel(sizing.deltaContracts);
   const sentence = sizing.deltaContracts === 0
     ? `按 ${sizing.holdings.toFixed(4)} BTC 和 ${describePosition(sizing.currentContracts)}，已接近目标 ${describePosition(sizing.targetContracts)}，今天无需调仓。`
     : `按 ${sizing.holdings.toFixed(4)} BTC 和 ${describePosition(sizing.currentContracts)}，目标是 ${describePosition(sizing.targetContracts)}，今天需要 ${action.text}。`;
-  $('brief-action').textContent = `操作结论：${sentence} 调整后组合约为 ${x(sizing.targetExposure)} BTC 净敞口。`;
+  setTextIfPresent('brief-action', `操作结论：${sentence} 调整后组合约为 ${x(sizing.targetExposure)} BTC 净敞口。`);
 }
 
 function renderOperation(data) {

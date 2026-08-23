@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="btc-v3.css?v=4">
+  <link rel="stylesheet" href="btc-v3.css?v=5">
 </head>
 <body>
   <main class="shell">
@@ -48,23 +48,6 @@
         <div><span>风险判断</span><p id="daily-analysis-risk">--</p></div>
       </div>
       <p id="daily-analysis-guidance" class="brief-action">--</p>
-    </section>
-
-    <section class="state-brief">
-      <div class="section-head brief-head">
-        <div>
-          <div class="eyebrow">WHAT THE DATA MEANS</div>
-          <h2>当前状态解读</h2>
-        </div>
-        <span id="brief-label" class="brief-label">正在分析</span>
-      </div>
-      <p id="brief-summary" class="brief-summary">正在把趋势、估值、波动率和 Funding 转换成自然语言操作判断…</p>
-      <div class="brief-points">
-        <div><span>趋势</span><p id="brief-trend">--</p></div>
-        <div><span>估值</span><p id="brief-valuation">--</p></div>
-        <div><span>风险约束</span><p id="brief-risk">--</p></div>
-      </div>
-      <p id="brief-action" class="brief-action">--</p>
     </section>
 
     <section class="grid">
@@ -120,7 +103,7 @@
     <section class="panel compact-panel"><h2>执行纪律</h2><div class="discipline-grid"><div><strong>不追盘中信号</strong><span>只使用完整 UTC 日线。</span></div><div><strong>不修改 V3.1</strong><span>未来新逻辑另开 V3.2，不回头调 V3.1。</span></div><div><strong>不混用 U 本位</strong><span>Canonical instrument 是 BTCUSD_PERP COIN-M。</span></div><div><strong>不自动交易</strong><span>Forward Test 期间人工执行，账户与订单完全隔离。</span></div></div></section>
     <footer><span id="updated">最后更新：--</span><span id="next-review">下次评估：--</span><a href="https://binance-futures-radar.vercel.app/" target="_blank" rel="noreferrer">返回做空雷达</a><a href="https://github.com/xiangyingchang/binance-futures-radar/blob/main/BTC_V3_STRATEGY.md" target="_blank" rel="noreferrer">策略文档</a></footer>
   </main>
-  <script src="btc-v3.js?v=3"></script>
+  <script src="btc-v3.js?v=4"></script>
   <script src="btc-v3-daily-analysis.js?v=1"></script>
 </body>
 </html>

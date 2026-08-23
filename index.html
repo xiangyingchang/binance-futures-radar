@@ -10,9 +10,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="app-shell.css?v=1">
+  <link id="radar-styles" rel="stylesheet" href="style.css?v=12">
+  <link id="v3-styles" rel="stylesheet" href="btc-v3.css?v=5" disabled>
 </head>
 <body>
+  <div class="app-frame">
+  <section id="radar-view" class="app-view app-view--radar" data-view-panel="radar">
   <div class="app-shell">
     <header class="hero">
       <div class="hero-main">
@@ -160,7 +164,21 @@
 
     <footer><strong>注意：</strong>V2 才是当前 Forward Test 策略；V1 只用于对照和排查，不要把两个版本的规则临时拼成新的入场条件。链上供给风险属于人工核查项，Whale Intelligence 也只作为独立辅助信息，不自动改变做空信号。</footer>
   </div>
+  </section>
+
+  <section id="v3-view" class="app-view app-view--v3" data-view-panel="v3" hidden>
+    <p class="view-loading">正在加载 BTC V3…</p>
+  </section>
+
+  <nav class="view-nav" data-view-nav aria-label="页面切换">
+    <div class="view-nav-inner">
+      <button type="button" data-view-target="radar" aria-pressed="true">做空雷达</button>
+      <button type="button" data-view-target="v3" aria-pressed="false">BTC V3</button>
+    </div>
+  </nav>
+  </div>
   <script src="app-v4.js?v=10"></script>
   <script src="whale.js?v=2"></script>
+  <script src="view-router.js?v=1"></script>
 </body>
 </html>
