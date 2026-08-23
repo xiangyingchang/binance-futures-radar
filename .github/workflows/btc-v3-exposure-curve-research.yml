@@ -7,8 +7,10 @@ on:
     paths:
       - 'scripts/btc-v3-exposure-curve-research.js'
       - 'scripts/btc-v3-exposure-curve-v3-validation.js'
+      - 'scripts/btc-v3-exposure-curve-v4-mechanism.js'
       - 'tests/btc-v3-exposure-curve-research.test.js'
       - 'tests/btc-v3-exposure-curve-v3-validation.test.js'
+      - 'tests/btc-v3-exposure-curve-v4-mechanism.test.js'
       - '.github/workflows/btc-v3-exposure-curve-research.yml'
   workflow_dispatch:
 
@@ -32,18 +34,22 @@ jobs:
         run: |
           node --check scripts/btc-v3-exposure-curve-research.js
           node --check scripts/btc-v3-exposure-curve-v3-validation.js
+          node --check scripts/btc-v3-exposure-curve-v4-mechanism.js
           node --test tests/btc-v3-exposure-curve-research.test.js
           node --test tests/btc-v3-exposure-curve-v3-validation.test.js
+          node --test tests/btc-v3-exposure-curve-v4-mechanism.test.js
           node --test tests/btc-v3-strategy.test.js
       - name: Run phase 2 comparative backtest
         run: node scripts/btc-v3-exposure-curve-research.js
       - name: Run phase 3 event attribution and robustness validation
         run: node scripts/btc-v3-exposure-curve-v3-validation.js
+      - name: Run phase 4 mechanism and walk-forward validation
+        run: node scripts/btc-v3-exposure-curve-v4-mechanism.js
       - name: Commit research result
         run: |
           git config user.name "v3-research[bot]"
           git config user.email "v3-research[bot]@users.noreply.github.com"
-          git add research/btc-v3-exposure-curve-v2-result.json research/btc-v3-exposure-curve-v2-report.md research/btc-v3-exposure-curve-v3-result.json research/btc-v3-exposure-curve-v3-report.md research/btc-v3-exposure-curve-v3-events.csv
+          git add research/btc-v3-exposure-curve-v2-result.json research/btc-v3-exposure-curve-v2-report.md research/btc-v3-exposure-curve-v3-result.json research/btc-v3-exposure-curve-v3-report.md research/btc-v3-exposure-curve-v3-events.csv research/btc-v3-exposure-curve-v4-result.json research/btc-v3-exposure-curve-v4-report.md research/btc-v3-exposure-curve-v4-clusters.csv
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "research: update V3 exposure-curve phase 2/3 results"
+          git commit -m "research: update V3 exposure-curve phase 2/4 results"
           git push origin HEAD:research/v3-exposure-curve

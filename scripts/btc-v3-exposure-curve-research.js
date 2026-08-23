@@ -536,7 +536,8 @@ function splitPositionLot(state, lot, quantity) {
 }
 
 function consumePositionLots(state, closingDelta) {
-  if (!state.captureTrace || !state.contracts || !closingDelta) return;
+  const closedLots = [];
+  if (!state.captureTrace || !state.contracts || !closingDelta) return closedLots;
   const requiredSide = -Math.sign(closingDelta);
   let remaining = Math.min(Math.abs(closingDelta), Math.abs(state.contracts));
   for (const lot of [...state.lots]) {
@@ -544,15 +545,17 @@ function consumePositionLots(state, closingDelta) {
     if (Math.sign(lot.contracts) !== requiredSide || lot.contracts === 0) continue;
     const segment = splitPositionLot(state, lot, remaining);
     state.closedLots.push(segment);
+    closedLots.push(segment);
     remaining -= Math.abs(segment.contracts);
     if (Math.abs(lot.contracts) < 1e-12) state.lots = state.lots.filter((item) => item !== lot);
   }
+  return closedLots;
 }
 
-function addPositionLot(state, delta, intendedPrice, effectivePrice, maker, dayContext, fillKind, fee, slippagePnl) {
+function addPositionLot(state, delta, intendedPrice, effectivePrice, maker, dayContext, fillKind, fee, slippagePnl, identifiers = {}) {
   if (!state.captureTrace || !delta) return null;
-  const tradeId = `${state.scenarioName}:trade:${state.tradeSequence++}`;
-  const lotId = maker ? `${state.scenarioName}:maker-fill:${state.makerFillSequence++}` : tradeId;
+  const tradeId = identifiers.tradeId || `${state.scenarioName}:trade:${state.tradeSequence++}`;
+  const lotId = maker ? (identifiers.lotId || `${state.scenarioName}:maker-fill:${state.makerFillSequence++}`) : tradeId;
   state.lots.push({
     lotId,
     segmentId: `${lotId}:segment:open`,
@@ -599,10 +602,17 @@ function applyTrade(state, newContracts, intendedPrice, maker, dayContext, costs
   const closeQuantity = previousContracts && Math.sign(previousContracts) !== Math.sign(delta)
     ? Math.min(Math.abs(previousContracts), Math.abs(delta))
     : 0;
-  consumePositionLots(state, delta);
+  const closedLots = consumePositionLots(state, delta);
+  const closedLotMarkToMarketPnlBtc = closedLots.reduce((total, lot) => total + lot.markToMarketPnlBtc, 0);
+  const closedLotFundingPnlBtc = closedLots.reduce((total, lot) => total + lot.fundingPnlBtc, 0);
   state.contracts = newContracts;
   const openDelta = Math.sign(delta) * (Math.abs(delta) - closeQuantity);
-  const lot = addPositionLot(state, openDelta, intendedPrice, effectivePrice, maker, dayContext, fillKind, fee, slippagePnl);
+  const traceTradeId = state.captureTrace ? `${state.scenarioName}:trade:${state.tradeSequence++}` : null;
+  const traceFillId = state.captureTrace && maker ? `${state.scenarioName}:maker-fill:${state.makerFillSequence++}` : null;
+  const lot = addPositionLot(state, openDelta, intendedPrice, effectivePrice, maker, dayContext, fillKind, fee, slippagePnl, {
+    tradeId: traceTradeId,
+    lotId: traceFillId,
+  });
   state.tradeCount += 1;
   state.tradeEvents.push({
     dayOpen: dayContext.openTime,
@@ -613,7 +623,17 @@ function applyTrade(state, newContracts, intendedPrice, maker, dayContext, costs
     maker,
     fillKind,
   });
-  return { delta, fee, slippagePnl, effectivePrice, lotId: lot?.lotId || null, tradeId: lot?.tradeId || null };
+  return {
+    delta,
+    fee,
+    slippagePnl,
+    effectivePrice,
+    lotId: lot?.lotId || traceFillId || null,
+    tradeId: traceTradeId || lot?.tradeId || null,
+    lotOpened: Boolean(lot),
+    closedLotMarkToMarketPnlBtc,
+    closedLotFundingPnlBtc,
+  };
 }
 
 function processFunding(state, event, market, costs) {
@@ -710,6 +730,10 @@ function processBarPath(bar, state, orders, dayContext, costs, market, fillPrice
             exposureAfter,
             feeBtc: trade.fee,
             slippageBtc: Math.max(0, -trade.slippagePnl),
+            closedLotMarkToMarketPnlBtc: trade.closedLotMarkToMarketPnlBtc,
+            closedLotFundingPnlBtc: trade.closedLotFundingPnlBtc,
+            lotOpened: trade.lotOpened,
+            positionEffect: trade.lotOpened ? 'open_or_increase' : 'reduce_or_close',
             clusterId,
             fillKind: order.kind,
           });

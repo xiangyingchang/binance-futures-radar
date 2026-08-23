@@ -65,6 +65,24 @@ test('maker ladder fill is a single trade and preserves the lower fill price', (
   assert.ok(result.attributionProxies.betterBuyPriceBtc > 0);
 });
 
+test('capture trace records maker fills that only reduce a short position', () => {
+  const start = Date.parse('2024-01-01T00:00:00Z');
+  const first = bar(start, 200, 200, 180, 190);
+  const market = syntheticMarket([first]);
+  const result = runScenario(
+    { name: 'curve_cover_trace', type: 'curve', levels: [{ drop: -0.05, bonus: 0.40 }] },
+    market,
+    { name: 'synthetic', startTime: start, endTime: first.closeTime },
+    { fixedTargetExposure: 0, captureTrace: true, crashClusterForTimestamp: () => 'crash-test', ...zeroCosts },
+  );
+  assert.equal(result.makerFillEvents.length, 1);
+  assert.equal(result.makerFillEvents[0].lotOpened, false);
+  assert.equal(result.makerFillEvents[0].positionEffect, 'reduce_or_close');
+  assert.equal(typeof result.makerFillEvents[0].closedLotMarkToMarketPnlBtc, 'number');
+  assert.equal(typeof result.makerFillEvents[0].closedLotFundingPnlBtc, 'number');
+  assert.equal(result.makerFillEvents[0].clusterId, 'crash-test');
+});
+
 test('funding is charged to the position before the next day target is reconciled', () => {
   const start = Date.parse('2024-01-01T00:00:00Z');
   const second = start + 24 * 3600000;

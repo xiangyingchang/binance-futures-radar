@@ -36,8 +36,8 @@
 
 | scenario | maker fills | crash clusters | profitable | losing | cluster win rate | mean incremental BTC | median incremental BTC | top 1 share | top 3 share | top 5 share | top 10 share |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| curve_mild | 40 | 24 | 20 | 4 | 83.33% | 0.002175 | 0.000965 | 23.06% | 45.09% | 55.93% | 76.90% |
-| curve_aggressive | 42 | 25 | 20 | 5 | 80.00% | 0.005022 | 0.002702 | 23.54% | 52.14% | 67.09% | 91.57% |
+| curve_mild | 74 | 42 | 32 | 10 | 76.19% | 0.001450 | 0.000710 | 23.06% | 55.81% | 69.90% | 95.43% |
+| curve_aggressive | 73 | 42 | 31 | 11 | 73.81% | 0.002863 | 0.001837 | 23.54% | 52.14% | 67.09% | 93.36% |
 
 这里的 cluster 增量是“完整曲线重跑 ending BTC - 去掉该 cluster 后动态重跑 ending BTC”，不是从最终 PnL 里简单扣一笔；各 cluster 的 marginal contribution 因 compounding 不保证可加总。
 
@@ -47,14 +47,14 @@
 |---|---|---:|---:|---:|---:|---:|---:|
 | curve_mild | full | 1.399910 | 0.056581 | 13.91% | -23.92% | -33.82% | 0.766 / 1.397 |
 | curve_mild | top1 | 1.386861 | 0.043532 | 13.49% | -23.92% | -33.82% | 0.766 / 1.396 |
-| curve_mild | top3 | 1.374399 | 0.031070 | 13.10% | -23.91% | -34.04% | 0.766 / 1.342 |
-| curve_mild | top5 | 1.368264 | 0.024935 | 12.90% | -23.92% | -34.35% | 0.766 / 1.342 |
-| curve_mild | top10 | 1.356397 | 0.013067 | 12.52% | -23.92% | -34.44% | 0.766 / 1.342 |
+| curve_mild | top3 | 1.368333 | 0.025004 | 12.91% | -23.92% | -33.90% | 0.766 / 1.342 |
+| curve_mild | top5 | 1.360362 | 0.017033 | 12.65% | -23.91% | -34.21% | 0.766 / 1.342 |
+| curve_mild | top10 | 1.345913 | 0.002584 | 12.19% | -23.93% | -34.40% | 0.766 / 1.342 |
 | curve_aggressive | full | 1.452256 | 0.108927 | 15.54% | -23.91% | -33.81% | 0.768 / 1.487 |
 | curve_aggressive | top1 | 1.426614 | 0.083285 | 14.74% | -23.91% | -33.81% | 0.768 / 1.487 |
 | curve_aggressive | top3 | 1.395466 | 0.052137 | 13.77% | -23.91% | -33.81% | 0.767 / 1.487 |
 | curve_aggressive | top5 | 1.379171 | 0.035842 | 13.25% | -23.91% | -33.89% | 0.767 / 1.488 |
-| curve_aggressive | top10 | 1.352507 | 0.009178 | 12.40% | -23.91% | -34.45% | 0.766 / 1.488 |
+| curve_aggressive | top10 | 1.350564 | 0.007235 | 12.34% | -23.91% | -34.35% | 0.766 / 1.488 |
 
 ## 年度稳定性
 
@@ -74,20 +74,20 @@
 
 | scenario | rank | cluster | start | end | fills | marginal ending BTC |
 |---|---:|---|---|---|---:|---:|
-| curve_mild | 24 | crash-2025-01-07 | 2025-01-07 | 2025-01-07 | 1 | -0.000406 |
-| curve_mild | 23 | crash-2024-01-12 | 2024-01-12 | 2024-01-12 | 2 | -0.000386 |
-| curve_mild | 22 | crash-2025-03-07 | 2025-03-07 | 2025-03-09 | 2 | -0.000385 |
-| curve_mild | 21 | crash-2024-11-25 | 2024-11-25 | 2024-11-25 | 1 | -0.000341 |
-| curve_mild | 20 | crash-2024-01-22 | 2024-01-22 | 2024-01-22 | 1 | 0.000092 |
-| curve_aggressive | 25 | crash-2025-03-07 | 2025-03-07 | 2025-03-09 | 2 | -0.000535 |
-| curve_aggressive | 24 | crash-2024-11-25 | 2024-11-25 | 2024-11-25 | 1 | -0.000501 |
-| curve_aggressive | 23 | crash-2024-01-22 | 2024-01-22 | 2024-01-22 | 1 | -0.000344 |
-| curve_aggressive | 22 | crash-2025-01-07 | 2025-01-07 | 2025-01-07 | 1 | -0.000339 |
-| curve_aggressive | 21 | crash-2024-01-12 | 2024-01-12 | 2024-01-12 | 2 | -0.000007 |
+| curve_mild | 42 | crash-2026-02-03 | 2026-02-03 | 2026-02-05 | 4 | -0.008511 |
+| curve_mild | 41 | crash-2024-03-19 | 2024-03-19 | 2024-03-19 | 1 | -0.003016 |
+| curve_mild | 40 | crash-2026-06-02 | 2026-06-02 | 2026-06-02 | 1 | -0.001330 |
+| curve_mild | 39 | crash-2024-04-02 | 2024-04-02 | 2024-04-02 | 1 | -0.000858 |
+| curve_mild | 38 | crash-2025-11-14 | 2025-11-14 | 2025-11-14 | 1 | -0.000428 |
+| curve_aggressive | 42 | crash-2026-02-03 | 2026-02-03 | 2026-02-05 | 4 | -0.021128 |
+| curve_aggressive | 41 | crash-2024-03-19 | 2024-03-19 | 2024-03-19 | 1 | -0.005936 |
+| curve_aggressive | 40 | crash-2026-06-02 | 2026-06-02 | 2026-06-02 | 1 | -0.002617 |
+| curve_aggressive | 39 | crash-2024-04-02 | 2024-04-02 | 2024-04-02 | 1 | -0.001800 |
+| curve_aggressive | 38 | crash-2024-08-27 | 2024-08-27 | 2024-08-27 | 1 | -0.000728 |
 
 ## Fill-level 归因
 
-完整的 curve_mild / curve_aggressive 实际 maker fill 明细见 [events CSV](./btc-v3-exposure-curve-v3-events.csv)。每行包含：V3 baseline target、threshold、limit/effective price、contracts、成交后 exposure、当日 close、1D/3D/7D return、lot BTC PnL、Funding、fee、slippage，以及同一 crash cluster 的连续多档标记。
+完整的 curve_mild / curve_aggressive 实际 maker fill 明细见 [events CSV](./btc-v3-exposure-curve-v3-events.csv)。每行包含：V3 baseline target、threshold、limit/effective price、contracts、成交后 exposure、当日 close、1D/3D/7D return、lot BTC PnL、Funding、fee、slippage，以及同一 crash cluster 的连续多档标记。只覆盖空头而未新开 lot 的 maker fill 也会记录；其已实现持仓 PnL 由本次成交关闭的原始 lot segment 归因，成交本身的 fee/slippage 单独记录。
 
 relativeBaselineIncrementalPnlBtc 是同一 fill 数量、同一日开盘 immediate taker entry 的局部 counterfactual（价格、fee、slippage）；它不是完整策略的 Shapley 分摊。完整策略的相对 baseline 结论以 cluster LOO 重跑为准。
 
@@ -99,7 +99,7 @@ relativeBaselineIncrementalPnlBtc 是同一 fill 数量、同一日开盘 immedi
 
 ## 最终分类依据
 
-- curve_mild: **robust_crash_alpha**；positive years = 2/3；top-3 removal remaining delta = 0.031070；top-5 removal remaining delta = 0.024935；top-5 share = 55.93%。
+- curve_mild: **robust_crash_alpha**；positive years = 2/3；top-3 removal remaining delta = 0.025004；top-5 removal remaining delta = 0.017033；top-5 share = 69.90%。
 - curve_aggressive: **robust_crash_alpha**；positive years = 2/3；top-3 removal remaining delta = 0.052137；top-5 removal remaining delta = 0.035842；top-5 share = 67.09%。
 
 进入 V3.2 执行规则设计：**不可以**。The result is crash-concentrated rather than broad; keep it research-only.

@@ -202,6 +202,8 @@ function enrichFills(scenarioResult, market, crashClusters) {
   const lots = aggregateMakerLots(scenarioResult.lotRecords);
   const fills = (scenarioResult.makerFillEvents || []).map((event) => {
     const lot = lots.get(event.fillId) || {};
+    const closedLotMarkToMarketPnlBtc = event.closedLotMarkToMarketPnlBtc || 0;
+    const closedLotFundingPnlBtc = event.closedLotFundingPnlBtc || 0;
     const relative = relativeBaselineEntryPnl({ ...event, feeBtc: lot.feeBtc ?? event.feeBtc, slippageBtc: lot.slippageBtc ?? event.slippageBtc }, market.contract.contractSize);
     const forward = addForwardReturns(event, dailyByDay);
     return {
@@ -222,13 +224,17 @@ function enrichFills(scenarioResult, market, crashClusters) {
       contracts: event.contracts,
       contractsAfter: event.contractsAfter,
       exposureAfter: event.exposureAfter,
+      lotOpened: event.lotOpened ?? null,
+      positionEffect: event.positionEffect ?? null,
       dayClose: forward.dayClose,
       oneDayReturn: forward.oneDayReturn,
       threeDayReturn: forward.threeDayReturn,
       sevenDayReturn: forward.sevenDayReturn,
-      markToMarketPnlBtc: lot.markToMarketPnlBtc || 0,
-      fundingPnlBtc: lot.fundingPnlBtc || 0,
-      btcPnlBtc: (lot.markToMarketPnlBtc || 0) + (lot.fundingPnlBtc || 0),
+      closedLotMarkToMarketPnlBtc,
+      closedLotFundingPnlBtc,
+      markToMarketPnlBtc: closedLotMarkToMarketPnlBtc + (lot.markToMarketPnlBtc || 0),
+      fundingPnlBtc: closedLotFundingPnlBtc + (lot.fundingPnlBtc || 0),
+      btcPnlBtc: closedLotMarkToMarketPnlBtc + closedLotFundingPnlBtc + (lot.markToMarketPnlBtc || 0) + (lot.fundingPnlBtc || 0),
       relativeBaselineIncrementalPnlBtc: relative.totalBtc,
       relativeBaselinePriceAdvantageBtc: relative.priceAdvantageBtc,
       feeBtc: lot.feeBtc ?? event.feeBtc,
@@ -621,8 +627,8 @@ function csvEscape(value) {
 const CSV_COLUMNS = [
   'scenario', 'fillId', 'fillTimeUtc', 'fillDate', 'crashClusterId', 'clusterFillOrdinal', 'clusterFillCount',
   'sameCrashContinuousMultiLevelFill', 'baselineTargetExposure', 'baselineTargetContracts', 'thresholdDrop',
-  'bonusExposure', 'limitPrice', 'intendedPrice', 'effectivePrice', 'contracts', 'contractsAfter', 'exposureAfter',
-  'dayClose', 'oneDayReturn', 'threeDayReturn', 'sevenDayReturn', 'markToMarketPnlBtc', 'btcPnlBtc',
+  'bonusExposure', 'limitPrice', 'intendedPrice', 'effectivePrice', 'contracts', 'contractsAfter', 'exposureAfter', 'lotOpened', 'positionEffect',
+  'dayClose', 'oneDayReturn', 'threeDayReturn', 'sevenDayReturn', 'closedLotMarkToMarketPnlBtc', 'closedLotFundingPnlBtc', 'markToMarketPnlBtc', 'btcPnlBtc',
   'relativeBaselineIncrementalPnlBtc', 'relativeBaselinePriceAdvantageBtc', 'feeBtc', 'fundingPnlBtc', 'slippageBtc',
   'baselineCounterfactualEffectivePrice', 'sameCrashClusterMultipleFills', 'clusterMarginalEndingBtc', 'clusterTopRank',
 ];
@@ -716,7 +722,7 @@ ${worstRows || '| none | | | | | | |'}
 
 ## Fill-level 归因
 
-完整的 curve_mild / curve_aggressive 实际 maker fill 明细见 [events CSV](./btc-v3-exposure-curve-v3-events.csv)。每行包含：V3 baseline target、threshold、limit/effective price、contracts、成交后 exposure、当日 close、1D/3D/7D return、lot BTC PnL、Funding、fee、slippage，以及同一 crash cluster 的连续多档标记。
+完整的 curve_mild / curve_aggressive 实际 maker fill 明细见 [events CSV](./btc-v3-exposure-curve-v3-events.csv)。每行包含：V3 baseline target、threshold、limit/effective price、contracts、成交后 exposure、当日 close、1D/3D/7D return、lot BTC PnL、Funding、fee、slippage，以及同一 crash cluster 的连续多档标记。只覆盖空头而未新开 lot 的 maker fill 也会记录；其已实现持仓 PnL 由本次成交关闭的原始 lot segment 归因，成交本身的 fee/slippage 单独记录。
 
 relativeBaselineIncrementalPnlBtc 是同一 fill 数量、同一日开盘 immediate taker entry 的局部 counterfactual（价格、fee、slippage）；它不是完整策略的 Shapley 分摊。完整策略的相对 baseline 结论以 cluster LOO 重跑为准。
 
