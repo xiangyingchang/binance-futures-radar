@@ -35,6 +35,8 @@ Each line is one JSON object:
 
 When the original Binance fill timestamp is unavailable, `executedAt` stays `null`; `recordedAt` is the system write time and `executionTimePrecision` remains explicit.
 
+A reversal is an append-only inverse record with `recordType="reversal"` and an explicit `reversesExecutionId`. Its `side`, `contracts`, and `avgFillPrice` must exactly invert the referenced execution. Accounting applies the inverse at the reversal's economic time. A correction is therefore recorded as: append reversal, then append a new correct execution; old lines are never changed.
+
 Corrections are new `reversal` records followed by a new `execution` record. Existing JSONL lines are never edited or deleted. `adjustment` and `correction` record types are intentionally not supported to avoid ambiguous accounting.
 
 ## API

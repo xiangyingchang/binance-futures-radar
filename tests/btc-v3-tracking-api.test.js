@@ -85,6 +85,13 @@
      assert.strictEqual(anonGet.statusCode, 401, 'anonymous GET must be rejected');
      assert.ok(!JSON.stringify(anonGet.body).includes('strategyEquity'), '401 must not leak ledger fields');
 
+     const configuredKey = process.env.V3_TRACKING_ACCESS_KEY;
+     delete process.env.V3_TRACKING_ACCESS_KEY;
+     const missingAccessKey = mockResponse();
+     await trackingApi({ method: 'GET', headers: {} }, missingAccessKey);
+     assert.strictEqual(missingAccessKey.statusCode, 503, 'missing access key configuration must be a service configuration error');
+     process.env.V3_TRACKING_ACCESS_KEY = configuredKey;
+
      // 17. Wrong key = 401; Correct key = 200
      const wrongKey = mockResponse();
      await trackingApi({ method: 'GET', headers: { authorization: 'Bearer wrong-key' } }, wrongKey);
