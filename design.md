@@ -60,6 +60,7 @@ Atmospheric 的技术型 app 变体：暗色、克制、数据先于装饰。
 - 顶部：N9 edge-aligned utility header，左侧产品/版本身份，右侧刷新动作。
 - 视图切换：移动优先的底部双 Tab rail，`做空雷达` / `BTC V3`；V3 视图按需加载，避免两套页面样式串线。
 - V3 操作区：实时 Mark Price、精确刷新时间和完整日线信号基准置于操作指导顶部；异常时锁定为不可操作状态。
+- V3 执行追踪：`MY EXECUTION` 独立于 Strategy Target，先展示 Target/Actual 对比，再展示 append-only history 和手工录入入口。
 - 页尾：Ft2 inline-rule single line，信息单行收束，不添加虚构的 sitemap、徽标或指标。
 
 ## Per-page allowances

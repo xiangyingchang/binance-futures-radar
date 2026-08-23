@@ -17,6 +17,10 @@
     "api/btc-v3.js": {
       "regions": ["sin1"],
       "maxDuration": 60
+    },
+    "api/btc-v3-execution.js": {
+      "regions": ["sin1"],
+      "maxDuration": 60
     }
   }
 }

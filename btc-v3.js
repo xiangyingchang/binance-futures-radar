@@ -13,7 +13,9 @@ const STORAGE_CONTRACTS = 'btc-v3-current-contracts';
 const OPERATION_OUTPUT_IDS = ['account-target-contracts', 'account-delta-contracts', 'account-overlay-btc'];
 let latestSnapshot = null;
 
-const finite = (v, fallback = null) => Number.isFinite(Number(v)) ? Number(v) : fallback;
+const finite = (v, fallback = null) => v === null || v === undefined || v === ''
+  ? fallback
+  : Number.isFinite(Number(v)) ? Number(v) : fallback;
 const pct = (v, d = 1) => finite(v) === null ? '--' : `${(Number(v) * 100).toFixed(d)}%`;
 const signedPct = (v, d = 1) => finite(v) === null ? '--' : `${Number(v) >= 0 ? '+' : ''}${(Number(v) * 100).toFixed(d)}%`;
 const x = (v, d = 2) => finite(v) === null ? '--' : `${Number(v).toFixed(d)}x`;
@@ -71,6 +73,10 @@ function setLiveState(status, { markPrice = null, observedAt = null, candleDate 
 
 function clearOperationOutputs() {
   for (const id of OPERATION_OUTPUT_IDS) $(id).textContent = '--';
+}
+
+function publishSnapshot(data) {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('btc-v3:snapshot', { detail: data }));
 }
 
 function savedNumber(key, fallback) {
@@ -217,6 +223,7 @@ function render(data) {
   const next = finite(c.closeTime) === null ? null : finite(c.closeTime) + DAY_MS + FORWARD_TEST_BUFFER_MS + 1;
   $('next-review').textContent = `下次日级评估：${next ? new Date(next).toLocaleString() : '--'}`;
   renderOperation(data);
+  publishSnapshot(data);
 }
 
 async function load() {
@@ -233,6 +240,7 @@ async function load() {
     if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
     render(data);
   } catch (error) {
+    publishSnapshot(null);
     setLiveState('error');
     $('target').textContent = 'ERR';
     $('target-note').textContent = error.message || 'BTC V3 数据暂不可用';
@@ -248,6 +256,10 @@ async function load() {
 
 $('btc-holdings').value = savedNumber(STORAGE_BTC, DEFAULT_BTC_HOLDINGS);
 $('current-contracts').value = savedNumber(STORAGE_CONTRACTS, 0);
-for (const id of ['btc-holdings', 'current-contracts']) $(id).addEventListener('input', () => latestSnapshot && renderOperation(latestSnapshot));
+for (const id of ['btc-holdings', 'current-contracts']) $(id).addEventListener('input', () => {
+  if (!latestSnapshot) return;
+  renderOperation(latestSnapshot);
+  publishSnapshot(latestSnapshot);
+});
 $('refresh').addEventListener('click', load);
 load();

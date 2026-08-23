@@ -23,10 +23,13 @@ jobs:
           node --check app-v4.js
           node --check whale.js
           node --check btc-v3.js
+          node --check btc-v3-execution-accounting.js
+          node --check btc-v3-execution.js
           node --check api/radar.js
           node --check api/radar-v2.js
           node --check api/whale-intelligence.js
           node --check api/btc-v3.js
+          node --check api/btc-v3-execution.js
           node --check lib/strategy.js
           node --check lib/whale-intelligence.js
           node --check lib/btc-v3-strategy.js
@@ -37,12 +40,16 @@ jobs:
           node --check tests/strategy.test.js
           node --check tests/whale-intelligence.test.js
           node --check tests/btc-v3-strategy.test.js
+          node --check tests/btc-v3-execution-accounting.test.js
+          node --check tests/btc-v3-execution-api.test.js
 
       - name: Run strategy unit tests
         run: |
           node tests/strategy.test.js
           node tests/whale-intelligence.test.js
           node tests/btc-v3-strategy.test.js
+          node tests/btc-v3-execution-accounting.test.js
+          node tests/btc-v3-execution-api.test.js
 
       - name: Check Python syntax
         run: python -m py_compile scanner.py scanner_optimized.py

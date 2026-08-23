@@ -1,0 +1,1 @@
+{"recordType":"execution","executionId":"exec_20260823_btcusd_perp_buy_108_77424_7","strategyVersion":"btc-v3.1-coinm","symbol":"BTCUSD_PERP","side":"BUY","contracts":108,"avgFillPrice":77424.7,"executedAt":null,"recordedAt":"2026-08-23T13:48:37Z","executionTimePrecision":"approximate","targetExposureAtExecution":1.25,"source":"manual","note":"V3 target execution"}
