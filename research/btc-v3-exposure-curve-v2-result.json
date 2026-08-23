@@ -1,0 +1,2044 @@
+{
+  "generatedAt": "2026-08-23T03:02:45.055Z",
+  "strategyVersion": "btc-v3.1-coinm",
+  "researchVersion": "btc-v3-exposure-curve-v2",
+  "researchOnly": true,
+  "productionChanged": false,
+  "mainModified": false,
+  "productionStrategyModified": false,
+  "deployed": false,
+  "contract": {
+    "symbol": "BTCUSD_PERP",
+    "pair": "BTCUSD",
+    "contractType": "PERPETUAL",
+    "contractStatus": "TRADING",
+    "contractSize": 100,
+    "quoteAsset": "USD",
+    "baseAsset": "BTC",
+    "marginAsset": "BTC",
+    "metadataSource": "Existing frozen V3 COIN-M contract specification; contractSize is 100 USD.",
+    "onboardDate": 1597129200000
+  },
+  "dataSource": "Binance Vision official COIN-M monthly archives",
+  "dataWindow": {
+    "requestedStartDate": "2020-08-01",
+    "requestedEndDate": "2026-07-31",
+    "executableStartDate": "2020-08-11",
+    "executableEndDate": "2026-07-31",
+    "inSample": {
+      "startDate": "2020-08-11",
+      "endDate": "2023-12-31"
+    },
+    "outOfSample": {
+      "startDate": "2024-01-01",
+      "endDate": "2026-07-31"
+    }
+  },
+  "assumptions": {
+    "signalTiming": "T-1 fully closed daily index close -> T first execution bar open",
+    "orderLifecycle": "cancel-and-replace each UTC day; unfilled maker orders expire at day end",
+    "riskReduction": "risk reduction and short covering are immediate taker trades",
+    "pathModel": "OHLC path: open -> low -> high -> close on bullish bars; open -> high -> low -> close on bearish bars",
+    "makerFeeBps": 2,
+    "takerFeeBps": 5,
+    "makerSlippageBps": 5,
+    "takerSlippageBps": 5,
+    "marginCap": 1.5,
+    "funding": "official Binance Vision fundingRate records; unavailable history remains missing/partial, never imputed as zero",
+    "oosParameterFreeze": "All scenario thresholds/bonuses are defined before running OOS; no OOS selection or retuning."
+  },
+  "dataQuality": {
+    "index": {
+      "intervalUsed": "1h->daily_close",
+      "preferredInterval": "1h",
+      "fallbackInterval": "4h",
+      "fallbackMonths": [],
+      "partialMonths": [
+        "2023-08"
+      ],
+      "rows": 2187,
+      "firstDate": "2020-08-01",
+      "lastDate": "2026-07-31"
+    },
+    "execution": {
+      "intervalUsed": "1h",
+      "preferredInterval": "1h",
+      "fallbackInterval": "4h",
+      "fallbackMonths": [],
+      "partialMonths": [
+        "2023-08",
+        "2026-06"
+      ],
+      "rows": 52217,
+      "firstDate": "2020-08-11",
+      "lastDate": "2026-07-31"
+    },
+    "mark": {
+      "intervalUsed": "1h",
+      "preferredInterval": "1h",
+      "fallbackInterval": "4h",
+      "fallbackMonths": [],
+      "partialMonths": [
+        "2023-08"
+      ],
+      "rows": 52240,
+      "firstDate": "2020-08-11",
+      "lastDate": "2026-07-31"
+    },
+    "funding": {
+      "source": "Binance Vision COIN-M monthly fundingRate archives",
+      "rows": 4269,
+      "firstDate": "2022-07-01",
+      "lastDate": "2026-06-30",
+      "availableMonths": [
+        "2022-07",
+        "2022-08",
+        "2022-09",
+        "2022-10",
+        "2022-11",
+        "2022-12",
+        "2023-01",
+        "2023-02",
+        "2023-03",
+        "2023-04",
+        "2023-05",
+        "2023-06",
+        "2023-07",
+        "2023-08",
+        "2023-09",
+        "2023-10",
+        "2023-11",
+        "2023-12",
+        "2024-01",
+        "2024-02",
+        "2024-03",
+        "2024-04",
+        "2024-05",
+        "2024-06",
+        "2024-07",
+        "2024-08",
+        "2024-09",
+        "2024-10",
+        "2024-11",
+        "2024-12",
+        "2025-01",
+        "2025-02",
+        "2025-03",
+        "2025-04",
+        "2025-05",
+        "2025-06",
+        "2025-07",
+        "2025-08",
+        "2025-09",
+        "2025-10",
+        "2025-11",
+        "2025-12",
+        "2026-01",
+        "2026-02",
+        "2026-03",
+        "2026-04",
+        "2026-05",
+        "2026-06"
+      ],
+      "missingMonths": [
+        "2020-08",
+        "2020-09",
+        "2020-10",
+        "2020-11",
+        "2020-12",
+        "2021-01",
+        "2021-02",
+        "2021-03",
+        "2021-04",
+        "2021-05",
+        "2021-06",
+        "2021-07",
+        "2021-08",
+        "2021-09",
+        "2021-10",
+        "2021-11",
+        "2021-12",
+        "2022-01",
+        "2022-02",
+        "2022-03",
+        "2022-04",
+        "2022-05",
+        "2022-06",
+        "2026-07"
+      ],
+      "unalignedToExecutionBars": [
+        {
+          "fundingTime": 1693180800000,
+          "assignedBarOpen": 1693526400000,
+          "alignment": "next_available_execution_bar_open"
+        },
+        {
+          "fundingTime": 1693209600000,
+          "assignedBarOpen": 1693526400000,
+          "alignment": "next_available_execution_bar_open"
+        },
+        {
+          "fundingTime": 1693238400000,
+          "assignedBarOpen": 1693526400000,
+          "alignment": "next_available_execution_bar_open"
+        },
+        {
+          "fundingTime": 1693267200000,
+          "assignedBarOpen": 1693526400000,
+          "alignment": "next_available_execution_bar_open"
+        },
+        {
+          "fundingTime": 1693296000001,
+          "assignedBarOpen": 1693526400000,
+          "alignment": "next_available_execution_bar_open"
+        },
+        {
+          "fundingTime": 1693324800000,
+          "assignedBarOpen": 1693526400000,
+          "alignment": "next_available_execution_bar_open"
+        },
+        {
+          "fundingTime": 1693353600000,
+          "assignedBarOpen": 1693526400000,
+          "alignment": "next_available_execution_bar_open"
+        },
+        {
+          "fundingTime": 1693382400000,
+          "assignedBarOpen": 1693526400000,
+          "alignment": "next_available_execution_bar_open"
+        },
+        {
+          "fundingTime": 1693411200000,
+          "assignedBarOpen": 1693526400000,
+          "alignment": "next_available_execution_bar_open"
+        },
+        {
+          "fundingTime": 1782691200000,
+          "assignedBarOpen": 1782777600000,
+          "alignment": "next_available_execution_bar_open"
+        },
+        {
+          "fundingTime": 1782720000012,
+          "assignedBarOpen": 1782777600000,
+          "alignment": "next_available_execution_bar_open"
+        },
+        {
+          "fundingTime": 1782748800000,
+          "assignedBarOpen": 1782777600000,
+          "alignment": "next_available_execution_bar_open"
+        }
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "name": "baseline_immediate",
+      "type": "baseline",
+      "thresholdGroup": null,
+      "thresholdLabel": null,
+      "strength": null,
+      "levels": null,
+      "periods": {
+        "full": {
+          "name": "baseline_immediate",
+          "type": "baseline",
+          "thresholdGroup": null,
+          "thresholdLabel": null,
+          "strength": null,
+          "period": "full",
+          "startDate": "2020-08-11",
+          "endDate": "2026-07-31",
+          "days": 2180.7083333333335,
+          "startingBtc": 1,
+          "endingBtc": 2.091799137483832,
+          "endingUsd": 131353.06257890098,
+          "btcCagr": 0.1314819000601306,
+          "usdCagr": 0.497138685667889,
+          "btcMaxDrawdown": -0.35467705696276397,
+          "usdMaxDrawdown": -0.5672782254591291,
+          "averageExposure": 0.7527902052693689,
+          "maxExposure": 1.5437688438747403,
+          "turnoverUsd": 2814800,
+          "feesBtc": 0.02268238979547964,
+          "makerFeesBtc": 0,
+          "takerFeesBtc": 0.02268238979547964,
+          "fundingPnlBtc": 0.010853551399798902,
+          "fundingMarkFallbackCount": 9,
+          "slippageBtc": 0.0226823897954764,
+          "tradeCount": 961,
+          "makerTradeCount": 0,
+          "takerTradeCount": 961,
+          "ladderFillRate": null,
+          "ladderContractFillRate": null,
+          "ladderOrders": 0,
+          "ladderFills": 0,
+          "missedRallyCount": 0,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2020-08-11",
+            "periodEnd": "2026-07-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 4269,
+            "expectedEvents": 4475,
+            "eventCoverageRatio": 0.9537430167597766,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 0,
+            "intradayMeanReversionBtc": 0,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": 0,
+            "btcCagr": 0,
+            "usdCagr": 0,
+            "btcMaxDrawdown": 0,
+            "usdMaxDrawdown": 0,
+            "averageExposure": 0,
+            "turnoverUsd": 0,
+            "feesBtc": 0,
+            "fundingPnlBtc": 0,
+            "slippageBtc": 0
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": 0,
+              "maxExposureDelta": 0,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 0
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0,
+              "feeCostDeltaBtc": 0,
+              "slippageCostDeltaBtc": 0
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        },
+        "inSample": {
+          "name": "baseline_immediate",
+          "type": "baseline",
+          "thresholdGroup": null,
+          "thresholdLabel": null,
+          "strength": null,
+          "period": "inSample",
+          "startDate": "2020-08-11",
+          "endDate": "2023-12-31",
+          "days": 1237.7083333333333,
+          "startingBtc": 1,
+          "endingBtc": 1.557142086651934,
+          "endingUsd": 65875.51883264474,
+          "btcCagr": 0.13950850170241713,
+          "usdCagr": 0.661141061324114,
+          "btcMaxDrawdown": -0.35467705696276397,
+          "usdMaxDrawdown": -0.5672782254591291,
+          "averageExposure": 0.7437592312449387,
+          "maxExposure": 1.5437688438747403,
+          "turnoverUsd": 594400,
+          "feesBtc": 0.008886417889200507,
+          "makerFeesBtc": 0,
+          "takerFeesBtc": 0.008886417889200507,
+          "fundingPnlBtc": -0.0016608372477322057,
+          "fundingMarkFallbackCount": 9,
+          "slippageBtc": 0.008886417889199319,
+          "tradeCount": 409,
+          "makerTradeCount": 0,
+          "takerTradeCount": 409,
+          "ladderFillRate": null,
+          "ladderContractFillRate": null,
+          "ladderOrders": 0,
+          "ladderFills": 0,
+          "missedRallyCount": 0,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2020-08-11",
+            "periodEnd": "2023-12-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 1593,
+            "expectedEvents": 1646,
+            "eventCoverageRatio": 0.9671931956257594,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 0,
+            "intradayMeanReversionBtc": 0,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": 0,
+            "btcCagr": 0,
+            "usdCagr": 0,
+            "btcMaxDrawdown": 0,
+            "usdMaxDrawdown": 0,
+            "averageExposure": 0,
+            "turnoverUsd": 0,
+            "feesBtc": 0,
+            "fundingPnlBtc": 0,
+            "slippageBtc": 0
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": 0,
+              "maxExposureDelta": 0,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 0
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0,
+              "feeCostDeltaBtc": 0,
+              "slippageCostDeltaBtc": 0
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        },
+        "outOfSample": {
+          "name": "baseline_immediate",
+          "type": "baseline",
+          "thresholdGroup": null,
+          "thresholdLabel": null,
+          "strength": null,
+          "period": "outOfSample",
+          "startDate": "2024-01-01",
+          "endDate": "2026-07-31",
+          "days": 943,
+          "startingBtc": 1,
+          "endingBtc": 1.3433291549277777,
+          "endingUsd": 84353.41395328136,
+          "btcCagr": 0.12102326147727682,
+          "usdCagr": 0.30618565052823765,
+          "btcMaxDrawdown": -0.2392141417477337,
+          "usdMaxDrawdown": -0.3443760815560698,
+          "averageExposure": 0.7646168692372041,
+          "maxExposure": 1.2785888211873926,
+          "turnoverUsd": 1437600,
+          "feesBtc": 0.00898848572235417,
+          "makerFeesBtc": 0,
+          "takerFeesBtc": 0.00898848572235417,
+          "fundingPnlBtc": 0.008131865658901267,
+          "fundingMarkFallbackCount": 0,
+          "slippageBtc": 0.008988485722352859,
+          "tradeCount": 522,
+          "makerTradeCount": 0,
+          "takerTradeCount": 522,
+          "ladderFillRate": null,
+          "ladderContractFillRate": null,
+          "ladderOrders": 0,
+          "ladderFills": 0,
+          "missedRallyCount": 0,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2024-01-01",
+            "periodEnd": "2026-07-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 2676,
+            "expectedEvents": 2829,
+            "eventCoverageRatio": 0.9459172852598091,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 0,
+            "intradayMeanReversionBtc": 0,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": 0,
+            "btcCagr": 0,
+            "usdCagr": 0,
+            "btcMaxDrawdown": 0,
+            "usdMaxDrawdown": 0,
+            "averageExposure": 0,
+            "turnoverUsd": 0,
+            "feesBtc": 0,
+            "fundingPnlBtc": 0,
+            "slippageBtc": 0
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": 0,
+              "maxExposureDelta": 0,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 0
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0,
+              "feeCostDeltaBtc": 0,
+              "slippageCostDeltaBtc": 0
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        }
+      }
+    },
+    {
+      "name": "ladder_80_20",
+      "type": "ladder",
+      "thresholdGroup": null,
+      "thresholdLabel": null,
+      "strength": null,
+      "levels": [
+        -0.03,
+        -0.06,
+        -0.1,
+        -0.15
+      ],
+      "periods": {
+        "full": {
+          "name": "ladder_80_20",
+          "type": "ladder",
+          "thresholdGroup": null,
+          "thresholdLabel": null,
+          "strength": null,
+          "period": "full",
+          "startDate": "2020-08-11",
+          "endDate": "2026-07-31",
+          "days": 2180.7083333333335,
+          "startingBtc": 1,
+          "endingBtc": 2.0885034395109057,
+          "endingUsd": 131146.11153167966,
+          "btcCagr": 0.13118332374236075,
+          "usdCagr": 0.49674361955509183,
+          "btcMaxDrawdown": -0.35378744628866987,
+          "usdMaxDrawdown": -0.5667550144071014,
+          "averageExposure": 0.7520141986806734,
+          "maxExposure": 1.5443664290832249,
+          "turnoverUsd": 2745300,
+          "feesBtc": 0.022023321664421943,
+          "makerFeesBtc": 0.000021972124784337298,
+          "takerFeesBtc": 0.022001349539637595,
+          "fundingPnlBtc": 0.011365779282375395,
+          "fundingMarkFallbackCount": 9,
+          "slippageBtc": 0.02205627985159528,
+          "tradeCount": 1009,
+          "makerTradeCount": 34,
+          "takerTradeCount": 975,
+          "ladderFillRate": 0.053125,
+          "ladderContractFillRate": 0.03768278965129359,
+          "ladderOrders": 640,
+          "ladderFills": 34,
+          "missedRallyCount": 247,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2020-08-11",
+            "periodEnd": "2026-07-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 4269,
+            "expectedEvents": 4475,
+            "eventCoverageRatio": 0.9537430167597766,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 0.0040208000171855045,
+            "intradayMeanReversionBtc": 0.000321938720764203,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": -0.0032956979729261704,
+            "btcCagr": -0.0002985763177698608,
+            "usdCagr": -0.00039506611279716,
+            "btcMaxDrawdown": 0.000889610674094099,
+            "usdMaxDrawdown": 0.0005232110520276834,
+            "averageExposure": -0.000776006588695477,
+            "turnoverUsd": -69500,
+            "feesBtc": -0.0006590681310576982,
+            "fundingPnlBtc": 0.0005122278825764933,
+            "slippageBtc": -0.0006261099438811223
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": -0.000776006588695477,
+              "maxExposureDelta": 0.000597585208484519,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 0.0040208000171855045
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0.000321938720764203
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0.0005122278825764933,
+              "feeCostDeltaBtc": 0.0006590681310576982,
+              "slippageCostDeltaBtc": 0.0006261099438811223
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        },
+        "inSample": {
+          "name": "ladder_80_20",
+          "type": "ladder",
+          "thresholdGroup": null,
+          "thresholdLabel": null,
+          "strength": null,
+          "period": "inSample",
+          "startDate": "2020-08-11",
+          "endDate": "2023-12-31",
+          "days": 1237.7083333333333,
+          "startingBtc": 1,
+          "endingBtc": 1.5579907483264646,
+          "endingUsd": 65911.42180425042,
+          "btcCagr": 0.13969161295639587,
+          "usdCagr": 0.661407995377103,
+          "btcMaxDrawdown": -0.35378744628866987,
+          "usdMaxDrawdown": -0.5667550144071014,
+          "averageExposure": 0.7432621642993021,
+          "maxExposure": 1.5443664290832249,
+          "turnoverUsd": 577000,
+          "feesBtc": 0.008594912581613087,
+          "makerFeesBtc": 0.000010196581877176412,
+          "takerFeesBtc": 0.00858471599973591,
+          "fundingPnlBtc": -0.0014671657915589457,
+          "fundingMarkFallbackCount": 9,
+          "slippageBtc": 0.0086102074544277,
+          "tradeCount": 432,
+          "makerTradeCount": 11,
+          "takerTradeCount": 421,
+          "ladderFillRate": 0.05612244897959184,
+          "ladderContractFillRate": 0.05571847507331378,
+          "ladderOrders": 196,
+          "ladderFills": 11,
+          "missedRallyCount": 80,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2020-08-11",
+            "periodEnd": "2023-12-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 1593,
+            "expectedEvents": 1646,
+            "eventCoverageRatio": 0.9671931956257594,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 0.0019020841966229283,
+            "intradayMeanReversionBtc": -0.00033249520130435804,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": 0.0008486616745304598,
+            "btcCagr": 0.0001831112539787405,
+            "usdCagr": 0.00026693405298905404,
+            "btcMaxDrawdown": 0.000889610674094099,
+            "usdMaxDrawdown": 0.0005232110520276834,
+            "averageExposure": -0.0004970669456365595,
+            "turnoverUsd": -17400,
+            "feesBtc": -0.00029150530758742,
+            "fundingPnlBtc": 0.00019367145617326005,
+            "slippageBtc": -0.0002762104347716187
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": -0.0004970669456365595,
+              "maxExposureDelta": 0.000597585208484519,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 0.0019020841966229283
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": -0.00033249520130435804
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0.00019367145617326005,
+              "feeCostDeltaBtc": 0.00029150530758742,
+              "slippageCostDeltaBtc": 0.0002762104347716187
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        },
+        "outOfSample": {
+          "name": "ladder_80_20",
+          "type": "ladder",
+          "thresholdGroup": null,
+          "thresholdLabel": null,
+          "strength": null,
+          "period": "outOfSample",
+          "startDate": "2024-01-01",
+          "endDate": "2026-07-31",
+          "days": 943,
+          "startingBtc": 1,
+          "endingBtc": 1.3380737313469737,
+          "endingUsd": 84023.40330832127,
+          "btcCagr": 0.1193236777057527,
+          "usdCagr": 0.3042053419918116,
+          "btcMaxDrawdown": -0.23921222217017257,
+          "usdMaxDrawdown": -0.34377555531750625,
+          "averageExposure": 0.7634076020640048,
+          "maxExposure": 1.276788717125104,
+          "turnoverUsd": 1400400,
+          "feesBtc": 0.008733981263339718,
+          "makerFeesBtc": 0.000006494451103621211,
+          "takerFeesBtc": 0.008727486812236097,
+          "fundingPnlBtc": 0.008382992440993928,
+          "fundingMarkFallbackCount": 0,
+          "slippageBtc": 0.008743722939993882,
+          "tradeCount": 546,
+          "makerTradeCount": 16,
+          "takerTradeCount": 530,
+          "ladderFillRate": 0.041343669250646,
+          "ladderContractFillRate": 0.029804727646454265,
+          "ladderOrders": 387,
+          "ladderFills": 16,
+          "missedRallyCount": 149,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2024-01-01",
+            "periodEnd": "2026-07-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 2676,
+            "expectedEvents": 2829,
+            "eventCoverageRatio": 0.9459172852598091,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 0.0010650461130127294,
+            "intradayMeanReversionBtc": 0.0004530717132095988,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": -0.005255423580803997,
+            "btcCagr": -0.0016995837715241269,
+            "usdCagr": -0.0019803085364260564,
+            "btcMaxDrawdown": 0.0000019195775611269283,
+            "usdMaxDrawdown": 0.0006005262385635479,
+            "averageExposure": -0.0012092671731992466,
+            "turnoverUsd": -37200,
+            "feesBtc": -0.00025450445901445233,
+            "fundingPnlBtc": 0.00025112678209266055,
+            "slippageBtc": -0.000244762782358977
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": -0.0012092671731992466,
+              "maxExposureDelta": -0.0018001040622885878,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 0.0010650461130127294
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0.0004530717132095988
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0.00025112678209266055,
+              "feeCostDeltaBtc": 0.00025450445901445233,
+              "slippageCostDeltaBtc": 0.000244762782358977
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        }
+      }
+    },
+    {
+      "name": "ladder_60_40",
+      "type": "ladder",
+      "thresholdGroup": null,
+      "thresholdLabel": null,
+      "strength": null,
+      "levels": [
+        -0.03,
+        -0.06,
+        -0.1,
+        -0.15
+      ],
+      "periods": {
+        "full": {
+          "name": "ladder_60_40",
+          "type": "ladder",
+          "thresholdGroup": null,
+          "thresholdLabel": null,
+          "strength": null,
+          "period": "full",
+          "startDate": "2020-08-11",
+          "endDate": "2026-07-31",
+          "days": 2180.7083333333335,
+          "startingBtc": 1,
+          "endingBtc": 2.0805416635179217,
+          "endingUsd": 130646.15738144344,
+          "btcCagr": 0.13046039857091807,
+          "usdCagr": 0.4957870693522539,
+          "btcMaxDrawdown": -0.35281729469097967,
+          "usdMaxDrawdown": -0.5659087527111935,
+          "averageExposure": 0.7507275575068085,
+          "maxExposure": 1.5421211412336602,
+          "turnoverUsd": 2669200,
+          "feesBtc": 0.0213093812218787,
+          "makerFeesBtc": 0.00006062401920626414,
+          "takerFeesBtc": 0.021248757202672434,
+          "fundingPnlBtc": 0.012155481228163907,
+          "fundingMarkFallbackCount": 9,
+          "slippageBtc": 0.021400317250684975,
+          "tradeCount": 1041,
+          "makerTradeCount": 64,
+          "takerTradeCount": 977,
+          "ladderFillRate": 0.06324110671936758,
+          "ladderContractFillRate": 0.041167156751866094,
+          "ladderOrders": 1012,
+          "ladderFills": 64,
+          "missedRallyCount": 309,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2020-08-11",
+            "periodEnd": "2026-07-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 4269,
+            "expectedEvents": 4475,
+            "eventCoverageRatio": 0.9537430167597766,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 0.011705968398387442,
+            "intradayMeanReversionBtc": 0.0016475046428416518,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": -0.011257473965910147,
+            "btcCagr": -0.0010215014892125396,
+            "usdCagr": -0.0013516163156350736,
+            "btcMaxDrawdown": 0.0018597622717843043,
+            "usdMaxDrawdown": 0.0013694727479356406,
+            "averageExposure": -0.0020626477625603767,
+            "turnoverUsd": -145600,
+            "feesBtc": -0.0013730085736009395,
+            "fundingPnlBtc": 0.0013019298283650053,
+            "slippageBtc": -0.001282072544791426
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": -0.0020626477625603767,
+              "maxExposureDelta": -0.001647702641080162,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 0.011705968398387442
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0.0016475046428416518
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0.0013019298283650053,
+              "feeCostDeltaBtc": 0.0013730085736009395,
+              "slippageCostDeltaBtc": 0.001282072544791426
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        },
+        "inSample": {
+          "name": "ladder_60_40",
+          "type": "ladder",
+          "thresholdGroup": null,
+          "thresholdLabel": null,
+          "strength": null,
+          "period": "inSample",
+          "startDate": "2020-08-11",
+          "endDate": "2023-12-31",
+          "days": 1237.7083333333333,
+          "startingBtc": 1,
+          "endingBtc": 1.5589186287806642,
+          "endingUsd": 65950.67615801751,
+          "btcCagr": 0.1398917363635095,
+          "usdCagr": 0.6616997292328763,
+          "btcMaxDrawdown": -0.35281729469097967,
+          "usdMaxDrawdown": -0.5659087527111935,
+          "averageExposure": 0.7423210267660232,
+          "maxExposure": 1.5421211412336602,
+          "turnoverUsd": 560800,
+          "feesBtc": 0.008301832761104622,
+          "makerFeesBtc": 0.000027760846202843255,
+          "takerFeesBtc": 0.008274071914901778,
+          "fundingPnlBtc": -0.0011333805524816828,
+          "fundingMarkFallbackCount": 9,
+          "slippageBtc": 0.008343474030407772,
+          "tradeCount": 443,
+          "makerTradeCount": 24,
+          "takerTradeCount": 419,
+          "ladderFillRate": 0.07017543859649122,
+          "ladderContractFillRate": 0.05819477434679335,
+          "ladderOrders": 342,
+          "ladderFills": 24,
+          "missedRallyCount": 114,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2020-08-11",
+            "periodEnd": "2023-12-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 1593,
+            "expectedEvents": 1646,
+            "eventCoverageRatio": 0.9671931956257594,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 0.00549879890303188,
+            "intradayMeanReversionBtc": -0.000462131946864825,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": 0.0017765421287301297,
+            "btcCagr": 0.0003832346610923576,
+            "usdCagr": 0.0005586679087623558,
+            "btcMaxDrawdown": 0.0018597622717843043,
+            "usdMaxDrawdown": 0.0013694727479356406,
+            "averageExposure": -0.0014382044789155168,
+            "turnoverUsd": -33600,
+            "feesBtc": -0.0005845851280958849,
+            "fundingPnlBtc": 0.0005274566952505229,
+            "slippageBtc": -0.0005429438587915471
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": -0.0014382044789155168,
+              "maxExposureDelta": -0.001647702641080162,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 0.00549879890303188
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": -0.000462131946864825
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0.0005274566952505229,
+              "feeCostDeltaBtc": 0.0005845851280958849,
+              "slippageCostDeltaBtc": 0.0005429438587915471
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        },
+        "outOfSample": {
+          "name": "ladder_60_40",
+          "type": "ladder",
+          "thresholdGroup": null,
+          "thresholdLabel": null,
+          "strength": null,
+          "period": "outOfSample",
+          "startDate": "2024-01-01",
+          "endDate": "2026-07-31",
+          "days": 943,
+          "startingBtc": 1,
+          "endingBtc": 1.329607023049299,
+          "endingUsd": 83491.7422874646,
+          "btcCagr": 0.1165769497291822,
+          "usdCagr": 0.30100492966123005,
+          "btcMaxDrawdown": -0.23923749543882544,
+          "usdMaxDrawdown": -0.3433124795177247,
+          "averageExposure": 0.7615746495642511,
+          "maxExposure": 1.2793277043121338,
+          "turnoverUsd": 1358300,
+          "feesBtc": 0.00843114324339397,
+          "makerFeesBtc": 0.000024349630449567528,
+          "takerFeesBtc": 0.008406793612944401,
+          "fundingPnlBtc": 0.008722449081639258,
+          "fundingMarkFallbackCount": 0,
+          "slippageBtc": 0.008467667689067072,
+          "tradeCount": 569,
+          "makerTradeCount": 39,
+          "takerTradeCount": 530,
+          "ladderFillRate": 0.064891846921797,
+          "ladderContractFillRate": 0.03955763504891536,
+          "ladderOrders": 601,
+          "ladderFills": 39,
+          "missedRallyCount": 185,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2024-01-01",
+            "periodEnd": "2026-07-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 2676,
+            "expectedEvents": 2829,
+            "eventCoverageRatio": 0.9459172852598091,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 0.004981024533437809,
+            "intradayMeanReversionBtc": 0.0014795439790567758,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": -0.013722131878478816,
+            "btcCagr": -0.004446311748094622,
+            "usdCagr": -0.005180720867007604,
+            "btcMaxDrawdown": -0.000023353691091743123,
+            "usdMaxDrawdown": 0.0010636020383451017,
+            "averageExposure": -0.0030422196729529283,
+            "turnoverUsd": -79300,
+            "feesBtc": -0.0005573424789602002,
+            "fundingPnlBtc": 0.0005905834227379909,
+            "slippageBtc": -0.0005208180332857866
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": -0.0030422196729529283,
+              "maxExposureDelta": 0.0007388831247412408,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 0.004981024533437809
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0.0014795439790567758
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0.0005905834227379909,
+              "feeCostDeltaBtc": 0.0005573424789602002,
+              "slippageCostDeltaBtc": 0.0005208180332857866
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        }
+      }
+    },
+    {
+      "name": "curve_mild",
+      "type": "curve",
+      "thresholdGroup": "g2",
+      "thresholdLabel": "[-5%, -10%, -15%]",
+      "strength": "mild",
+      "levels": [
+        {
+          "drop": -0.05,
+          "bonus": 0.05
+        },
+        {
+          "drop": -0.1,
+          "bonus": 0.1
+        },
+        {
+          "drop": -0.15,
+          "bonus": 0.2
+        }
+      ],
+      "periods": {
+        "full": {
+          "name": "curve_mild",
+          "type": "curve",
+          "thresholdGroup": "g2",
+          "thresholdLabel": "[-5%, -10%, -15%]",
+          "strength": "mild",
+          "period": "full",
+          "startDate": "2020-08-11",
+          "endDate": "2026-07-31",
+          "days": 2180.7083333333335,
+          "startingBtc": 1,
+          "endingBtc": 2.467510605616648,
+          "endingUsd": 154945.6012222735,
+          "btcCagr": 0.16320179583762462,
+          "usdCagr": 0.5391093818595969,
+          "btcMaxDrawdown": -0.3483148221363115,
+          "usdMaxDrawdown": -0.5529861543409644,
+          "averageExposure": 0.7557720575933533,
+          "maxExposure": 1.5431241585210624,
+          "turnoverUsd": 4987900,
+          "feesBtc": 0.03900085720806101,
+          "makerFeesBtc": 0.003949571712680583,
+          "takerFeesBtc": 0.035051285495380446,
+          "fundingPnlBtc": 0.01381846955474517,
+          "fundingMarkFallbackCount": 9,
+          "slippageBtc": 0.04492521477707612,
+          "tradeCount": 1383,
+          "makerTradeCount": 278,
+          "takerTradeCount": 1105,
+          "ladderFillRate": 0.0428921568627451,
+          "ladderContractFillRate": null,
+          "ladderOrders": 6528,
+          "ladderFills": 280,
+          "missedRallyCount": 2150,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2020-08-11",
+            "periodEnd": "2026-07-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 4269,
+            "expectedEvents": 4475,
+            "eventCoverageRatio": 0.9537430167597766,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 1.32055772394703,
+            "intradayMeanReversionBtc": 0.2279044598286055,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": 0.375711468132816,
+            "btcCagr": 0.03171989577749401,
+            "usdCagr": 0.0419706961917079,
+            "btcMaxDrawdown": 0.006362234826452484,
+            "usdMaxDrawdown": 0.014292071118164662,
+            "averageExposure": 0.002981852323984402,
+            "turnoverUsd": 2173100,
+            "feesBtc": 0.01631846741258137,
+            "fundingPnlBtc": 0.002964918154946268,
+            "slippageBtc": 0.022242824981599716
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": 0.002981852323984402,
+              "maxExposureDelta": -0.0006446853536778985,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 1.32055772394703
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0.2279044598286055
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0.002964918154946268,
+              "feeCostDeltaBtc": -0.01631846741258137,
+              "slippageCostDeltaBtc": -0.022242824981599716
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        },
+        "inSample": {
+          "name": "curve_mild",
+          "type": "curve",
+          "thresholdGroup": "g2",
+          "thresholdLabel": "[-5%, -10%, -15%]",
+          "strength": "mild",
+          "period": "inSample",
+          "startDate": "2020-08-11",
+          "endDate": "2023-12-31",
+          "days": 1237.7083333333333,
+          "startingBtc": 1,
+          "endingBtc": 1.7628024733101746,
+          "endingUsd": 74576.06375437626,
+          "btcCagr": 0.18196718515414712,
+          "usdCagr": 0.7230360470886434,
+          "btcMaxDrawdown": -0.3483148221363115,
+          "usdMaxDrawdown": -0.5529861543409644,
+          "averageExposure": 0.7478089050323266,
+          "maxExposure": 1.5431241585210624,
+          "turnoverUsd": 1502000,
+          "feesBtc": 0.01877819352726713,
+          "makerFeesBtc": 0.0025828048154253555,
+          "takerFeesBtc": 0.01619538871184178,
+          "fundingPnlBtc": -0.0009174520506472601,
+          "fundingMarkFallbackCount": 9,
+          "slippageBtc": 0.02265240075040257,
+          "tradeCount": 734,
+          "makerTradeCount": 204,
+          "takerTradeCount": 530,
+          "ladderFillRate": 0.05564559697460832,
+          "ladderContractFillRate": null,
+          "ladderOrders": 3702,
+          "ladderFills": 206,
+          "missedRallyCount": 1211,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2020-08-11",
+            "periodEnd": "2023-12-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 1593,
+            "expectedEvents": 1646,
+            "eventCoverageRatio": 0.9671931956257594,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 0.9164758539647365,
+            "intradayMeanReversionBtc": 0.1492403842928335,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": 0.2056603866582405,
+            "btcCagr": 0.042458683451729984,
+            "usdCagr": 0.06189498576452945,
+            "btcMaxDrawdown": 0.006362234826452484,
+            "usdMaxDrawdown": 0.014292071118164662,
+            "averageExposure": 0.004049673787387853,
+            "turnoverUsd": 907600,
+            "feesBtc": 0.009891775638066624,
+            "fundingPnlBtc": 0.0007433851970849456,
+            "slippageBtc": 0.01376598286120325
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": 0.004049673787387853,
+              "maxExposureDelta": -0.0006446853536778985,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 0.9164758539647365
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0.1492403842928335
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0.0007433851970849456,
+              "feeCostDeltaBtc": -0.009891775638066624,
+              "slippageCostDeltaBtc": -0.01376598286120325
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        },
+        "outOfSample": {
+          "name": "curve_mild",
+          "type": "curve",
+          "thresholdGroup": "g2",
+          "thresholdLabel": "[-5%, -10%, -15%]",
+          "strength": "mild",
+          "period": "outOfSample",
+          "startDate": "2024-01-01",
+          "endDate": "2026-07-31",
+          "days": 943,
+          "startingBtc": 1,
+          "endingBtc": 1.3999098900113864,
+          "endingUsd": 87906.361606342,
+          "btcCagr": 0.1390685802505971,
+          "usdCagr": 0.3272115625239065,
+          "btcMaxDrawdown": -0.2391626657099648,
+          "usdMaxDrawdown": -0.33820628351040427,
+          "averageExposure": 0.7661992615438838,
+          "maxExposure": 1.3966463437241712,
+          "turnoverUsd": 1989900,
+          "feesBtc": 0.01161174984996674,
+          "makerFeesBtc": 0.0007756289001601009,
+          "takerFeesBtc": 0.010836120949806634,
+          "fundingPnlBtc": 0.008454809108096224,
+          "fundingMarkFallbackCount": 0,
+          "slippageBtc": 0.012775193200205143,
+          "tradeCount": 614,
+          "makerTradeCount": 74,
+          "takerTradeCount": 540,
+          "ladderFillRate": 0.026185421089879687,
+          "ladderContractFillRate": null,
+          "ladderOrders": 2826,
+          "ladderFills": 74,
+          "missedRallyCount": 939,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2024-01-01",
+            "periodEnd": "2026-07-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 2676,
+            "expectedEvents": 2829,
+            "eventCoverageRatio": 0.9459172852598091,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 0.22941475431954564,
+            "intradayMeanReversionBtc": 0.04472956577356998,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": 0.056580735083608724,
+            "btcCagr": 0.018045318773320274,
+            "usdCagr": 0.021025911995668833,
+            "btcMaxDrawdown": 0.00005147603776889387,
+            "usdMaxDrawdown": 0.006169798045665531,
+            "averageExposure": 0.0015823923066797807,
+            "turnoverUsd": 552300,
+            "feesBtc": 0.00262326412761257,
+            "fundingPnlBtc": 0.0003229434491949564,
+            "slippageBtc": 0.003786707477852284
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": 0.0015823923066797807,
+              "maxExposureDelta": 0.11805752253677859,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 0.22941475431954564
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0.04472956577356998
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0.0003229434491949564,
+              "feeCostDeltaBtc": -0.00262326412761257,
+              "slippageCostDeltaBtc": -0.003786707477852284
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        }
+      }
+    },
+    {
+      "name": "curve_aggressive",
+      "type": "curve",
+      "thresholdGroup": "g2",
+      "thresholdLabel": "[-5%, -10%, -15%]",
+      "strength": "aggressive",
+      "levels": [
+        {
+          "drop": -0.05,
+          "bonus": 0.1
+        },
+        {
+          "drop": -0.1,
+          "bonus": 0.25
+        },
+        {
+          "drop": -0.15,
+          "bonus": 0.4
+        }
+      ],
+      "periods": {
+        "full": {
+          "name": "curve_aggressive",
+          "type": "curve",
+          "thresholdGroup": "g2",
+          "thresholdLabel": "[-5%, -10%, -15%]",
+          "strength": "aggressive",
+          "period": "full",
+          "startDate": "2020-08-11",
+          "endDate": "2026-07-31",
+          "days": 2180.7083333333335,
+          "startingBtc": 1,
+          "endingBtc": 2.7828406631966947,
+          "endingUsd": 174746.5314569722,
+          "btcCagr": 0.18685329449867405,
+          "usdCagr": 0.5704042471310586,
+          "btcMaxDrawdown": -0.34745310480286673,
+          "usdMaxDrawdown": -0.547934387062593,
+          "averageExposure": 0.7588574428916723,
+          "maxExposure": 1.5446458741657236,
+          "turnoverUsd": 7606300,
+          "feesBtc": 0.05849385835823466,
+          "makerFeesBtc": 0.008860742215543574,
+          "takerFeesBtc": 0.049633116142691,
+          "fundingPnlBtc": 0.016480131743689216,
+          "fundingMarkFallbackCount": 9,
+          "slippageBtc": 0.07178497168154134,
+          "tradeCount": 1406,
+          "makerTradeCount": 277,
+          "takerTradeCount": 1129,
+          "ladderFillRate": 0.0428921568627451,
+          "ladderContractFillRate": null,
+          "ladderOrders": 6528,
+          "ladderFills": 280,
+          "missedRallyCount": 2150,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2020-08-11",
+            "periodEnd": "2026-07-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 4269,
+            "expectedEvents": 4475,
+            "eventCoverageRatio": 0.9537430167597766,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 2.9270921033485933,
+            "intradayMeanReversionBtc": 0.431156872555972,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": 0.6910415257128628,
+            "btcCagr": 0.05537139443854344,
+            "usdCagr": 0.07326556146316965,
+            "btcMaxDrawdown": 0.00722395215989724,
+            "usdMaxDrawdown": 0.019343838396536084,
+            "averageExposure": 0.006067237622303434,
+            "turnoverUsd": 4791500,
+            "feesBtc": 0.03581146856275502,
+            "fundingPnlBtc": 0.005626580343890315,
+            "slippageBtc": 0.049102581886064936
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": 0.006067237622303434,
+              "maxExposureDelta": 0.0008770302909832939,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 2.9270921033485933
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0.431156872555972
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0.005626580343890315,
+              "feeCostDeltaBtc": -0.03581146856275502,
+              "slippageCostDeltaBtc": -0.049102581886064936
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        },
+        "inSample": {
+          "name": "curve_aggressive",
+          "type": "curve",
+          "thresholdGroup": "g2",
+          "thresholdLabel": "[-5%, -10%, -15%]",
+          "strength": "aggressive",
+          "period": "inSample",
+          "startDate": "2020-08-11",
+          "endDate": "2023-12-31",
+          "days": 1237.7083333333333,
+          "startingBtc": 1,
+          "endingBtc": 1.9163821103291026,
+          "endingUsd": 81073.31173031681,
+          "btcCagr": 0.21144563892479185,
+          "usdCagr": 0.7660088462468813,
+          "btcMaxDrawdown": -0.34745310480286673,
+          "usdMaxDrawdown": -0.547934387062593,
+          "averageExposure": 0.7520347018508707,
+          "maxExposure": 1.5446458741657236,
+          "turnoverUsd": 2563400,
+          "feesBtc": 0.030391996763599903,
+          "makerFeesBtc": 0.00568200417162249,
+          "takerFeesBtc": 0.0247099925919774,
+          "fundingPnlBtc": 0.00011480687173905443,
+          "fundingMarkFallbackCount": 9,
+          "slippageBtc": 0.03891500302102938,
+          "tradeCount": 746,
+          "makerTradeCount": 204,
+          "takerTradeCount": 542,
+          "ladderFillRate": 0.05564559697460832,
+          "ladderContractFillRate": null,
+          "ladderOrders": 3702,
+          "ladderFills": 206,
+          "missedRallyCount": 1211,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2020-08-11",
+            "periodEnd": "2023-12-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 1593,
+            "expectedEvents": 1646,
+            "eventCoverageRatio": 0.9671931956257594,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 1.987799524108145,
+            "intradayMeanReversionBtc": 0.2648964836556941,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": 0.35924002367716845,
+            "btcCagr": 0.07193713722237471,
+            "usdCagr": 0.10486778492276727,
+            "btcMaxDrawdown": 0.00722395215989724,
+            "usdMaxDrawdown": 0.019343838396536084,
+            "averageExposure": 0.008275470605932034,
+            "turnoverUsd": 1969000,
+            "feesBtc": 0.021505578874399398,
+            "fundingPnlBtc": 0.0017756441194712602,
+            "slippageBtc": 0.030028585131830064
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": 0.008275470605932034,
+              "maxExposureDelta": 0.0008770302909832939,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 1.987799524108145
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0.2648964836556941
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0.0017756441194712602,
+              "feeCostDeltaBtc": -0.021505578874399398,
+              "slippageCostDeltaBtc": -0.030028585131830064
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        },
+        "outOfSample": {
+          "name": "curve_aggressive",
+          "type": "curve",
+          "thresholdGroup": "g2",
+          "thresholdLabel": "[-5%, -10%, -15%]",
+          "strength": "aggressive",
+          "period": "outOfSample",
+          "startDate": "2024-01-01",
+          "endDate": "2026-07-31",
+          "days": 943,
+          "startingBtc": 1,
+          "endingBtc": 1.4522557251741064,
+          "endingUsd": 91193.3816833004,
+          "btcCagr": 0.15536928299375008,
+          "usdCagr": 0.3462046956267597,
+          "btcMaxDrawdown": -0.23909207135723376,
+          "usdMaxDrawdown": -0.3380961550251145,
+          "averageExposure": 0.767799664033262,
+          "maxExposure": 1.4871744078962308,
+          "turnoverUsd": 2641400,
+          "feesBtc": 0.014787882399557306,
+          "makerFeesBtc": 0.0016597951068074543,
+          "takerFeesBtc": 0.01312808729274985,
+          "fundingPnlBtc": 0.00863262637792942,
+          "fundingMarkFallbackCount": 0,
+          "slippageBtc": 0.01727757505976621,
+          "tradeCount": 616,
+          "makerTradeCount": 73,
+          "takerTradeCount": 543,
+          "ladderFillRate": 0.026185421089879687,
+          "ladderContractFillRate": null,
+          "ladderOrders": 2826,
+          "ladderFills": 74,
+          "missedRallyCount": 939,
+          "liquidated": false,
+          "fundingCoverage": {
+            "status": "partial",
+            "periodStart": "2024-01-01",
+            "periodEnd": "2026-07-31",
+            "availableFrom": "2022-07-01",
+            "availableTo": "2026-06-30",
+            "availableEvents": 2676,
+            "expectedEvents": 2829,
+            "eventCoverageRatio": 0.9459172852598091,
+            "missingMonthsBeforeArchive": [
+              "2020-08",
+              "2020-09",
+              "2020-10",
+              "2020-11",
+              "2020-12",
+              "2021-01",
+              "2021-02",
+              "2021-03",
+              "2021-04",
+              "2021-05",
+              "2021-06",
+              "2021-07",
+              "2021-08",
+              "2021-09",
+              "2021-10",
+              "2021-11",
+              "2021-12",
+              "2022-01",
+              "2022-02",
+              "2022-03",
+              "2022-04",
+              "2022-05",
+              "2022-06"
+            ]
+          },
+          "attributionProxies": {
+            "betterBuyPriceBtc": 0.49029376281889814,
+            "intradayMeanReversionBtc": 0.08676732118697768,
+            "note": "These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear."
+          },
+          "deltaVsBaseline": {
+            "endingBtc": 0.10892657024632868,
+            "btcCagr": 0.03434602151647326,
+            "usdCagr": 0.040019045098522055,
+            "btcMaxDrawdown": 0.00012207039049993984,
+            "usdMaxDrawdown": 0.0062799265309553265,
+            "averageExposure": 0.003182794796057986,
+            "turnoverUsd": 1203800,
+            "feesBtc": 0.005799396677203136,
+            "fundingPnlBtc": 0.0005007607190281524,
+            "slippageBtc": 0.00828908933741335
+          },
+          "attributionVsBaseline": {
+            "higherAverageExposure": {
+              "averageExposureDelta": 0.003182794796057986,
+              "maxExposureDelta": 0.2085855867088382,
+              "monetaryContribution": null
+            },
+            "betterBuyPrice": {
+              "proxyBtc": 0.49029376281889814
+            },
+            "intradayMeanReversion": {
+              "proxyBtc": 0.08676732118697768
+            },
+            "fundingFeeDifference": {
+              "fundingPnlDeltaBtc": 0.0005007607190281524,
+              "feeCostDeltaBtc": -0.005799396677203136,
+              "slippageCostDeltaBtc": -0.00828908933741335
+            },
+            "note": "Components are non-additive because inverse-contract PnL, dynamic sizing, funding, fees, and exposure compound together."
+          }
+        }
+      }
+    }
+  ],
+  "robustnessMatrix": {
+    "rows": [
+      {
+        "name": "curve_g1_mild",
+        "thresholdGroup": "g1",
+        "thresholdLabel": "[-3%, -6%, -10%]",
+        "strength": "mild",
+        "inSample": {
+          "endingBtcDelta": 0.13180054908583805,
+          "btcCagrDelta": 0.027633234156806852,
+          "positive": true
+        },
+        "outOfSample": {
+          "endingBtcDelta": 0.0650874267472572,
+          "btcCagrDelta": 0.020719462562171387,
+          "positive": true
+        }
+      },
+      {
+        "name": "curve_g1_aggressive",
+        "thresholdGroup": "g1",
+        "thresholdLabel": "[-3%, -6%, -10%]",
+        "strength": "aggressive",
+        "inSample": {
+          "endingBtcDelta": 0.3009902204621444,
+          "btcCagrDelta": 0.06095969414341318,
+          "positive": true
+        },
+        "outOfSample": {
+          "endingBtcDelta": 0.1331239284105601,
+          "btcCagrDelta": 0.04175952087301216,
+          "positive": true
+        }
+      },
+      {
+        "name": "curve_g2_mild",
+        "thresholdGroup": "g2",
+        "thresholdLabel": "[-5%, -10%, -15%]",
+        "strength": "mild",
+        "inSample": {
+          "endingBtcDelta": 0.2056603866582405,
+          "btcCagrDelta": 0.042458683451729984,
+          "positive": true
+        },
+        "outOfSample": {
+          "endingBtcDelta": 0.056580735083608724,
+          "btcCagrDelta": 0.018045318773320274,
+          "positive": true
+        }
+      },
+      {
+        "name": "curve_g2_aggressive",
+        "thresholdGroup": "g2",
+        "thresholdLabel": "[-5%, -10%, -15%]",
+        "strength": "aggressive",
+        "inSample": {
+          "endingBtcDelta": 0.35924002367716845,
+          "btcCagrDelta": 0.07193713722237471,
+          "positive": true
+        },
+        "outOfSample": {
+          "endingBtcDelta": 0.10892657024632868,
+          "btcCagrDelta": 0.03434602151647326,
+          "positive": true
+        }
+      },
+      {
+        "name": "curve_g3_mild",
+        "thresholdGroup": "g3",
+        "thresholdLabel": "[-7%, -12%, -20%]",
+        "strength": "mild",
+        "inSample": {
+          "endingBtcDelta": 0.13628897594195255,
+          "btcCagrDelta": 0.028547075765432695,
+          "positive": true
+        },
+        "outOfSample": {
+          "endingBtcDelta": 0.03193352204464328,
+          "btcCagrDelta": 0.010240583856039098,
+          "positive": true
+        }
+      },
+      {
+        "name": "curve_g3_aggressive",
+        "thresholdGroup": "g3",
+        "thresholdLabel": "[-7%, -12%, -20%]",
+        "strength": "aggressive",
+        "inSample": {
+          "endingBtcDelta": 0.3113804347243345,
+          "btcCagrDelta": 0.06293538410015365,
+          "positive": true
+        },
+        "outOfSample": {
+          "endingBtcDelta": 0.07520128105091906,
+          "btcCagrDelta": 0.023885979678175184,
+          "positive": true
+        }
+      }
+    ],
+    "positiveOosCount": 6,
+    "matrixCount": 6,
+    "groupsWithAnyPositive": [
+      "g1",
+      "g2",
+      "g3"
+    ],
+    "groupsWithBothPositive": [
+      "g1",
+      "g2",
+      "g3"
+    ],
+    "classification": "robust",
+    "fundingCoverageStatus": "partial",
+    "dataLimited": true,
+    "qualification": "robust_on_available_funding_partial",
+    "rule": "robust requires every threshold group and both mild/aggressive variants to beat baseline on OOS in both ending BTC and BTC CAGR; one-group success is suspected overfit.",
+    "exposureCurveSurvives": true
+  }
+}
