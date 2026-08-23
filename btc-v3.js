@@ -10,6 +10,7 @@ const FORWARD_TEST_BUFFER_MS = 17 * 60 * 1000;
 const DEFAULT_BTC_HOLDINGS = 0.57;
 const STORAGE_BTC = 'btc-v3-holdings';
 const STORAGE_CONTRACTS = 'btc-v3-current-contracts';
+const OPERATION_OUTPUT_IDS = ['account-target-contracts', 'account-delta-contracts', 'account-overlay-btc'];
 let latestSnapshot = null;
 
 const finite = (v, fallback = null) => Number.isFinite(Number(v)) ? Number(v) : fallback;
@@ -17,6 +18,60 @@ const pct = (v, d = 1) => finite(v) === null ? '--' : `${(Number(v) * 100).toFix
 const signedPct = (v, d = 1) => finite(v) === null ? '--' : `${Number(v) >= 0 ? '+' : ''}${(Number(v) * 100).toFixed(d)}%`;
 const x = (v, d = 2) => finite(v) === null ? '--' : `${Number(v).toFixed(d)}x`;
 const money = (v) => finite(v) === null ? '--' : `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const liveMoney = (v) => Number.isFinite(Number(v)) && Number(v) > 0
+  ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  : '--';
+
+function formatShanghaiTimestamp(value) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return '--';
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(date);
+}
+
+function setLiveState(status, { markPrice = null, observedAt = null, candleDate = null } = {}) {
+  const bar = $('live-operation-bar');
+  if (!bar) return;
+  bar.dataset.status = status;
+  const mark = Number(markPrice);
+  const hasMarkPrice = Number.isFinite(mark) && mark > 0;
+  const liveMark = $('live-mark-price');
+  const liveUpdated = $('live-updated');
+  const signalBasis = $('signal-basis');
+
+  if (status === 'loading') {
+    liveMark.textContent = '--';
+    liveUpdated.textContent = '正在刷新实时数据…';
+    signalBasis.textContent = '信号基准：等待完整日线';
+    return;
+  }
+  if (status === 'error') {
+    liveMark.textContent = '不可用';
+    liveUpdated.textContent = '刷新失败 · 请勿按当前数据操作';
+    signalBasis.textContent = '请重新刷新后再执行';
+    return;
+  }
+
+  liveMark.textContent = hasMarkPrice ? liveMoney(mark) : '--';
+  liveUpdated.textContent = hasMarkPrice
+    ? `实时更新：${formatShanghaiTimestamp(observedAt)}`
+    : '实时 Mark Price 不可用 · 请勿调仓';
+  signalBasis.textContent = candleDate
+    ? `信号基准：${candleDate.slice(0, 10)} UTC 完整日线`
+    : '信号基准：完整日线不可用';
+}
+
+function clearOperationOutputs() {
+  for (const id of OPERATION_OUTPUT_IDS) $(id).textContent = '--';
+}
 
 function savedNumber(key, fallback) {
   try {
@@ -117,7 +172,6 @@ function renderOperation(data) {
   $('account-target-contracts').textContent = describePosition(sizing.targetContracts);
   $('account-delta-contracts').textContent = `${sizing.deltaContracts > 0 ? '+' : ''}${sizing.deltaContracts} 张`;
   $('account-overlay-btc').textContent = `${sizing.overlayBtc >= 0 ? '+' : ''}${sizing.overlayBtc.toFixed(4)} BTC`;
-  $('sizing-price').textContent = money(sizing.markPrice);
   $('action-main').textContent = action.text;
   $('action-side').textContent = action.verb;
   $('action-side').className = `action-side ${action.css}`;
@@ -153,7 +207,13 @@ function render(data) {
   $('contracts').textContent = Number.isFinite(ref.signedContracts) ? describePosition(ref.signedContracts) : '--';
   $('side').textContent = ref.side || '--';
   $('contract-size').textContent = data.instrument?.contractSize ? `$${data.instrument.contractSize}` : '--';
-  $('updated').textContent = `实时数据更新：${data.observedAt ? new Date(data.observedAt).toLocaleString() : '--'}`;
+  const markPrice = Number(data.funding?.markPrice);
+  setLiveState(Number.isFinite(markPrice) && markPrice > 0 ? 'ok' : 'warning', {
+    markPrice,
+    observedAt: data.observedAt,
+    candleDate: c.openTimeIso,
+  });
+  $('updated').textContent = `快照请求：${formatShanghaiTimestamp(data.observedAt)}`;
   const next = finite(c.closeTime) === null ? null : finite(c.closeTime) + DAY_MS + FORWARD_TEST_BUFFER_MS + 1;
   $('next-review').textContent = `下次日级评估：${next ? new Date(next).toLocaleString() : '--'}`;
   renderOperation(data);
@@ -161,18 +221,28 @@ function render(data) {
 
 async function load() {
   $('refresh').disabled = true;
+  setLiveState('loading');
+  clearOperationOutputs();
+  $('action-main').textContent = '正在刷新实时数据…';
+  $('action-detail').textContent = '等待最新 Mark Price 和 Funding。';
+  $('action-side').textContent = 'WAIT';
+  $('action-side').className = 'action-side';
   try {
     const res = await fetch('/api/btc-v3', { cache: 'no-store' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
     render(data);
   } catch (error) {
+    setLiveState('error');
     $('target').textContent = 'ERR';
     $('target-note').textContent = error.message || 'BTC V3 数据暂不可用';
+    $('regime').textContent = 'DATA UNAVAILABLE';
+    $('regime').className = 'regime bear';
     $('action-main').textContent = '数据异常，今天不要按页面调仓';
     $('action-detail').textContent = error.message || '等待数据恢复后再操作。';
     $('action-side').textContent = 'STOP';
     $('action-side').className = 'action-side sell';
+    clearOperationOutputs();
   } finally { $('refresh').disabled = false; }
 }
 

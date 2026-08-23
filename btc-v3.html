@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="btc-v3.css?v=5">
+  <link rel="stylesheet" href="btc-v3.css?v=6">
 </head>
 <body>
   <main class="shell">
@@ -19,7 +19,7 @@
         <h1>BTC Dynamic Exposure</h1>
         <p>长期目标是积累更多 BTC。信号基于 BTCUSD Index 完整日线，执行模型使用 Binance <code>BTCUSD_PERP</code> COIN-M；当前仅提供只读信号与人工操作指导，不自动交易。</p>
       </div>
-      <button id="refresh" type="button">刷新</button>
+      <button id="refresh" type="button">刷新实时数据</button>
     </header>
 
     <section class="status-card">
@@ -64,6 +64,16 @@
         <div><div class="eyebrow">TODAY'S ACTION</div><h2>今日操作指导</h2></div>
         <span class="badge">MANUAL ONLY</span>
       </div>
+      <div class="live-operation-bar" id="live-operation-bar" data-status="loading" role="status" aria-live="polite">
+        <div class="live-operation-price">
+          <span>实时 Mark Price</span>
+          <strong id="live-mark-price">--</strong>
+        </div>
+        <div class="live-operation-meta">
+          <span id="live-updated">正在读取实时数据…</span>
+          <span id="signal-basis">信号基准：等待完整日线</span>
+        </div>
+      </div>
       <div class="account-inputs">
         <label><span>当前 V3 BTC 数量</span><input id="btc-holdings" type="number" inputmode="decimal" min="0" step="0.0001" value="0.57"><small>默认 0.57 BTC；定投后直接更新这里</small></label>
         <label><span>当前 BTCUSD_PERP 张数</span><input id="current-contracts" type="number" inputmode="numeric" step="1" value="0"><small>多仓填正数，空仓填负数；没有 V3 合约仓位填 0</small></label>
@@ -73,7 +83,6 @@
         <div><span>目标总仓位</span><strong id="account-target-contracts">--</strong><small>交易后 BTCUSD_PERP 应持有的总张数</small></div>
         <div><span>需要增减</span><strong id="account-delta-contracts">--</strong><small>BUY 为加多/减空；SELL 为减多/加空</small></div>
         <div><span>目标 Overlay</span><strong id="account-overlay-btc">--</strong><small>相对 Core BTC 的衍生品敞口</small></div>
-        <div><span>估算使用价格</span><strong id="sizing-price">--</strong><small>使用当前 COIN-M Mark Price 估算张数</small></div>
       </div>
       <div class="instruction-list">
         <div><b>1.</b><span>只交易 <code>BTCUSD_PERP</code> COIN-M，不要误用 BTCUSDT U 本位。</span></div>
@@ -103,7 +112,7 @@
     <section class="panel compact-panel"><h2>执行纪律</h2><div class="discipline-grid"><div><strong>不追盘中信号</strong><span>只使用完整 UTC 日线。</span></div><div><strong>不修改 V3.1</strong><span>未来新逻辑另开 V3.2，不回头调 V3.1。</span></div><div><strong>不混用 U 本位</strong><span>Canonical instrument 是 BTCUSD_PERP COIN-M。</span></div><div><strong>不自动交易</strong><span>Forward Test 期间人工执行，账户与订单完全隔离。</span></div></div></section>
     <footer><span id="updated">最后更新：--</span><span id="next-review">下次评估：--</span><a href="https://binance-futures-radar.vercel.app/" target="_blank" rel="noreferrer">返回做空雷达</a><a href="https://github.com/xiangyingchang/binance-futures-radar/blob/main/BTC_V3_STRATEGY.md" target="_blank" rel="noreferrer">策略文档</a></footer>
   </main>
-  <script src="btc-v3.js?v=4"></script>
+  <script src="btc-v3.js?v=5"></script>
   <script src="btc-v3-daily-analysis.js?v=1"></script>
 </body>
 </html>
