@@ -30,6 +30,7 @@ jobs:
           node --check api/whale-intelligence.js
           node --check api/btc-v3.js
           node --check api/btc-v3-execution.js
+          node --check api/btc-v3-tracking.js
           node --check lib/strategy.js
           node --check lib/whale-intelligence.js
           node --check lib/btc-v3-strategy.js
@@ -42,6 +43,7 @@ jobs:
           node --check tests/btc-v3-strategy.test.js
           node --check tests/btc-v3-execution-accounting.test.js
           node --check tests/btc-v3-execution-api.test.js
+          node --check tests/btc-v3-tracking-api.test.js
 
       - name: Run strategy unit tests
         run: |
@@ -50,6 +52,7 @@ jobs:
           node tests/btc-v3-strategy.test.js
           node tests/btc-v3-execution-accounting.test.js
           node tests/btc-v3-execution-api.test.js
+          node tests/btc-v3-tracking-api.test.js
 
       - name: Check Python syntax
         run: python -m py_compile scanner.py scanner_optimized.py

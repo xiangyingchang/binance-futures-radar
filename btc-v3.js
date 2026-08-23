@@ -7,7 +7,8 @@ const setTextIfPresent = (id, value) => {
 };
 const DAY_MS = 86400000;
 const FORWARD_TEST_BUFFER_MS = 17 * 60 * 1000;
-const DEFAULT_BTC_HOLDINGS = 0.57;
+const DEFAULT_BTC_HOLDINGS = 0.5657;
+const DEFAULT_CURRENT_CONTRACTS = 108;
 const STORAGE_BTC = 'btc-v3-holdings';
 const STORAGE_CONTRACTS = 'btc-v3-current-contracts';
 const OPERATION_OUTPUT_IDS = ['account-target-contracts', 'account-delta-contracts', 'account-overlay-btc'];
@@ -98,19 +99,22 @@ function describePosition(q) {
 function actionLabel(delta) {
   if (delta > 0) return { verb: 'BUY', text: `BUY ${Math.abs(delta)} 张`, css: 'buy' };
   if (delta < 0) return { verb: 'SELL', text: `SELL ${Math.abs(delta)} 张`, css: 'sell' };
-  return { verb: 'HOLD', text: 'HOLD · 无需调仓', css: 'hold' };
+  return { verb: 'HOLD', text: 'NO ACTION · 无需调仓', css: 'hold' };
 }
 
 function accountSizing(data) {
-  const holdings = Math.max(0, finite($('btc-holdings')?.value, DEFAULT_BTC_HOLDINGS));
-  const currentContracts = Math.round(finite($('current-contracts')?.value, 0));
+  const tracked = typeof window !== 'undefined' ? window.BtcV3AccountTracking : null;
+  const trackedHoldings = finite(tracked?.currentStrategyEquityBtc);
+  const trackedContracts = finite(tracked?.currentActualContracts);
+  const holdings = Math.max(0, trackedHoldings ?? finite($('btc-holdings')?.value, DEFAULT_BTC_HOLDINGS));
+  const currentContracts = Math.round(trackedContracts ?? finite($('current-contracts')?.value, DEFAULT_CURRENT_CONTRACTS));
   const targetExposure = finite(data.signal?.finalTarget);
   const contractSize = finite(data.instrument?.contractSize);
   const markPrice = finite(data.funding?.markPrice, finite(data.latestClosedCandle?.close));
   if ([targetExposure, contractSize, markPrice].some((v) => v === null) || contractSize <= 0 || markPrice <= 0) return null;
   const overlayBtc = (targetExposure - 1) * holdings;
   const targetContracts = Math.round((overlayBtc * markPrice) / contractSize);
-  return { holdings, currentContracts, targetExposure, contractSize, markPrice, overlayBtc, targetContracts, deltaContracts: targetContracts - currentContracts };
+  return { holdings, currentContracts, targetExposure, contractSize, markPrice, overlayBtc, targetContracts, deltaContracts: targetContracts - currentContracts, trackingSource: tracked ? 'account-tracking' : 'manual-fallback' };
 }
 
 function renderNarrative(data) {
@@ -163,10 +167,30 @@ function renderNarrative(data) {
 
 function renderOperation(data) {
   const sizing = accountSizing(data);
-  const holdings = Math.max(0, finite($('btc-holdings').value, DEFAULT_BTC_HOLDINGS));
-  const currentContracts = Math.round(finite($('current-contracts').value, 0));
-  saveNumber(STORAGE_BTC, holdings);
-  saveNumber(STORAGE_CONTRACTS, currentContracts);
+  const tracked = typeof window !== 'undefined' ? window.BtcV3AccountTracking : null;
+  const holdings = sizing?.holdings ?? Math.max(0, finite($('btc-holdings').value, DEFAULT_BTC_HOLDINGS));
+  const currentContracts = sizing?.currentContracts ?? Math.round(finite($('current-contracts').value, DEFAULT_CURRENT_CONTRACTS));
+  if (!tracked) {
+    saveNumber(STORAGE_BTC, holdings);
+    saveNumber(STORAGE_CONTRACTS, currentContracts);
+  }
+  if (tracked) {
+    $('btc-holdings').value = tracked.currentStrategyEquityBtc ?? '';
+    $('current-contracts').value = tracked.currentActualContracts ?? '';
+    $('btc-holdings').readOnly = true;
+    $('current-contracts').readOnly = true;
+    $('btc-holdings').setAttribute('aria-readonly', 'true');
+    $('current-contracts').setAttribute('aria-readonly', 'true');
+    setTextIfPresent('btc-holdings-note', '来源：Account Snapshot；不是用户全部 BTC。请用下方 Snapshot 入口追加纠偏。');
+    setTextIfPresent('current-contracts-note', '来源：Account Snapshot；不是交易所 leverage selector。');
+  } else {
+    $('btc-holdings').readOnly = false;
+    $('current-contracts').readOnly = false;
+    $('btc-holdings').removeAttribute('aria-readonly');
+    $('current-contracts').removeAttribute('aria-readonly');
+    setTextIfPresent('btc-holdings-note', 'Tracking API 不可用时的临时 fallback；不会写入账本。');
+    setTextIfPresent('current-contracts-note', 'Tracking API 不可用时的临时 fallback；多仓填正数，空仓填负数。');
+  }
   if (!sizing) {
     $('action-main').textContent = '仓位数据不足，暂不操作';
     $('action-detail').textContent = '等待有效的 Target / Mark Price / Contract Size。';
@@ -255,11 +279,14 @@ async function load() {
 }
 
 $('btc-holdings').value = savedNumber(STORAGE_BTC, DEFAULT_BTC_HOLDINGS);
-$('current-contracts').value = savedNumber(STORAGE_CONTRACTS, 0);
+$('current-contracts').value = savedNumber(STORAGE_CONTRACTS, DEFAULT_CURRENT_CONTRACTS);
 for (const id of ['btc-holdings', 'current-contracts']) $(id).addEventListener('input', () => {
   if (!latestSnapshot) return;
   renderOperation(latestSnapshot);
   publishSnapshot(latestSnapshot);
+});
+window.addEventListener('btc-v3:account-tracking', () => {
+  if (latestSnapshot) renderOperation(latestSnapshot);
 });
 $('refresh').addEventListener('click', load);
 load();

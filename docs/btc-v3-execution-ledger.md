@@ -1,9 +1,11 @@
 # BTC V3 Execution Ledger
 
-V3 has two deliberately separate ledgers:
+V3 has four deliberately separate ledgers. This document keeps the execution-specific detail; the complete accounting contract is in [`btc-v3-account-tracking.md`](./btc-v3-account-tracking.md).
 
 - `data/btc-v3-forward-test.jsonl`: immutable Strategy Forward Test observations. It records what V3.1 should hold.
 - `data/btc-v3-execution-ledger.jsonl`: append-only manual execution records. It records what was actually done.
+- `data/btc-v3-capital-flow.jsonl`: append-only capital records. It records BTC deliberately contributed to or withdrawn from V3.
+- `data/btc-v3-account-snapshots.jsonl`: append-only account observations. It records the latest known V3 Strategy Equity and actual contracts for reconcile.
 
 Execution records never enter `computeSignal`, never alter the Forward Test ledger, and never change V3.1 parameters.
 

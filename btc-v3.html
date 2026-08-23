@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
-  <link rel="stylesheet" href="btc-v3.css?v=7">
+  <link rel="stylesheet" href="btc-v3.css?v=8">
 </head>
 <body>
   <main class="shell">
@@ -75,8 +75,8 @@
         </div>
       </div>
       <div class="account-inputs">
-        <label><span>当前 V3 BTC 数量</span><input id="btc-holdings" type="number" inputmode="decimal" min="0" step="0.0001" value="0.57"><small>默认 0.57 BTC；定投后直接更新这里</small></label>
-        <label><span>当前 BTCUSD_PERP 张数</span><input id="current-contracts" type="number" inputmode="numeric" step="1" value="0"><small>多仓填正数，空仓填负数；没有 V3 合约仓位填 0</small></label>
+        <label><span>当前 V3 Strategy Equity</span><input id="btc-holdings" type="number" inputmode="decimal" min="0" step="0.0001" value="0.5657"><small id="btc-holdings-note">加载 Account Snapshot 后自动锁定；不代表用户全部 BTC</small></label>
+        <label><span>当前 BTCUSD_PERP Actual Contracts</span><input id="current-contracts" type="number" inputmode="numeric" step="1" value="108"><small id="current-contracts-note">加载 Account Snapshot 后自动锁定；多仓正数，空仓负数</small></label>
       </div>
       <div class="action-card" id="action-card"><div><span>今天应该做什么</span><strong id="action-main">等待数据…</strong><small id="action-detail">--</small></div><div class="action-side" id="action-side">--</div></div>
       <div class="gate-grid operation-grid">
@@ -100,7 +100,9 @@
         <span class="badge execution-badge">EXECUTION LEDGER</span>
       </div>
       <p id="execution-ledger-status" class="flags" role="status" aria-live="polite">正在读取独立 Execution Ledger…</p>
+      <p id="tracking-ledger-status" class="flags" role="status" aria-live="polite">正在读取 Capital Flow 与 Account Snapshot…</p>
       <p id="execution-equity-note" class="flags">Actual Exposure 基于当前 V3 BTC 数量和 COIN-M futures delta；不会读取 Binance 账户。</p>
+      <p id="tracking-equity-note" class="flags">Strategy Equity 只代表分配给 V3 的 BTC，不代表用户全部 BTC。</p>
 
       <div class="execution-compare" aria-label="Strategy Target 与 Actual Position 对比">
         <div class="execution-exposure execution-exposure--target">
@@ -121,6 +123,21 @@
         <div id="execution-progress" class="execution-progress" role="progressbar" aria-label="Execution Progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
       </div>
 
+      <div class="tracking-action-card" aria-live="polite">
+        <div>
+          <span>今日执行提示 · V3.1 daily rebalance</span>
+          <strong id="tracking-action" data-action="wait">WAIT</strong>
+          <small id="tracking-action-detail">等待 Strategy Target、Strategy Equity、Actual Contracts 和 Mark Price。</small>
+        </div>
+        <span class="tracking-action-rule">NO EXTRA BAND</span>
+      </div>
+
+      <div class="tracking-account-grid">
+        <div><span>Current Strategy Equity</span><strong id="tracking-current-equity">--</strong><small id="tracking-equity-source">--</small></div>
+        <div><span>Current Mark Price</span><strong id="tracking-current-mark">--</strong><small id="tracking-actual-source">--</small></div>
+        <div><span>Reconcile Status</span><strong id="tracking-reconcile">--</strong><small id="tracking-reconcile-note">--</small></div>
+      </div>
+
       <div class="gate-grid execution-grid">
         <div><span>Actual Contracts</span><strong id="execution-actual-contracts">--</strong><small>按 BUY 为正、SELL 为负的净张数</small></div>
         <div><span>Target Contracts</span><strong id="execution-target-contracts">--</strong><small>按当前 BTC 数量和实时 Mark Price 计算</small></div>
@@ -132,22 +149,64 @@
         <div><span>Cumulative Funding</span><strong id="execution-funding">--</strong><small>暂不估算：ledger 未记录 Funding cash flow</small></div>
       </div>
 
+      <div class="gate-grid tracking-capital-grid">
+        <div><span>Starting Capital</span><strong id="tracking-starting-capital">--</strong><small>INITIAL_CAPITAL</small></div>
+        <div><span>Additional Contributions</span><strong id="tracking-contributions">--</strong><small>定投 / 转入，不是 Alpha</small></div>
+        <div><span>Withdrawals</span><strong id="tracking-withdrawals">--</strong><small>转出本金</small></div>
+        <div><span>Net Capital</span><strong id="tracking-net-capital">--</strong><small>累计净投入 = IN − OUT</small></div>
+        <div><span>Current Equity − Net Capital</span><strong id="tracking-strategy-pnl">--</strong><small id="tracking-strategy-pnl-note">--</small></div>
+      </div>
+
       <div class="execution-form-wrap">
         <div class="section-head execution-subhead">
           <div><div class="eyebrow">MANUAL ENTRY</div><h3>记录交易</h3></div>
           <span class="flags">只追加，不覆盖历史</span>
         </div>
         <p class="flags">Execution Time 可留空；没有精确 Binance 成交时间时，系统会明确记录为 approximate。</p>
+        <label class="tracking-key-field"><span>写入密钥（仅本次会话，不保存）</span><input id="tracking-api-key" type="password" autocomplete="off" required></label>
         <form id="execution-form" class="execution-form">
           <label><span>Side</span><select id="execution-side" required><option value="BUY">BUY</option><option value="SELL">SELL</option></select></label>
           <label><span>Contracts</span><input id="execution-contracts" type="number" inputmode="numeric" min="1" step="1" required></label>
           <label><span>Average Fill Price</span><input id="execution-fill-price" type="number" inputmode="decimal" min="0.00000001" step="0.1" required></label>
           <label><span>Execution Time（可选）</span><input id="execution-time" type="datetime-local"></label>
           <label class="execution-form-wide"><span>Note（可选）</span><input id="execution-note" type="text" maxlength="500" placeholder="例如：V3 target execution"></label>
-          <label class="execution-form-wide"><span>写入密钥（仅本次会话，不保存）</span><input id="execution-api-key" type="password" autocomplete="off" required></label>
           <button id="execution-submit" class="execution-form-wide" type="submit">追加到 Execution Ledger</button>
         </form>
         <p id="execution-form-status" class="flags" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="execution-form-wrap tracking-write-section">
+        <div class="section-head execution-subhead">
+          <div><div class="eyebrow">CAPITAL FLOW</div><h3>记录资金流</h3></div>
+          <span class="flags">本金变化，不是 PnL</span>
+        </div>
+        <p class="flags">定投、转入、转出都追加到 Capital Flow Ledger；不会修改历史 Strategy Equity，也不会影响 V3.1 信号。</p>
+        <form id="capital-flow-form" class="execution-form">
+          <label><span>Type</span><select id="capital-flow-type" required><option value="CONTRIBUTION">Contribution</option><option value="WITHDRAWAL">Withdrawal</option></select></label>
+          <label><span>BTC Amount</span><input id="capital-flow-amount" type="number" inputmode="decimal" min="0.00000001" step="0.0001" required></label>
+          <label><span>Effective Time（可选）</span><input id="capital-flow-time" type="datetime-local"></label>
+          <label><span>Reason</span><input id="capital-flow-reason" type="text" maxlength="160" placeholder="例如：DCA" required></label>
+          <label class="execution-form-wide"><span>Note（可选）</span><input id="capital-flow-note" type="text" maxlength="500"></label>
+          <button id="capital-flow-submit" class="execution-form-wide" type="submit">追加到 Capital Flow Ledger</button>
+        </form>
+        <p id="capital-flow-form-status" class="flags" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="execution-form-wrap tracking-write-section">
+        <div class="section-head execution-subhead">
+          <div><div class="eyebrow">ACCOUNT SNAPSHOT</div><h3>记录账户快照</h3></div>
+          <span class="flags">用于 reconcile，不是成交</span>
+        </div>
+        <p class="flags">快照记录某个时点 V3 真实 Equity 和合约数量。它不会覆盖历史；Funding、Fee 和外部调整只能通过快照对账体现。</p>
+        <form id="account-snapshot-form" class="execution-form">
+          <label><span>Strategy Equity BTC</span><input id="account-snapshot-equity" type="number" inputmode="decimal" min="0" step="0.00000001" required></label>
+          <label><span>Actual Contracts</span><input id="account-snapshot-contracts" type="number" inputmode="numeric" step="1" required></label>
+          <label><span>Mark Price（可选）</span><input id="account-snapshot-mark" type="number" inputmode="decimal" min="0.00000001" step="0.1"></label>
+          <label><span>Captured At（可选）</span><input id="account-snapshot-time" type="datetime-local"></label>
+          <label class="execution-form-wide"><span>Note（可选）</span><input id="account-snapshot-note" type="text" maxlength="500" placeholder="例如：manual reconcile after Binance account check"></label>
+          <button id="account-snapshot-submit" class="execution-form-wide" type="submit">追加 Account Snapshot</button>
+        </form>
+        <p id="account-snapshot-form-status" class="flags" role="status" aria-live="polite"></p>
       </div>
 
       <div class="execution-history">
@@ -157,8 +216,34 @@
         </div>
         <div class="execution-history-wrap">
           <table>
-            <thead><tr><th>时间</th><th>方向</th><th>张数</th><th>成交价</th><th>Target</th><th>交易后 Actual</th><th>备注</th></tr></thead>
-            <tbody id="execution-history-body"><tr><td colspan="7">正在读取…</td></tr></tbody>
+            <thead><tr><th>时间</th><th>方向</th><th>张数</th><th>成交价</th><th>Target</th><th>交易后张数</th><th>交易后 Exposure</th><th>备注</th></tr></thead>
+            <tbody id="execution-history-body"><tr><td colspan="8">正在读取…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="execution-history tracking-history">
+        <div class="section-head execution-subhead">
+          <div><div class="eyebrow">CAPITAL FLOW HISTORY</div><h3>资金流历史</h3></div>
+          <span class="flags">来源：Capital Flow Ledger</span>
+        </div>
+        <div class="execution-history-wrap">
+          <table>
+            <thead><tr><th>时间</th><th>类型</th><th>BTC 变化</th><th>累计 Net Capital</th><th>原因</th><th>备注</th></tr></thead>
+            <tbody id="capital-flow-history-body"><tr><td colspan="6">正在读取…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="execution-history tracking-history">
+        <div class="section-head execution-subhead">
+          <div><div class="eyebrow">ACCOUNT SNAPSHOT HISTORY</div><h3>账户快照与对账</h3></div>
+          <span class="flags">来源：Account Snapshot Ledger</span>
+        </div>
+        <div class="execution-history-wrap">
+          <table>
+            <thead><tr><th>时间</th><th>Strategy Equity</th><th>Actual Contracts</th><th>Mark Price</th><th>Reconcile</th><th>备注</th></tr></thead>
+            <tbody id="snapshot-history-body"><tr><td colspan="6">正在读取…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -182,9 +267,9 @@
     <section class="panel compact-panel"><h2>执行纪律</h2><div class="discipline-grid"><div><strong>不追盘中信号</strong><span>只使用完整 UTC 日线。</span></div><div><strong>不修改 V3.1</strong><span>未来新逻辑另开 V3.2，不回头调 V3.1。</span></div><div><strong>不混用 U 本位</strong><span>Canonical instrument 是 BTCUSD_PERP COIN-M。</span></div><div><strong>不自动交易</strong><span>Forward Test 期间人工执行，账户与订单完全隔离。</span></div></div></section>
     <footer><span id="updated">最后更新：--</span><span id="next-review">下次评估：--</span><a href="https://binance-futures-radar.vercel.app/" target="_blank" rel="noreferrer">返回做空雷达</a><a href="https://github.com/xiangyingchang/binance-futures-radar/blob/main/BTC_V3_STRATEGY.md" target="_blank" rel="noreferrer">策略文档</a></footer>
   </main>
-  <script src="btc-v3-execution-accounting.js?v=2"></script>
-  <script src="btc-v3-execution.js?v=2"></script>
-  <script src="btc-v3.js?v=7"></script>
+  <script src="btc-v3-execution-accounting.js?v=3"></script>
+  <script src="btc-v3-execution.js?v=3"></script>
+  <script src="btc-v3.js?v=8"></script>
   <script src="btc-v3-daily-analysis.js?v=1"></script>
 </body>
 </html>
