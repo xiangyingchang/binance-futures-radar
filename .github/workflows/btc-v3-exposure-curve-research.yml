@@ -32,3 +32,5 @@ jobs:
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "research: update V3 exposure-curve backtest result"
           git push origin HEAD:research/v3-exposure-curve
+
+# research trigger 2026-08-23
