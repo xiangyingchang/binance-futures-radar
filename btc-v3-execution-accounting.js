@@ -220,27 +220,26 @@
     };
   }
 
-  function accountingRecordFor(record, recordsById, seenIds) {
-    if (record.recordType !== 'reversal') return record;
-    const targetId = reversalTargetId(record);
-    const target = recordsById.get(targetId);
-    if (!target || target.recordType !== 'execution') {
-      throw new Error(`reversal ${record.executionId} references an unknown execution ${targetId}`);
+  function reversedExecutionIds(records = []) {
+    const recordsById = new Map(records.map((record) => [record.executionId, record]));
+    const reversed = new Set();
+    for (const record of records) {
+      if (record.recordType !== 'reversal') continue;
+      const targetId = reversalTargetId(record);
+      const target = recordsById.get(targetId);
+      if (!target || target.recordType !== 'execution') {
+        throw new Error(`reversal ${record.executionId} references an unknown execution ${targetId}`);
+      }
+      if (reversed.has(targetId)) {
+        throw new Error(`execution ${targetId} is referenced by multiple reversals`);
+      }
+      const expectedSide = target.side === 'BUY' ? 'SELL' : 'BUY';
+      if (record.side !== expectedSide || record.contracts !== target.contracts || record.avgFillPrice !== target.avgFillPrice) {
+        throw new Error(`reversal ${record.executionId} must use the exact inverse economics of ${targetId}`);
+      }
+      reversed.add(targetId);
     }
-    if (!seenIds.has(target.executionId)) {
-      throw new Error(`reversal ${record.executionId} must occur after ${target.executionId} in economic order`);
-    }
-    const expectedSide = target.side === 'BUY' ? 'SELL' : 'BUY';
-    if (record.side !== expectedSide || record.contracts !== target.contracts || record.avgFillPrice !== target.avgFillPrice) {
-      throw new Error(`reversal ${record.executionId} must use the exact inverse economics of ${target.executionId}`);
-    }
-    return {
-      ...record,
-      recordType: 'execution',
-      side: expectedSide,
-      contracts: target.contracts,
-      avgFillPrice: target.avgFillPrice,
-    };
+    return reversed;
   }
 
   function realizedPnlForRecord(previous = { contracts: 0, averageEntryPrice: null }, record, contractSizeUsd = DEFAULT_CONTRACT_SIZE_USD) {
@@ -257,17 +256,19 @@
 
   function calculateLedgerState(records = [], { contractSizeUsd = DEFAULT_CONTRACT_SIZE_USD } = {}) {
     const ordered = sortExecutionsByEconomicTime(records);
-    const recordsById = new Map(ordered.map((record) => [record.executionId, record]));
-    const seenIds = new Set();
+    const reversed = reversedExecutionIds(ordered);
     let position = { contracts: 0, averageEntryPrice: null };
     let realizedPnlBtc = 0;
     const timeline = [];
     for (const record of ordered) {
-      const accountingRecord = accountingRecordFor(record, recordsById, seenIds);
+      if (reversed.has(record.executionId) || record.recordType === 'reversal') {
+        timeline.push({ record, accountingRecord: null, ...position, realizedPnlBtc, reversed: true });
+        continue;
+      }
+      const accountingRecord = record;
       const realized = realizedPnlForRecord(position, accountingRecord, contractSizeUsd);
       position = applyRecord(position, accountingRecord);
       if (realized !== null) realizedPnlBtc += realized;
-      seenIds.add(record.executionId);
       timeline.push({ record, accountingRecord, ...position, realizedPnlBtc });
     }
     return { position, timeline, realizedPnlBtc };
@@ -576,7 +577,7 @@
     };
   }
 
-  function calculateReconciliation(executionState, snapshot, capitalState, { positionAtSnapshot = executionState.position } = {}) {
+  function calculateReconciliation(executionState, snapshot, capitalState, { positionAtSnapshot = executionState.position, netCapitalAtSnapshotBtc = capitalState?.netCapitalBtc } = {}) {
     if (!snapshot) {
       return {
         status: 'NO_SNAPSHOT',
@@ -586,8 +587,8 @@
       };
     }
     const positionDifferenceContracts = snapshot.actualContracts - positionAtSnapshot.contracts;
-    const equityDifferenceBtc = capitalState && Number.isFinite(capitalState.netCapitalBtc)
-      ? snapshot.strategyEquityBtc - capitalState.netCapitalBtc
+    const equityDifferenceBtc = Number.isFinite(netCapitalAtSnapshotBtc)
+      ? snapshot.strategyEquityBtc - netCapitalAtSnapshotBtc
       : null;
     const hasEquityDelta = equityDifferenceBtc !== null && Math.abs(equityDifferenceBtc) > 1e-10;
     const hasPositionMismatch = positionDifferenceContracts !== 0;
@@ -632,6 +633,9 @@
       : executionState.timeline;
     const flowsAfterSnapshot = latestSnapshot
       ? orderedCapitalFlows.filter((flow) => compareEventToSnapshot(flow, latestSnapshot, 'effectiveAt') > 0)
+      : orderedCapitalFlows;
+    const flowsUpToSnapshot = latestSnapshot
+      ? orderedCapitalFlows.filter((flow) => compareEventToSnapshot(flow, latestSnapshot, 'effectiveAt') <= 0)
       : orderedCapitalFlows;
     const executionsAfterSnapshot = executionsAfterSnapshotEntries.map((entry) => entry.record);
     const capitalFlowsAfterSnapshotBtc = flowsAfterSnapshot.reduce((sum, flow) => sum + signedCapitalFlow(flow), 0);
@@ -701,6 +705,7 @@
     const capitalAttribution = calculateCapitalAttribution(capitalState, currentStrategyEquityBtc);
     const reconciliation = calculateReconciliation(executionState, latestSnapshot, capitalState, {
       positionAtSnapshot: executionPositionAtSnapshot,
+      netCapitalAtSnapshotBtc: calculateCapitalFlowState(flowsUpToSnapshot).netCapitalBtc,
     });
     const unrealizedPnl = calculateUnrealizedPnl(accountingPosition, liveMarkPrice, contractSizeUsd);
     const estimatedExecutionPnlBtc = executionState.realizedPnlBtc !== null && unrealizedPnl.btc !== null
@@ -738,7 +743,7 @@
     capitalFlowEconomicTime,
     accountSnapshotEconomicTime,
     reversalTargetId,
-    accountingRecordFor,
+    reversedExecutionIds,
     sortExecutionsByEconomicTime,
     sortCapitalFlowsByEconomicTime,
     parseLedger,

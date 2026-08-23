@@ -185,13 +185,48 @@
   assert.throws(() => accounting.calculateLedgerState([original, { ...reversal, avgFillPrice: 62000 }]), /exact inverse economics/);
 }
 
+// Reversal must fully cancel the referenced execution even when other executions interleave,
+// instead of applying a real opposite-side trade at the reversal's economic time.
+{
+  const first = record({ executionId: 'rev-inter-1', contracts: 100, avgFillPrice: 50000, executedAt: '2026-01-01T00:00:00Z' });
+  const mistaken = record({ executionId: 'rev-inter-2', contracts: 100, avgFillPrice: 60000, executedAt: '2026-01-02T00:00:00Z' });
+  const reversal = record({
+    recordType: 'reversal',
+    executionId: 'rev-inter-cancel',
+    side: 'SELL',
+    contracts: 100,
+    avgFillPrice: 60000,
+    reversesExecutionId: 'rev-inter-2',
+    executedAt: '2026-01-03T00:00:00Z',
+  });
+  const corrected = record({ executionId: 'rev-inter-3', contracts: 50, avgFillPrice: 60000, executedAt: '2026-01-04T00:00:00Z' });
+  const state = accounting.calculateLedgerState([first, mistaken, reversal, corrected]);
+  const expected = accounting.calculateLedgerState([first, corrected]);
+  assert.strictEqual(state.position.contracts, 150, 'reversed execution must be excluded from position accounting');
+  assert.ok(Math.abs(state.position.averageEntryPrice - expected.position.averageEntryPrice) < 1e-12,
+    'interleaved reversal must leave the same average entry as if the mistaken execution never happened');
+  assert.ok(Math.abs(state.realizedPnlBtc - expected.realizedPnlBtc) < 1e-12,
+    'interleaved reversal must not fabricate realized PnL');
+  assert.ok(state.timeline.some((entry) => entry.reversed === true), 'timeline should mark reversed pairs');
+  assert.throws(
+    () => accounting.calculateLedgerState([
+      mistaken,
+      reversal,
+      record({ ...reversal, executionId: 'rev-inter-cancel-2' }),
+    ]),
+    /multiple reversals/,
+    'a second reversal of the same execution must be rejected',
+  );
+}
+
 // 11/12/13. Capital flows after snapshot; DCA not counted as Strategy PnL
 {
    const initialFlow = flow({ flowId: 'initial', flowType: 'INITIAL_CAPITAL', amount: 0.125, recordedAt: '2026-01-01T00:00:00Z' });
+   const openingFill = record({ executionId: 'dca-open', contracts: 42, avgFillPrice: 60000, executedAt: '2026-01-04T00:00:00Z' });
    const snap = snapshot({ snapshotId: 'snap1', capturedAt: '2026-01-05T00:00:00Z', strategyEquityBtc: 0.125, actualContracts: 42, recordedAt: '2026-01-05T00:00:00Z' });
    const contribution = flow({ flowId: 'dca', flowType: 'CONTRIBUTION', amount: 0.01, effectiveAt: '2026-01-10T00:00:00Z', recordedAt: '2026-01-10T00:00:00Z' });
    const state = accounting.calculateTrackingState({
-     executionRecords: [],
+     executionRecords: [openingFill],
      capitalFlowRecords: [initialFlow, contribution],
      accountSnapshotRecords: [snap],
      markPrice: 60000,
@@ -202,6 +237,8 @@
    assert.ok(Math.abs(state.capitalAdjustedEquityBtc - 0.135) < 1e-12);
    assert.ok(Math.abs(state.currentStrategyEquityBtc - 0.135) < 1e-12, 'snapshot must not permanently suppress later DCA');
    assert.ok(Math.abs(state.strategyPnlBtc) < 1e-12, 'DCA must not be counted as Strategy PnL');
+   assert.strictEqual(state.reconciliation.status, 'MATCH', 'post-snapshot DCA must not be reported as an equity delta');
+   assert.ok(Math.abs(state.reconciliation.equityDifferenceBtc) < 1e-12, 'reconciliation equity baseline must use capital up to the snapshot time');
   const withdrawal = flow({ flowId: 'wd', flowType: 'WITHDRAWAL', amount: 0.005, direction: 'OUT', effectiveAt: '2026-01-11T00:00:00Z', recordedAt: '2026-01-11T00:00:00Z' });
    const stateAfterWithdrawal = accounting.calculateTrackingState({
      executionRecords: [],

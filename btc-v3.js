@@ -161,7 +161,8 @@ function renderNarrative(data) {
 function renderOperation(data) {
   const sizing = accountSizing(data);
   const tracked = typeof window !== 'undefined' ? window.BtcV3AccountTracking : null;
-  if (tracked) {
+  const hasTrackedAccountState = tracked && Number.isFinite(Number(tracked.currentStrategyEquityBtc)) && Number.isFinite(Number(tracked.currentActualContracts));
+  if (hasTrackedAccountState) {
     $('btc-holdings').value = tracked.currentStrategyEquityBtc ?? '';
     $('current-contracts').value = tracked.currentActualContracts ?? '';
     $('btc-holdings').readOnly = true;
