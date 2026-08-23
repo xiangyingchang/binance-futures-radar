@@ -1,0 +1,12 @@
+{
+  "date": "2026-08-23",
+  "framework": "vanilla HTML/CSS/JavaScript",
+  "fontStack": "system stack before redesign; Space Grotesk + IBM Plex Sans + JetBrains Mono introduced",
+  "palette": "dark near-black palette in style.css and btc-v3.css; consolidated into tokens.css",
+  "motion": "no motion library; CSS-only feedback",
+  "spacing": "no existing token scale; introduced 4-point semantic scale",
+  "pages": ["index.html", "btc-v3.html"],
+  "mobile": "verified at 320, 375, 414, and 768 CSS pixels; whale actions stack into readable rows",
+  "slopTest": "pass: contrast, chrome, tokens, responsive, mobile, no invented metrics",
+  "production": "Vercel via main branch"
+}

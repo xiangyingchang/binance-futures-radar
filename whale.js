@@ -3,7 +3,7 @@
 (() => {
   const css = document.createElement('link');
   css.rel = 'stylesheet';
-  css.href = 'whale.css?v=1';
+  css.href = 'whale.css?v=2';
   document.head.appendChild(css);
 
   const root = document.getElementById('whale-section');
@@ -102,13 +102,13 @@
         const protocols = (action.protocolHints || []).join('、') || '—';
         const assets = (action.assets || []).join(' / ') || '—';
         tr.innerHTML = `
-          <td>${formatTime(action.timestamp)}</td>
-          <td><span class="status-pill ${actionView.className}">${actionView.label}</span><small>${action.confidence || 'LOW'} confidence</small></td>
-          <td>${fmtEth(action.ethNet)}<small>${compactUsd(action.ethNetUsd)}</small></td>
-          <td>${compactUsd(action.stableNetUsd)}</td>
-          <td>${assets}</td>
-          <td>${protocols}</td>
-          <td><a class="action-btn" href="https://etherscan.io/tx/${encodeURIComponent(action.hash)}" target="_blank" rel="noreferrer">查看交易</a></td>
+          <td data-label="时间">${formatTime(action.timestamp)}</td>
+          <td data-label="动作"><span class="status-pill ${actionView.className}">${actionView.label}</span><small>${action.confidence || 'LOW'} confidence</small></td>
+          <td data-label="ETH/WETH 净流">${fmtEth(action.ethNet)}<small>${compactUsd(action.ethNetUsd)}</small></td>
+          <td data-label="稳定币净流">${compactUsd(action.stableNetUsd)}</td>
+          <td data-label="资产">${assets}</td>
+          <td data-label="协议提示">${protocols}</td>
+          <td data-label=""><a class="action-btn" href="https://etherscan.io/tx/${encodeURIComponent(action.hash)}" target="_blank" rel="noreferrer">查看交易</a></td>
         `;
         els.tableBody.appendChild(tr);
       }

@@ -1,0 +1,71 @@
+/* Hallmark · tokens · pre-emit critique: P5 H4 E5 S4 R5 V5 */
+
+:root {
+  --color-paper: oklch(13% 0.016 252);
+  --color-paper-2: oklch(16.5% 0.018 252);
+  --color-paper-3: oklch(20% 0.019 252);
+  --color-paper-raised: oklch(23% 0.02 252);
+  --color-ink: oklch(95% 0.008 252);
+  --color-ink-2: oklch(82% 0.012 252);
+  --color-muted: oklch(70% 0.012 252);
+  --color-subdued: oklch(60% 0.012 252);
+  --color-rule: oklch(31% 0.018 252);
+  --color-rule-soft: oklch(27% 0.014 252 / 0.82);
+  --color-accent: oklch(74% 0.145 252);
+  --color-accent-strong: oklch(66% 0.17 252);
+  --color-accent-soft: oklch(20% 0.05 252);
+  --color-accent-ink: oklch(16% 0.018 252);
+  --color-focus: oklch(88% 0.12 252);
+  --color-good: oklch(79% 0.14 155);
+  --color-good-soft: oklch(22% 0.05 155);
+  --color-warning: oklch(83% 0.14 83);
+  --color-warning-soft: oklch(22% 0.06 83);
+  --color-danger: oklch(75% 0.16 25);
+  --color-danger-soft: oklch(22% 0.06 25);
+  --color-reference: oklch(78% 0.075 252);
+  --color-reference-soft: oklch(20% 0.04 252);
+  --color-code: oklch(10.5% 0.015 252);
+  --color-code-ink: oklch(90% 0.012 252);
+  --color-shadow: oklch(5% 0.012 252 / 0.26);
+
+  --font-display: "Space Grotesk", "Avenir Next", ui-sans-serif, sans-serif;
+  --font-body: "IBM Plex Sans", ui-sans-serif, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2.5rem;
+  --space-2xl: 4rem;
+  --space-3xl: 6rem;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 1rem;
+  --text-md: 1.25rem;
+  --text-lg: 1.5625rem;
+  --text-xl: 1.9531rem;
+  --text-2xl: 2.4414rem;
+  --text-display: clamp(2.75rem, 5vw + 1rem, 5.25rem);
+  --text-display-s: clamp(2.25rem, 4vw + 0.75rem, 4rem);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+
+  --radius-tight: 8px;
+  --radius-card: 12px;
+  --radius-panel: 16px;
+  --radius-pill: 999px;
+  --radius-input: 8px;
+
+  --z-base: 1;
+  --z-raised: 10;
+  --z-sticky: 200;
+}
