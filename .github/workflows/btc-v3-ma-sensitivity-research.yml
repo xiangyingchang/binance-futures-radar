@@ -1,0 +1,35 @@
+name: BTC V3 MA Sensitivity Research
+
+on:
+  push:
+    branches:
+      - research/v3-ma-sensitivity
+    paths:
+      - 'scripts/btc-v3-ma-sensitivity-research.js'
+      - '.github/workflows/btc-v3-ma-sensitivity-research.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backtest:
+    if: github.ref == 'refs/heads/research/v3-ma-sensitivity'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check research script syntax
+        run: node --check scripts/btc-v3-ma-sensitivity-research.js
+      - name: Run frozen V3.1 MA sensitivity backtest
+        run: node scripts/btc-v3-ma-sensitivity-research.js
+      - name: Commit research result to research branch
+        run: |
+          git config user.name "v3-research[bot]"
+          git config user.email "v3-research[bot]@users.noreply.github.com"
+          git add research/btc-v3-ma-sensitivity-result.json research/btc-v3-ma-sensitivity-report.md
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "research: update V3 MA sensitivity result"
+          git push
