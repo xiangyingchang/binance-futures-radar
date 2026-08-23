@@ -11,10 +11,11 @@
 ## Funding 覆盖
 
 - OOS 请求窗口：**2024-01-01 至 2026-07-31**。
-- 官方可用事件：**2676/2829**，覆盖率 **94.59%**，状态 **partial**。
+- 官方可用事件：**2676/2829**，覆盖率 **94.59%**，状态 **partial**；按 8 小时理论槽位仍缺 **153** 个事件。
 - 来源：[Binance Public Data README](https://github.com/binance/binance-public-data)；[Binance Vision](https://data.binance.vision/)。
-- 缺失 OOS 月份：**2026-07**。
-- 缺失事件没有补 0；2026-07 的官方月档返回 404，未发现对应 daily funding archive；COIN-M REST endpoint 在本环境返回 451。
+- 缺失 OOS 整月档案：**2026-07**；存在月档但仍有槽位缺口的月份：**2024-01, 2024-02, 2024-03, 2024-04, 2024-05, 2024-06, 2024-07, 2024-08, 2024-09, 2024-10, 2024-11, 2024-12, 2025-01, 2025-02, 2025-03, 2025-04, 2025-05, 2025-06, 2025-07, 2025-08, 2025-09, 2025-10, 2025-11, 2025-12, 2026-01, 2026-02, 2026-03, 2026-04, 2026-05, 2026-06**。
+- 缺失事件没有补 0；缺失整月的官方月档返回 404，未发现对应 daily funding archive；COIN-M REST endpoint 在本环境返回 451。
+- Observed archive pattern: each available OOS monthly CSV contains 8-hour funding rows through 00:00 on the last calendar day, but the expected last-day 08:00 and 16:00 slots are absent. No alternate source was available to fill these events.
 
 ## 数据和路径
 

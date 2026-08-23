@@ -7,6 +7,7 @@ const v2 = require('./btc-v3-exposure-curve-research');
 
 const {
   DAY,
+  HOUR,
   OUT_OF_SAMPLE_START,
   dateOnly,
   dayStart,
@@ -16,6 +17,7 @@ const {
   scenarioDefinitions,
 } = v2;
 
+const EIGHT_HOURS = 8 * HOUR;
 const OOS_END_REQUESTED = Date.UTC(2026, 6, 31, 23, 59, 59, 999);
 const CRASH_DAY_THRESHOLD = -0.05;
 const CLUSTER_GAP_DAYS = 1;
@@ -514,8 +516,73 @@ function classifyResults(analyses, time, funding, validationChecks) {
   };
 }
 
+function fundingSlotDiagnostics(market, period) {
+  const firstAvailable = market.fundingData.firstFundingTime;
+  if (!Number.isFinite(firstAvailable)) {
+    return {
+      expectedEvents: 0,
+      availableEvents: 0,
+      missingSlots: [],
+      missingEventsByMonth: [],
+      internalArchiveGapMonths: [],
+      internalGapPattern: false,
+    };
+  }
+  const expectedStart = Math.ceil(Math.max(period.startTime, firstAvailable) / EIGHT_HOURS) * EIGHT_HOURS;
+  const expectedEnd = Math.floor(period.endTime / EIGHT_HOURS) * EIGHT_HOURS;
+  const expectedSlots = [];
+  for (let timestamp = expectedStart; timestamp <= expectedEnd; timestamp += EIGHT_HOURS) expectedSlots.push(timestamp);
+  const inPeriod = market.funding.filter((event) => event.fundingTime >= period.startTime && event.fundingTime <= period.endTime);
+  const availableSlots = new Set(inPeriod.map((event) => Math.round(event.fundingTime / EIGHT_HOURS) * EIGHT_HOURS));
+  const archiveMissingMonths = new Set(market.fundingData.missingMonths);
+  const byMonth = new Map();
+  const monthFor = (timestamp) => dateOnly(timestamp).slice(0, 7);
+  const entryFor = (month) => {
+    if (!byMonth.has(month)) byMonth.set(month, {
+      month,
+      expectedEvents: 0,
+      availableEvents: 0,
+      missingEvents: 0,
+      archiveMissing: archiveMissingMonths.has(month),
+      missingSlots: [],
+    });
+    return byMonth.get(month);
+  };
+  const missingSlots = [];
+  for (const timestamp of expectedSlots) {
+    const entry = entryFor(monthFor(timestamp));
+    entry.expectedEvents += 1;
+    if (availableSlots.has(timestamp)) entry.availableEvents += 1;
+    else {
+      entry.missingEvents += 1;
+      entry.missingSlots.push(new Date(timestamp).toISOString());
+      missingSlots.push(timestamp);
+    }
+  }
+  const missingEventsByMonth = [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month));
+  const internalMissingSlots = missingSlots.filter((timestamp) => !archiveMissingMonths.has(monthFor(timestamp)));
+  const internalGapPattern = internalMissingSlots.length > 0 && internalMissingSlots.every((timestamp) => {
+    const date = new Date(timestamp);
+    const monthEndDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+    return date.getUTCDate() === monthEndDay && [8, 16].includes(date.getUTCHours());
+  });
+  return {
+    expectedEvents: expectedSlots.length,
+    availableEvents: expectedSlots.length - missingSlots.length,
+    missingSlots: missingSlots.map((timestamp) => new Date(timestamp).toISOString()),
+    missingEventsByMonth,
+    internalArchiveGapMonths: missingEventsByMonth
+      .filter((entry) => entry.missingEvents > 0 && !entry.archiveMissing)
+      .map((entry) => entry.month),
+    internalGapPattern,
+  };
+}
+
 function fundingCoverageReport(market, baselineResult, period) {
-  const missingOosMonths = market.fundingData.missingMonths.filter((month) => month >= '2024-01' && month <= dateOnly(period.endTime).slice(0, 7));
+  const slotDiagnostics = fundingSlotDiagnostics(market, period);
+  const missingOosMonths = slotDiagnostics.missingEventsByMonth
+    .filter((entry) => entry.archiveMissing)
+    .map((entry) => entry.month);
   const gapReasons = Object.fromEntries(missingOosMonths.map((month) => [month, {
     monthlyVisionArchive: 'HTTP 404 for the official COIN-M monthly fundingRate archive in this run',
     dailyVisionArchive: 'No official daily fundingRate archive was found for this symbol/path',
@@ -523,8 +590,22 @@ function fundingCoverageReport(market, baselineResult, period) {
   }]));
   return {
     ...baselineResult.fundingCoverage,
+    availableEvents: slotDiagnostics.availableEvents,
+    expectedEvents: slotDiagnostics.expectedEvents,
+    eventCoverageRatio: slotDiagnostics.expectedEvents ? slotDiagnostics.availableEvents / slotDiagnostics.expectedEvents : 0,
     requestedPeriod: { startDate: dateOnly(period.startTime), endDate: dateOnly(period.endTime) },
     missingOosMonths,
+    missingSlotCount: slotDiagnostics.missingSlots.length,
+    missingFundingSlots: slotDiagnostics.missingSlots,
+    missingEventsByMonth: slotDiagnostics.missingEventsByMonth,
+    monthsWithFundingGaps: slotDiagnostics.missingEventsByMonth
+      .filter((entry) => entry.missingEvents > 0)
+      .map((entry) => entry.month),
+    internalArchiveGapMonths: slotDiagnostics.internalArchiveGapMonths,
+    internalGapPattern: slotDiagnostics.internalGapPattern,
+    internalGapReason: slotDiagnostics.internalArchiveGapMonths.length && slotDiagnostics.internalGapPattern
+      ? 'Observed archive pattern: each available OOS monthly CSV contains 8-hour funding rows through 00:00 on the last calendar day, but the expected last-day 08:00 and 16:00 slots are absent. No alternate source was available to fill these events.'
+      : null,
     gapReasons,
     noZeroImputation: true,
     source: market.fundingData.source,
@@ -588,10 +669,11 @@ function renderReport(result) {
 ## Funding 覆盖
 
 - OOS 请求窗口：**${result.fundingCoverage.requestedPeriod.startDate} 至 ${result.fundingCoverage.requestedPeriod.endDate}**。
-- 官方可用事件：**${result.fundingCoverage.availableEvents}/${result.fundingCoverage.expectedEvents}**，覆盖率 **${pct(result.fundingCoverage.eventCoverageRatio)}**，状态 **${result.fundingCoverage.status}**。
+- 官方可用事件：**${result.fundingCoverage.availableEvents}/${result.fundingCoverage.expectedEvents}**，覆盖率 **${pct(result.fundingCoverage.eventCoverageRatio)}**，状态 **${result.fundingCoverage.status}**；按 8 小时理论槽位仍缺 **${result.fundingCoverage.missingSlotCount}** 个事件。
 - 来源：[Binance Public Data README](https://github.com/binance/binance-public-data)；[Binance Vision](https://data.binance.vision/)。
-- 缺失 OOS 月份：**${result.fundingCoverage.missingOosMonths.join(', ') || 'none'}**。
-- 缺失事件没有补 0；${result.fundingCoverage.missingOosMonths.length ? '2026-07 的官方月档返回 404，未发现对应 daily funding archive；COIN-M REST endpoint 在本环境返回 451。' : '没有发现 OOS 月档缺口。'}
+- 缺失 OOS 整月档案：**${result.fundingCoverage.missingOosMonths.join(', ') || 'none'}**；存在月档但仍有槽位缺口的月份：**${result.fundingCoverage.internalArchiveGapMonths.join(', ') || 'none'}**。
+- 缺失事件没有补 0；${result.fundingCoverage.missingOosMonths.length ? '缺失整月的官方月档返回 404，未发现对应 daily funding archive；COIN-M REST endpoint 在本环境返回 451。' : '没有发现 OOS 整月档案缺口。'}
+- ${result.fundingCoverage.internalGapReason || '没有发现已存在月档内部的规律性槽位缺口。'}
 
 ## 数据和路径
 
@@ -802,6 +884,7 @@ module.exports = {
   CRASH_DAY_THRESHOLD,
   CLUSTER_GAP_DAYS,
   buildCrashClusters,
+  fundingSlotDiagnostics,
   median,
   classifyResults,
   renderEventsCsv,

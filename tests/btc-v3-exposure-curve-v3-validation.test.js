@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { runScenario } = require('../scripts/btc-v3-exposure-curve-research');
-const { buildCrashClusters, renderEventsCsv } = require('../scripts/btc-v3-exposure-curve-v3-validation');
+const { buildCrashClusters, fundingSlotDiagnostics, renderEventsCsv } = require('../scripts/btc-v3-exposure-curve-v3-validation');
 
 const DAY = 86400000;
 const HOUR = 3600000;
@@ -69,4 +69,22 @@ test('event CSV includes fill-level attribution columns', () => {
   assert.match(csv, /relativeBaselineIncrementalPnlBtc/);
   assert.match(csv, /sameCrashClusterMultipleFills/);
   assert.match(csv, /fill-1/);
+});
+
+test('funding diagnostics reports archive-internal missing 8-hour slots without imputing them', () => {
+  const start = Date.UTC(2024, 0, 1);
+  const end = Date.UTC(2024, 0, 31, 23, 59, 59, 999);
+  const funding = [];
+  for (let timestamp = start; timestamp <= Date.UTC(2024, 0, 31); timestamp += 8 * HOUR) {
+    funding.push({ fundingTime: timestamp, fundingIntervalHours: 8, fundingRate: 0.0001 });
+  }
+  const diagnostics = fundingSlotDiagnostics(
+    { funding, fundingData: { firstFundingTime: start, missingMonths: [] } },
+    { startTime: start, endTime: end },
+  );
+  assert.equal(diagnostics.expectedEvents, 93);
+  assert.equal(diagnostics.availableEvents, 91);
+  assert.equal(diagnostics.missingSlots.length, 2);
+  assert.deepEqual(diagnostics.internalArchiveGapMonths, ['2024-01']);
+  assert.equal(diagnostics.internalGapPattern, true);
 });
