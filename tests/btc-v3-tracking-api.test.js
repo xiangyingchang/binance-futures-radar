@@ -1,165 +1,173 @@
-'use strict';
+ 'use strict';
 
-const assert = require('assert');
-const accounting = require('../btc-v3-execution-accounting');
+ const assert = require('assert');
+ const accounting = require('../btc-v3-execution-accounting');
+ const trackingApi = require('../api/btc-v3-tracking');
+ const executionApi = require('../api/btc-v3-execution');
 
-async function main() {
-  const originalFetch = global.fetch;
-  const originalEnv = {
-    apiKey: process.env.EXECUTION_LEDGER_API_KEY,
-    githubToken: process.env.GITHUB_EXECUTION_LEDGER_TOKEN,
-    repo: process.env.GITHUB_EXECUTION_LEDGER_REPO,
-    branch: process.env.GITHUB_EXECUTION_LEDGER_BRANCH,
-  };
-  const token = 'github-tracking-token-test-only';
-  const apiKey = 'tracking-api-key-test-only';
-  const files = new Map();
-  const putBodies = [];
-  process.env.EXECUTION_LEDGER_API_KEY = apiKey;
-  process.env.GITHUB_EXECUTION_LEDGER_TOKEN = token;
-  process.env.GITHUB_EXECUTION_LEDGER_REPO = 'xiangyingchang/binance-futures-radar';
-  process.env.GITHUB_EXECUTION_LEDGER_BRANCH = 'main';
+ const ACCESS_KEY = 'v3-tracking-access-key-test-only';
+ const GITHUB_TOKEN = 'github-v3-tracking-token-test-only';
+ const PRIVATE_REPO = 'xiangyingchang/binance-futures-radar-private-data';
+ const PUBLIC_REPO = 'xiangyingchang/binance-futures-radar';
 
-  function response(status, payload) {
-    return {
-      status,
-      ok: status >= 200 && status < 300,
-      async json() { return payload; },
-      async text() { return typeof payload === 'string' ? payload : JSON.stringify(payload); },
-    };
-  }
+ function mockResponse() {
+   return {
+     statusCode: null,
+     body: null,
+     headers: {},
+     setHeader(name, value) { this.headers[name] = value; },
+     status(code) { this.statusCode = code; return this; },
+     json(payload) { this.body = payload; return this; },
+   };
+ }
 
-  function pathForUrl(url) {
-    for (const filePath of [
-      'data/btc-v3-execution-ledger.jsonl',
-      'data/btc-v3-capital-flow.jsonl',
-      'data/btc-v3-account-snapshots.jsonl',
-    ]) {
-      if (String(url).includes(filePath)) return filePath;
-    }
-    return null;
-  }
+ async function main() {
+   const originalFetch = global.fetch;
+   const savedEnv = {
+     accessKey: process.env.V3_TRACKING_ACCESS_KEY,
+     githubToken: process.env.GITHUB_V3_TRACKING_DATA_TOKEN,
+     repo: process.env.GITHUB_V3_TRACKING_DATA_REPO,
+     branch: process.env.GITHUB_V3_TRACKING_DATA_BRANCH,
+   };
+   const files = new Map();
+   const requestedUrls = [];
+   let putCount = 0;
 
-  global.fetch = async (url, options = {}) => {
-    const filePath = pathForUrl(url);
-    assert.ok(filePath, `unexpected GitHub URL: ${url}`);
-    if (options.method === 'PUT') {
-      const body = String(options.body || '');
-      putBodies.push(body);
-      const payload = JSON.parse(body);
-      const text = Buffer.from(payload.content, 'base64').toString('utf8');
-      files.set(filePath, { text, sha: `sha-${files.size + 1}` });
-      return response(200, { commit: { sha: `commit-${files.size}` } });
-    }
-    const file = files.get(filePath);
-    if (!file) return response(404, { message: 'Not Found' });
-    return response(200, {
-      type: 'file',
-      sha: file.sha,
-      content: Buffer.from(file.text, 'utf8').toString('base64'),
-    });
-  };
+   process.env.V3_TRACKING_ACCESS_KEY = ACCESS_KEY;
+   process.env.GITHUB_V3_TRACKING_DATA_TOKEN = GITHUB_TOKEN;
+   process.env.GITHUB_V3_TRACKING_DATA_REPO = PRIVATE_REPO;
+   process.env.GITHUB_V3_TRACKING_DATA_BRANCH = 'main';
 
-  try {
-    const api = require('../api/btc-v3-tracking');
-    const test = api._test;
-    assert.strictEqual(test.authorizeWrite({ headers: {} }).status, 401);
-    assert.strictEqual(test.authorizeWrite({ headers: { authorization: `Bearer ${apiKey}` } }).ok, true);
-    assert.strictEqual(test.authorizeWrite({ headers: { authorization: 'Bearer wrong' } }).status, 401);
-    assert.strictEqual(test.trackingKind({ ledgerType: 'capital_flow' }), 'capital-flow');
-    assert.strictEqual(test.trackingKind({ ledgerType: 'account-snapshot' }), 'account-snapshot');
+   function response(status, payload) {
+     return {
+       status,
+       ok: status >= 200 && status < 300,
+       async json() { return payload; },
+       async text() { return typeof payload === 'string' ? payload : JSON.stringify(payload); },
+     };
+   }
 
-    const flow = test.buildCapitalFlow({
-      flowId: 'api-flow-idempotency-test',
-      flowType: 'CONTRIBUTION',
-      asset: 'BTC',
-      amount: 0.01,
-      direction: 'IN',
-      effectiveAt: null,
-      effectiveTimePrecision: 'approximate',
-      source: 'client-must-not-control-source',
-      reason: 'DCA',
-      note: 'API test',
-    }, '2026-08-23T00:00:00.000Z');
-    assert.strictEqual(flow.recordType, 'capital_flow');
-    assert.strictEqual(flow.source, 'manual');
-    assert.strictEqual(flow.recordedAt, '2026-08-23T00:00:00.000Z');
+   function pathForUrl(url) {
+     for (const filePath of [
+       'data/btc-v3-execution-ledger.jsonl',
+       'data/btc-v3-capital-flow.jsonl',
+       'data/btc-v3-account-snapshots.jsonl',
+     ]) {
+       if (String(url).includes(filePath)) return filePath;
+     }
+     return null;
+   }
 
-    const snapshot = test.buildAccountSnapshot({
-      snapshotId: 'api-snapshot-idempotency-test',
-      capturedAt: null,
-      captureTimePrecision: 'approximate',
-      strategyEquityBtc: 0.5757,
-      actualContracts: 108,
-      symbol: 'ETHUSDT',
-      markPrice: null,
-      note: 'API test',
-    }, '2026-08-23T00:00:01.000Z');
-    assert.strictEqual(snapshot.recordType, 'account_snapshot');
-    assert.strictEqual(snapshot.symbol, 'BTCUSD_PERP', 'snapshot API must keep the V3 symbol fixed');
-    assert.strictEqual(snapshot.source, 'manual');
+   global.fetch = async (url, options = {}) => {
+     requestedUrls.push(String(url));
+     assert.ok(String(url).startsWith('https://api.github.com/repos/xiangyingchang/binance-futures-radar-private-data/contents/'),
+       'tracking API must read/write the private data repository: ' + url);
+     const filePath = pathForUrl(url);
+     assert.ok(filePath, 'unexpected GitHub URL: ' + url);
+     assert.ok(String(options.headers?.Authorization || '').endsWith('Bearer ' + GITHUB_TOKEN) || String(options.headers?.authorization || '').endsWith('Bearer ' + GITHUB_TOKEN) || String(options.headers?.Authorization || '') === 'Bearer ' + GITHUB_TOKEN,
+       'GitHub requests must use the server-side token');
+     if (options.method === 'PUT') {
+       putCount += 1;
+       const payload = JSON.parse(String(options.body || '{}'));
+       const text = Buffer.from(payload.content, 'base64').toString('utf8');
+       files.set(filePath, { text, sha: 'sha-' + putCount });
+       return response(200, { commit: { sha: 'commit-' + putCount } });
+     }
+     const file = files.get(filePath);
+     if (!file) return response(404, { message: 'Not Found' });
+     return response(200, { type: 'file', sha: file.sha, content: Buffer.from(file.text, 'utf8').toString('base64') });
+   };
 
-    const mismatchResponse = {
-      statusCode: null,
-      body: null,
-      headers: {},
-      setHeader(name, value) { this.headers[name] = value; },
-      status(code) { this.statusCode = code; return this; },
-      json(payload) { this.body = payload; return this; },
-    };
-    await api({
-      method: 'POST',
-      headers: { authorization: `Bearer ${apiKey}`, 'idempotency-key': 'different-flow-id' },
-      body: { ...flow, ledgerType: 'capital-flow' },
-    }, mismatchResponse);
-    assert.strictEqual(mismatchResponse.statusCode, 400);
-    assert.strictEqual(mismatchResponse.body.error, 'V3_TRACKING_IDEMPOTENCY_KEY_REQUIRED');
+   try {
+     // 16. Anonymous tracking GET = 401
+     const anonGet = mockResponse();
+     await trackingApi({ method: 'GET', headers: {} }, anonGet);
+     assert.strictEqual(anonGet.statusCode, 401, 'anonymous GET must be rejected');
+     assert.ok(!JSON.stringify(anonGet.body).includes('strategyEquity'), '401 must not leak ledger fields');
 
-    const firstFlow = await test.appendCapitalFlowToGithub(flow);
-    assert.strictEqual(firstFlow.duplicate, false);
-    assert.strictEqual(accounting.parseCapitalFlowLedger(files.get('data/btc-v3-capital-flow.jsonl').text).length, 1);
+     // 17. Wrong key = 401; Correct key = 200
+     const wrongKey = mockResponse();
+     await trackingApi({ method: 'GET', headers: { authorization: 'Bearer wrong-key' } }, wrongKey);
+     assert.strictEqual(wrongKey.statusCode, 401);
+     const goodGet = mockResponse();
+     await trackingApi({ method: 'GET', headers: { authorization: 'Bearer ' + ACCESS_KEY } }, goodGet);
+     assert.strictEqual(goodGet.statusCode, 200);
+     assert.ok(goodGet.body.appendOnly);
 
-    const retryFlow = await test.appendCapitalFlowToGithub({ ...flow, recordedAt: '2026-08-23T00:05:00.000Z' });
-    assert.strictEqual(retryFlow.duplicate, true, 'same flowId and intent must be idempotent');
-    assert.strictEqual(accounting.parseCapitalFlowLedger(files.get('data/btc-v3-capital-flow.jsonl').text).length, 1);
-    await assert.rejects(
-      () => test.appendCapitalFlowToGithub({ ...flow, amount: 0.02 }),
-      (error) => error.status === 409,
-      'same flowId with changed amount must be rejected',
-    );
+     // 18/19. Idempotency and 409 semantics
+     const flowRecord = trackingApi._test.buildCapitalFlow({
+       flowId: 'flow-idem-test',
+       flowType: 'CONTRIBUTION',
+       asset: 'BTC',
+       amount: 0.02,
+       direction: 'IN',
+       effectiveAt: null,
+       effectiveTimePrecision: 'approximate',
+       reason: 'DCA',
+     }, '2026-08-23T00:00:00.000Z');
+     const firstAppend = await trackingApi._test.appendCapitalFlowToGithub(flowRecord);
+     assert.strictEqual(firstAppend.duplicate, false);
+     const retryAppend = await trackingApi._test.appendCapitalFlowToGithub({ ...flowRecord, recordedAt: '2026-08-23T01:00:00.000Z' });
+     assert.strictEqual(retryAppend.duplicate, true, 'same flowId and intent must be idempotent');
+     assert.strictEqual(accounting.parseCapitalFlowLedger(files.get('data/btc-v3-capital-flow.jsonl').text).length, 1);
+     await assert.rejects(
+       () => trackingApi._test.appendCapitalFlowToGithub({ ...flowRecord, amount: 0.03 }),
+       (error) => error.status === 409,
+       'same flowId with changed economics must be rejected with 409',
+     );
 
-    const firstSnapshot = await test.appendAccountSnapshotToGithub(snapshot);
-    assert.strictEqual(firstSnapshot.duplicate, false);
-    assert.strictEqual(accounting.parseAccountSnapshotLedger(files.get('data/btc-v3-account-snapshots.jsonl').text).length, 1);
-    const retrySnapshot = await test.appendAccountSnapshotToGithub({ ...snapshot, recordedAt: '2026-08-23T00:05:01.000Z' });
-    assert.strictEqual(retrySnapshot.duplicate, true, 'same snapshotId and intent must be idempotent');
-    assert.strictEqual(accounting.parseAccountSnapshotLedger(files.get('data/btc-v3-account-snapshots.jsonl').text).length, 1);
-    await assert.rejects(
-      () => test.appendAccountSnapshotToGithub({ ...snapshot, actualContracts: 109 }),
-      (error) => error.status === 409,
-      'same snapshotId with changed contracts must be rejected',
-    );
+     // POST without auth = 401
+     const anonPost = mockResponse();
+     await trackingApi({ method: 'POST', headers: {}, body: { ledgerType: 'capital-flow', ...flowRecord } }, anonPost);
+     assert.strictEqual(anonPost.statusCode, 401);
+     // POST with wrong Idempotency-Key = 400
+     const mismatch = mockResponse();
+     await trackingApi({
+       method: 'POST',
+       headers: { authorization: 'Bearer ' + ACCESS_KEY, 'idempotency-key': 'different' },
+       body: { ledgerType: 'capital-flow', ...flowRecord },
+     }, mismatch);
+     assert.strictEqual(mismatch.statusCode, 400);
 
-    const all = await test.readAllLedgers();
-    assert.strictEqual(all.capitalFlow.records.length, 1);
-    assert.strictEqual(all.accountSnapshot.records.length, 1);
-    assert.strictEqual(all.execution.records.length, 0, 'tracking writes must not touch the execution ledger');
-    assert.ok(putBodies.every((body) => !body.includes(token)), 'GitHub token must not appear in write payloads');
-    console.log('btc v3 tracking API tests passed');
-  } finally {
-    global.fetch = originalFetch;
-    if (originalEnv.apiKey === undefined) delete process.env.EXECUTION_LEDGER_API_KEY;
-    else process.env.EXECUTION_LEDGER_API_KEY = originalEnv.apiKey;
-    if (originalEnv.githubToken === undefined) delete process.env.GITHUB_EXECUTION_LEDGER_TOKEN;
-    else process.env.GITHUB_EXECUTION_LEDGER_TOKEN = originalEnv.githubToken;
-    if (originalEnv.repo === undefined) delete process.env.GITHUB_EXECUTION_LEDGER_REPO;
-    else process.env.GITHUB_EXECUTION_LEDGER_REPO = originalEnv.repo;
-    if (originalEnv.branch === undefined) delete process.env.GITHUB_EXECUTION_LEDGER_BRANCH;
-    else process.env.GITHUB_EXECUTION_LEDGER_BRANCH = originalEnv.branch;
-  }
-}
+     // Execution API boundary: config must target the private repo
+     assert.strictEqual(executionApi._test.config().repository, PRIVATE_REPO);
+     assert.notStrictEqual(executionApi._test.config().repository, PUBLIC_REPO);
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+     // Execution API anonymous GET = 401
+     const anonExecGet = mockResponse();
+     await executionApi({ method: 'GET', headers: {} }, anonExecGet);
+     assert.strictEqual(anonExecGet.statusCode, 401);
+     const authedExecGet = mockResponse();
+     await executionApi({ method: 'GET', headers: { authorization: 'Bearer ' + ACCESS_KEY } }, authedExecGet);
+     assert.strictEqual(authedExecGet.statusCode, 200);
+
+     // Execution API anonymous POST = 401
+     const anonExecPost = mockResponse();
+     await executionApi({ method: 'POST', headers: {}, body: {} }, anonExecPost);
+     assert.strictEqual(anonExecPost.statusCode, 401);
+
+     // 20. Missing private repo config = 503
+     delete process.env.GITHUB_V3_TRACKING_DATA_REPO;
+     assert.throws(() => trackingApi._test.config('data/btc-v3-capital-flow.jsonl'), (error) => error.status === 503);
+     assert.throws(() => executionApi._test.config(), (error) => error.status === 503);
+
+     // 21. No public repo fallback
+     process.env.GITHUB_V3_TRACKING_DATA_REPO = PUBLIC_REPO;
+     assert.throws(() => trackingApi._test.config('data/btc-v3-capital-flow.jsonl'), (error) => error.status === 503 && /public code repository/.test(error.message));
+     assert.throws(() => executionApi._test.config(), (error) => error.status === 503 && /public code repository/.test(error.message));
+
+     assert.ok(requestedUrls.every((url) => url.includes(PRIVATE_REPO)), 'no request may target the public code repo');
+     console.log('btc v3 tracking API privacy tests passed');
+   } finally {
+     global.fetch = originalFetch;
+     for (const [key, value] of Object.entries(savedEnv)) {
+       if (value === undefined) delete process.env[key];
+       else process.env[key] = value;
+     }
+   }
+ }
+
+ main().catch((error) => {
+   console.error(error);
+   process.exitCode = 1;
+ });

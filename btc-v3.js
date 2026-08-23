@@ -7,10 +7,6 @@ const setTextIfPresent = (id, value) => {
 };
 const DAY_MS = 86400000;
 const FORWARD_TEST_BUFFER_MS = 17 * 60 * 1000;
-const DEFAULT_BTC_HOLDINGS = 0.5657;
-const DEFAULT_CURRENT_CONTRACTS = 108;
-const STORAGE_BTC = 'btc-v3-holdings';
-const STORAGE_CONTRACTS = 'btc-v3-current-contracts';
 const OPERATION_OUTPUT_IDS = ['account-target-contracts', 'account-delta-contracts', 'account-overlay-btc'];
 let latestSnapshot = null;
 
@@ -80,17 +76,6 @@ function publishSnapshot(data) {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('btc-v3:snapshot', { detail: data }));
 }
 
-function savedNumber(key, fallback) {
-  try {
-    const v = finite(localStorage.getItem(key));
-    return v === null ? fallback : v;
-  } catch (_) { return fallback; }
-}
-
-function saveNumber(key, value) {
-  try { localStorage.setItem(key, String(value)); } catch (_) {}
-}
-
 function describePosition(q) {
   if (!Number.isFinite(q) || q === 0) return '0 张（无合约仓位）';
   return q > 0 ? `+${q} 张多单` : `${q} 张空单`;
@@ -114,12 +99,12 @@ function accountSizing(data) {
   const tracked = typeof window !== 'undefined' ? window.BtcV3AccountTracking : null;
   const trackedHoldings = finite(tracked?.currentStrategyEquityBtc);
   const trackedContracts = finite(tracked?.currentActualContracts);
-  const holdings = Math.max(0, trackedHoldings ?? finite($('btc-holdings')?.value, DEFAULT_BTC_HOLDINGS));
-  const currentContracts = Math.round(trackedContracts ?? finite($('current-contracts')?.value, DEFAULT_CURRENT_CONTRACTS));
+  const holdings = Math.max(0, trackedHoldings ?? finite($('btc-holdings')?.value));
+  const currentContracts = Math.round(trackedContracts ?? finite($('current-contracts')?.value));
   const targetExposure = finite(data.signal?.finalTarget);
   const contractSize = finite(data.instrument?.contractSize);
   const markPrice = finite(data.funding?.markPrice, finite(data.latestClosedCandle?.close));
-  if ([targetExposure, contractSize, markPrice].some((v) => v === null) || contractSize <= 0 || markPrice <= 0) return null;
+  if ([targetExposure, contractSize, markPrice, holdings].some((v) => v === null) || contractSize <= 0 || markPrice <= 0) return null;
   const overlayBtc = (targetExposure - 1) * holdings;
   const targetContracts = Math.round((overlayBtc * markPrice) / contractSize);
   return { holdings, currentContracts, targetExposure, contractSize, markPrice, overlayBtc, targetContracts, deltaContracts: targetContracts - currentContracts, trackingSource: tracked ? 'account-tracking' : 'manual-fallback' };
@@ -176,12 +161,6 @@ function renderNarrative(data) {
 function renderOperation(data) {
   const sizing = accountSizing(data);
   const tracked = typeof window !== 'undefined' ? window.BtcV3AccountTracking : null;
-  const holdings = sizing?.holdings ?? Math.max(0, finite($('btc-holdings').value, DEFAULT_BTC_HOLDINGS));
-  const currentContracts = sizing?.currentContracts ?? Math.round(finite($('current-contracts').value, DEFAULT_CURRENT_CONTRACTS));
-  if (!tracked) {
-    saveNumber(STORAGE_BTC, holdings);
-    saveNumber(STORAGE_CONTRACTS, currentContracts);
-  }
   if (tracked) {
     $('btc-holdings').value = tracked.currentStrategyEquityBtc ?? '';
     $('current-contracts').value = tracked.currentActualContracts ?? '';
@@ -286,8 +265,6 @@ async function load() {
   } finally { $('refresh').disabled = false; }
 }
 
-$('btc-holdings').value = savedNumber(STORAGE_BTC, DEFAULT_BTC_HOLDINGS);
-$('current-contracts').value = savedNumber(STORAGE_CONTRACTS, DEFAULT_CURRENT_CONTRACTS);
 for (const id of ['btc-holdings', 'current-contracts']) $(id).addEventListener('input', () => {
   if (!latestSnapshot) return;
   renderOperation(latestSnapshot);
