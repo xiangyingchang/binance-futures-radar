@@ -495,6 +495,11 @@ function markTo(state, toPrice) {
     const pnl = inversePnlBtc(state.contracts, state.contractSize, state.lastMarkPrice, toPrice);
     if (!Number.isFinite(pnl)) throw new Error('Non-finite mark-to-market PnL.');
     state.equityBtc += pnl;
+    if (state.captureTrace) {
+      for (const lot of state.lots) {
+        lot.markToMarketPnlBtc += pnl * (lot.contracts / state.contracts);
+      }
+    }
   }
   state.lastMarkPrice = toPrice;
 }
@@ -503,6 +508,70 @@ function contractTarget(state, exposure, price) {
   const sizing = targetContracts({ targetExposure: exposure, equityBtc: state.equityBtc, price, contractSizeUsd: state.contractSize, currentContracts: state.contracts });
   if (!sizing) throw new Error(`Unable to size target exposure ${exposure} at ${price}`);
   return sizing.signedContracts;
+}
+
+function splitPositionLot(state, lot, quantity) {
+  const lotQuantity = Math.abs(lot.contracts);
+  const closedQuantity = Math.min(lotQuantity, Math.abs(quantity));
+  const fraction = lotQuantity ? closedQuantity / lotQuantity : 0;
+  const signedQuantity = Math.sign(lot.contracts) * closedQuantity;
+  const segment = {
+    ...lot,
+    segmentId: `${lot.lotId}:segment:${state.lotSegmentSequence++}`,
+    contracts: signedQuantity,
+    initialContracts: lot.initialContracts * fraction,
+    markToMarketPnlBtc: lot.markToMarketPnlBtc * fraction,
+    fundingPnlBtc: lot.fundingPnlBtc * fraction,
+    feeBtc: lot.feeBtc * fraction,
+    slippageBtc: lot.slippageBtc * fraction,
+    closed: true,
+  };
+  lot.contracts -= signedQuantity;
+  lot.initialContracts -= segment.initialContracts;
+  lot.markToMarketPnlBtc -= segment.markToMarketPnlBtc;
+  lot.fundingPnlBtc -= segment.fundingPnlBtc;
+  lot.feeBtc -= segment.feeBtc;
+  lot.slippageBtc -= segment.slippageBtc;
+  return segment;
+}
+
+function consumePositionLots(state, closingDelta) {
+  if (!state.captureTrace || !state.contracts || !closingDelta) return;
+  const requiredSide = -Math.sign(closingDelta);
+  let remaining = Math.min(Math.abs(closingDelta), Math.abs(state.contracts));
+  for (const lot of [...state.lots]) {
+    if (remaining <= 0) break;
+    if (Math.sign(lot.contracts) !== requiredSide || lot.contracts === 0) continue;
+    const segment = splitPositionLot(state, lot, remaining);
+    state.closedLots.push(segment);
+    remaining -= Math.abs(segment.contracts);
+    if (Math.abs(lot.contracts) < 1e-12) state.lots = state.lots.filter((item) => item !== lot);
+  }
+}
+
+function addPositionLot(state, delta, intendedPrice, effectivePrice, maker, dayContext, fillKind, fee, slippagePnl) {
+  if (!state.captureTrace || !delta) return null;
+  const tradeId = `${state.scenarioName}:trade:${state.tradeSequence++}`;
+  const lotId = maker ? `${state.scenarioName}:maker-fill:${state.makerFillSequence++}` : tradeId;
+  state.lots.push({
+    lotId,
+    segmentId: `${lotId}:segment:open`,
+    source: maker ? 'maker_fill' : 'non_maker_trade',
+    maker,
+    contracts: delta,
+    initialContracts: delta,
+    entryPrice: intendedPrice,
+    effectivePrice,
+    dayOpen: dayContext.openTime,
+    dayOpenPrice: dayContext.openPrice,
+    fillKind,
+    markToMarketPnlBtc: 0,
+    fundingPnlBtc: 0,
+    feeBtc: fee,
+    slippageBtc: Math.max(0, -slippagePnl),
+    closed: false,
+  });
+  return { tradeId, lotId };
 }
 
 function applyTrade(state, newContracts, intendedPrice, maker, dayContext, costs, fillKind) {
@@ -526,7 +595,14 @@ function applyTrade(state, newContracts, intendedPrice, maker, dayContext, costs
     state.takerTradeCount += 1;
   }
   state.turnoverUsd += Math.abs(delta) * state.contractSize;
+  const previousContracts = state.contracts;
+  const closeQuantity = previousContracts && Math.sign(previousContracts) !== Math.sign(delta)
+    ? Math.min(Math.abs(previousContracts), Math.abs(delta))
+    : 0;
+  consumePositionLots(state, delta);
   state.contracts = newContracts;
+  const openDelta = Math.sign(delta) * (Math.abs(delta) - closeQuantity);
+  const lot = addPositionLot(state, openDelta, intendedPrice, effectivePrice, maker, dayContext, fillKind, fee, slippagePnl);
   state.tradeCount += 1;
   state.tradeEvents.push({
     dayOpen: dayContext.openTime,
@@ -537,7 +613,7 @@ function applyTrade(state, newContracts, intendedPrice, maker, dayContext, costs
     maker,
     fillKind,
   });
-  return { delta, fee, slippagePnl, effectivePrice };
+  return { delta, fee, slippagePnl, effectivePrice, lotId: lot?.lotId || null, tradeId: lot?.tradeId || null };
 }
 
 function processFunding(state, event, market, costs) {
@@ -556,6 +632,11 @@ function processFunding(state, event, market, costs) {
   const pnl = fundingPnlBtc(state.contracts, state.contractSize, mark, event.fundingRate);
   if (!Number.isFinite(pnl)) throw new Error(`Non-finite funding PnL at ${iso(event.fundingTime)}`);
   state.equityBtc += pnl;
+  if (state.captureTrace) {
+    for (const lot of state.lots) {
+      lot.fundingPnlBtc += pnl * (lot.contracts / state.contracts);
+    }
+  }
   state.fundingPnlBtc += pnl;
   state.fundingEventCount += 1;
 }
@@ -580,7 +661,7 @@ function crossedOrders(orders, fromPrice, toPrice) {
   )).sort((a, b) => descending ? b.limitPrice - a.limitPrice : a.limitPrice - b.limitPrice);
 }
 
-function processBarPath(bar, state, orders, dayContext, costs, market, fillPriceMode) {
+function processBarPath(bar, state, orders, dayContext, costs, market, fillPriceMode, runOptions = {}) {
   let fromPrice = bar.open;
   let fromTimestamp = bar.openTime;
   for (const point of ohlcPath(bar)) {
@@ -589,6 +670,15 @@ function processBarPath(bar, state, orders, dayContext, costs, market, fillPrice
     for (const order of crossedOrders(orders, fromPrice, toPrice)) {
       const ratio = toPrice === fromPrice ? 0 : (order.limitPrice - fromPrice) / (toPrice - fromPrice);
       const fillTimestamp = fromTimestamp + Math.max(0, Math.min(1, ratio)) * (toTimestamp - fromTimestamp);
+      const clusterId = typeof runOptions.crashClusterForTimestamp === 'function'
+        ? runOptions.crashClusterForTimestamp(fillTimestamp)
+        : null;
+      if (runOptions.excludeCrashClusterIds && clusterId !== null && runOptions.excludeCrashClusterIds.has(clusterId)) {
+        order.active = false;
+        order.excludedClusterId = clusterId;
+        state.excludedOrderCount += 1;
+        continue;
+      }
       const intendedPrice = fillPriceMode === 'open' ? dayContext.openPrice : order.limitPrice;
       markTo(state, intendedPrice);
       const desired = order.kind === 'curve'
@@ -596,8 +686,34 @@ function processBarPath(bar, state, orders, dayContext, costs, market, fillPrice
         : state.contracts + order.contracts;
       const before = state.contracts;
       if (desired > before) {
-        applyTrade(state, desired, intendedPrice, true, dayContext, costs, order.kind);
+        const trade = applyTrade(state, desired, intendedPrice, true, dayContext, costs, order.kind);
         state.ladderFilledContracts += desired - before;
+        if (state.captureTrace && trade?.lotId) {
+          const equityAfter = state.equityBtc;
+          const exposureAfter = 1 + ((state.contracts * state.contractSize) / trade.effectivePrice) / equityAfter;
+          state.makerFillEvents.push({
+            fillId: trade.lotId,
+            tradeId: trade.tradeId,
+            orderId: order.id,
+            fillTimestamp,
+            dayOpen: dayContext.openTime,
+            dayOpenPrice: dayContext.openPrice,
+            baselineTargetExposure: dayContext.targetExposure,
+            baselineTargetContracts: dayContext.targetContracts,
+            thresholdDrop: order.drop ?? null,
+            bonusExposure: order.bonus ?? null,
+            limitPrice: order.limitPrice,
+            intendedPrice,
+            effectivePrice: trade.effectivePrice,
+            contracts: trade.delta,
+            contractsAfter: state.contracts,
+            exposureAfter,
+            feeBtc: trade.fee,
+            slippageBtc: Math.max(0, -trade.slippagePnl),
+            clusterId,
+            fillKind: order.kind,
+          });
+        }
       }
       order.active = false;
       state.ladderFillCount += 1;
@@ -645,6 +761,7 @@ function reconcileAtDayOpen(definition, state, targetExposure, dayContext, costs
         orders.push({
           id: `${definition.name}-${dayContext.openTime}-${index}`,
           kind: 'ladder',
+          drop,
           limitPrice: dayContext.openPrice * (1 + drop),
           contracts,
           active: true,
@@ -659,6 +776,7 @@ function reconcileAtDayOpen(definition, state, targetExposure, dayContext, costs
       orders.push({
         id: `${definition.name}-${dayContext.openTime}-${index}`,
         kind: 'curve',
+        drop: level.drop,
         limitPrice: dayContext.openPrice * (1 + level.drop),
         targetExposure: target,
         bonus: level.bonus,
@@ -706,6 +824,8 @@ function runScenario(definition, market, period, options = {}) {
   const bars = market.executionBars.filter((bar) => bar.openTime >= period.startTime && bar.openTime <= period.endTime);
   if (!bars.length) throw new Error(`No execution bars for ${definition.name} ${period.name}`);
   const state = {
+    captureTrace: options.captureTrace === true,
+    scenarioName: definition.name,
     equityBtc: 1,
     contracts: 0,
     contractSize: market.contract.contractSize,
@@ -727,6 +847,14 @@ function runScenario(definition, market, period, options = {}) {
     ladderFilledContracts: 0,
     missedRallyCount: 0,
     tradeEvents: [],
+    makerFillEvents: [],
+    lots: [],
+    closedLots: [],
+    lotSegmentSequence: 0,
+    tradeSequence: 0,
+    makerFillSequence: 0,
+    excludedOrderCount: 0,
+    trace: [],
     btcNav: [],
     usdNav: [],
     exposureIntegral: 0,
@@ -792,7 +920,7 @@ function runScenario(definition, market, period, options = {}) {
       dayContext.targetContracts = reconciliation.targetContracts;
       orders = reconciliation.orders;
     }
-    processBarPath(bar, state, orders, dayContext, costs, market, options.fillPriceMode || 'limit');
+    processBarPath(bar, state, orders, dayContext, costs, market, options.fillPriceMode || 'limit', options);
     if (!(state.equityBtc > 0)) {
       state.liquidated = true;
       break;
@@ -804,6 +932,18 @@ function runScenario(definition, market, period, options = {}) {
     state.maxExposure = Math.max(state.maxExposure, exposure);
     state.exposureIntegral += exposure * bar.intervalMs;
     state.exposureDurationMs += bar.intervalMs;
+    if (state.captureTrace) {
+      state.trace.push({
+        timestamp: bar.closeTime,
+        date: dateOnly(bar.openTime),
+        open: bar.open,
+        close: bar.close,
+        equityBtc: state.equityBtc,
+        usdNav,
+        contracts: state.contracts,
+        exposure,
+      });
+    }
   }
   finishDay();
 
@@ -862,6 +1002,12 @@ function runScenario(definition, market, period, options = {}) {
       intradayMeanReversionBtc: intradayMeanReversionProxyBtc,
       note: 'These are fill-level counterfactual proxies, not additive Shapley contributions; sizing and compounding make the total nonlinear.',
     },
+    ...(state.captureTrace ? {
+      makerFillEvents: state.makerFillEvents,
+      lotRecords: [...state.closedLots, ...state.lots],
+      trace: state.trace,
+      excludedOrderCount: state.excludedOrderCount,
+    } : {}),
   };
 }
 
@@ -1137,7 +1283,12 @@ if (require.main === module) {
 module.exports = {
   DAY,
   HOUR,
+  OUT_OF_SAMPLE_START,
   scenarioDefinitions,
+  loadMarketData,
+  periodDefinitions,
+  dayStart,
+  dateOnly,
   maxDrawdown,
   annualizedReturn,
   inversePnlBtc,
