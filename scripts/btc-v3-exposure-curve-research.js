@@ -2,13 +2,29 @@
 
 const { CONFIG, computeSignal, inversePnlBtc, targetContracts } = require('../lib/btc-v3-strategy');
 const { fetchJson, parseKlines, fetchContractMetadata } = require('../lib/binance-coinm');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const DAY = 86400000;
 const WINDOW = 199 * DAY;
 const FEE_BPS = 5;
 const SLIPPAGE_BPS = 5;
+const VISION_BASE = 'https://data.binance.vision/data/futures/cm/monthly';
+const VISION_START_TIME = Date.UTC(2020, 7, 1);
+const VISION_CONTRACT = Object.freeze({
+  symbol: CONFIG.coinMSymbol,
+  pair: CONFIG.coinMPair,
+  contractType: 'PERPETUAL',
+  contractStatus: 'TRADING',
+  onboardDate: VISION_START_TIME,
+  contractSize: 100,
+  quoteAsset: 'USD',
+  baseAsset: 'BTC',
+  marginAsset: 'BTC',
+  metadataSource: 'Binance COIN-M BTCUSD_PERP contract specification',
+});
 
 async function fetchWindowed(pathname, baseParams, startTime, endTime) {
   const all = [];
@@ -24,6 +40,114 @@ async function fetchWindowed(pathname, baseParams, startTime, endTime) {
     seen.add(key);
     return true;
   }).sort((a, b) => Number(a[0]) - Number(b[0]));
+}
+
+function monthKeys(startTime, endTime) {
+  const first = new Date(startTime);
+  const last = new Date(endTime);
+  const cursor = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 1));
+  const end = Date.UTC(last.getUTCFullYear(), last.getUTCMonth(), 1);
+  const months = [];
+  while (cursor.getTime() <= end) {
+    months.push({ year: cursor.getUTCFullYear(), month: cursor.getUTCMonth() + 1 });
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+  return months;
+}
+
+function visionArchiveUrl(kind, symbol, interval, year, month) {
+  const monthText = String(month).padStart(2, '0');
+  return `${VISION_BASE}/${kind}/${symbol}/${interval}/${symbol}-${interval}-${year}-${monthText}.zip`;
+}
+
+async function fetchVisionCsv(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30000);
+  let archivePath = null;
+  let tempDir = null;
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: 'application/zip', 'User-Agent': 'binance-futures-radar-v3-research/1.0' },
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`Binance Vision archive ${response.status}: ${url}`);
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'btc-v3-vision-'));
+    archivePath = path.join(tempDir, 'archive.zip');
+    fs.writeFileSync(archivePath, Buffer.from(await response.arrayBuffer()));
+    return execFileSync('unzip', ['-p', archivePath], {
+      encoding: 'utf8',
+      maxBuffer: 20 * 1024 * 1024,
+    });
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error(`Binance Vision archive timed out: ${url}`);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+function parseCsvRows(csv) {
+  return csv.split(/\r?\n/)
+    .filter((line) => line.trim())
+    .map((line) => line.split(','));
+}
+
+async function fetchVisionMonthly(kind, symbol, interval, startTime, endTime) {
+  const months = monthKeys(startTime, endTime);
+  const rows = [];
+  const batchSize = 8;
+  for (let i = 0; i < months.length; i += batchSize) {
+    const batch = await Promise.all(months.slice(i, i + batchSize).map(async ({ year, month }) => {
+      const url = visionArchiveUrl(kind, symbol, interval, year, month);
+      const csv = await fetchVisionCsv(url);
+      return parseCsvRows(csv);
+    }));
+    for (const part of batch) rows.push(...part);
+  }
+  return rows;
+}
+
+function latestCompleteVisionMonthEnd(now = Date.now()) {
+  const current = new Date(now);
+  return Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), 0, 23, 59, 59, 999);
+}
+
+async function loadMarketData() {
+  const source = process.env.BTC_V3_EXPOSURE_DATA_SOURCE || 'api';
+  if (source === 'api') {
+    const contract = await fetchContractMetadata(CONFIG.coinMSymbol);
+    const startTime = contract.onboardDate;
+    const endTime = Date.now() - DAY;
+    const [indexRaw, executionRaw] = await Promise.all([
+      fetchWindowed('/dapi/v1/indexPriceKlines', { pair: CONFIG.coinMPair, interval: '1d' }, startTime, endTime),
+      fetchWindowed('/dapi/v1/continuousKlines', { pair: CONFIG.coinMPair, contractType: 'PERPETUAL', interval: '1d' }, startTime, endTime),
+    ]);
+    return {
+      contract,
+      indexRaw,
+      executionRaw,
+      dataSource: 'Binance COIN-M REST API',
+      startTime,
+      endTime,
+    };
+  }
+  if (source !== 'vision') throw new Error(`Unsupported BTC_V3_EXPOSURE_DATA_SOURCE: ${source}`);
+
+  const startTime = VISION_START_TIME;
+  const endTime = latestCompleteVisionMonthEnd();
+  const [indexRaw, executionRaw] = await Promise.all([
+    fetchVisionMonthly('indexPriceKlines', CONFIG.coinMPair, '1d', startTime, endTime),
+    fetchVisionMonthly('klines', CONFIG.coinMSymbol, '1d', startTime, endTime),
+  ]);
+  return {
+    contract: VISION_CONTRACT,
+    indexRaw,
+    executionRaw,
+    dataSource: 'Binance Vision COIN-M monthly indexPriceKlines + BTCUSD_PERP klines archives',
+    startTime,
+    endTime,
+  };
 }
 
 function maxDrawdown(values) {
@@ -210,15 +334,13 @@ function runScenario(def, indexDaily, executionDaily, contract) {
 }
 
 async function main() {
-  const contract = await fetchContractMetadata(CONFIG.coinMSymbol);
-  const startTime = contract.onboardDate;
-  const endTime = Date.now() - DAY;
-  const [indexRaw, executionRaw] = await Promise.all([
-    fetchWindowed('/dapi/v1/indexPriceKlines', { pair: CONFIG.coinMPair, interval: '1d' }, startTime, endTime),
-    fetchWindowed('/dapi/v1/continuousKlines', { pair: CONFIG.coinMPair, contractType: 'PERPETUAL', interval: '1d' }, startTime, endTime),
-  ]);
+  const market = await loadMarketData();
+  const { contract, indexRaw, executionRaw, startTime, endTime } = market;
   const indexDaily = parseKlines(indexRaw);
   const executionDaily = parseKlines(executionRaw);
+  if (indexDaily.length === 0 || executionDaily.length === 0) {
+    throw new Error(`No market data loaded from ${market.dataSource}`);
+  }
   const scenarios = scenarioDefinitions().map((def) => runScenario(def, indexDaily, executionDaily, contract));
   const baseline = scenarios.find((s) => s.name === 'baseline_immediate');
   for (const s of scenarios) {
@@ -236,6 +358,15 @@ async function main() {
     strategyVersion: CONFIG.version,
     researchOnly: true,
     productionChanged: false,
+    dataSource: market.dataSource,
+    dataWindow: {
+      requestedStartDate: new Date(startTime).toISOString().slice(0, 10),
+      requestedEndDate: new Date(endTime).toISOString().slice(0, 10),
+      indexStartDate: new Date(indexDaily[0].openTime).toISOString().slice(0, 10),
+      indexEndDate: new Date(indexDaily.at(-1).openTime).toISOString().slice(0, 10),
+      executionStartDate: new Date(executionDaily[0].openTime).toISOString().slice(0, 10),
+      executionEndDate: new Date(executionDaily.at(-1).openTime).toISOString().slice(0, 10),
+    },
     assumptions: {
       signalTiming: 'T-1 closed daily index data -> T open decision',
       ladderOrders: 'cancel-and-replace daily; buy limits below T open; fill if daily low touches level',
@@ -244,6 +375,7 @@ async function main() {
       takerSlippageBps: SLIPPAGE_BPS,
       funding: 'omitted in this comparative execution study',
       intradayPath: 'daily OHLC approximation; suitable for relative screening, not final production validation',
+      visionArchiveCutoff: 'When BTC_V3_EXPOSURE_DATA_SOURCE=vision, use the latest complete monthly archive; no incomplete current month is fabricated.',
     },
     scenarios,
   };
