@@ -12,7 +12,7 @@
 
 ## 数据与冻结边界
 
-- 生成时间：2026-08-23T06:16:32.358Z
+- 生成时间：2026-08-23T06:18:12.915Z
 - API host：https://www.binance.com；使用官方 /dapi/v1 路径。信号：Binance COIN-M BTCUSD Index Price 完整日线；执行：BTCUSD_PERP continuous perpetual 日线；Funding：BTCUSD_PERP funding history；Funding mark 只取在 funding timestamp 前已闭合的 4H mark candle。
 - 数据范围：2020-08-11 至 2026-08-22；index 2203 根、execution 2203 根、mark 13212 根、funding 6607 条。
 - 输入数据 SHA-256：c574756da90672f47fd7d6f8082584e2aa23d8df692ce8f9543fda8b0b07b98e

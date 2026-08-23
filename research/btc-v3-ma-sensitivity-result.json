@@ -1,6 +1,6 @@
 {
   "researchVersion": "btc-v3.1-ma-sensitivity-1",
-  "generatedAt": "2026-08-23T06:16:32.358Z",
+  "generatedAt": "2026-08-23T06:18:12.915Z",
   "branch": "research/v3-ma-sensitivity",
   "strategyVersion": "btc-v3.1-coinm",
   "objective": "Validate robustness of frozen V3.1 EMA15/30 + SMA200 against the predeclared common alternatives; do not search for the historical optimum.",
