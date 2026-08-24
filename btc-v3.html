@@ -75,8 +75,8 @@
         </div>
       </div>
       <div class="account-inputs">
-        <label><span>当前 V3 策略权益</span><input id="btc-holdings" type="number" inputmode="decimal" min="0" step="0.0001" value="0.5657"><small id="btc-holdings-note">加载账户快照后自动锁定；不代表用户全部 BTC</small></label>
-        <label><span>当前 BTCUSD_PERP 实际合约张数</span><input id="current-contracts" type="number" inputmode="numeric" step="1" value="108"><small id="current-contracts-note">加载账户快照后自动锁定；多仓正数，空仓负数</small></label>
+        <label><span>当前 V3 策略权益（BTC）</span><input id="btc-holdings" type="number" inputmode="decimal" min="0" step="0.0001" placeholder="例如 0.1250（示例）"><small id="btc-holdings-note">需要访问密钥后从私人追踪数据加载；不代表用户全部 BTC</small></label>
+        <label><span>当前 BTCUSD_PERP 实际合约张数</span><input id="current-contracts" type="number" inputmode="numeric" step="1" placeholder="例如 +25（示例）"><small id="current-contracts-note">需要访问密钥后从私人追踪数据加载；多仓正数，空仓负数</small></label>
       </div>
       <div class="action-card" id="action-card"><div><span>今天应该做什么</span><strong id="action-main">等待数据…</strong><small id="action-detail">--</small></div><div class="action-side" id="action-side">--</div></div>
       <div class="gate-grid operation-grid">
@@ -133,9 +133,10 @@
       </div>
 
       <div class="tracking-account-grid">
-        <div><span>当前策略权益</span><strong id="tracking-current-equity">--</strong><small id="tracking-equity-source">--</small></div>
+        <div><span>当前策略权益</span><strong id="tracking-current-equity">--</strong><small id="tracking-equity-source">--</small><small id="tracking-equity-status">--</small></div>
         <div><span>当前标记价格</span><strong id="tracking-current-mark">--</strong><small id="tracking-actual-source">--</small></div>
         <div><span>对账状态</span><strong id="tracking-reconcile">--</strong><small id="tracking-reconcile-note">--</small></div>
+        <div><span>最近账户快照</span><strong id="tracking-last-snapshot">--</strong><small>最新 Account Snapshot 的经济时间</small></div>
       </div>
 
       <div class="gate-grid execution-grid">
@@ -154,7 +155,10 @@
         <div><span>追加投入</span><strong id="tracking-contributions">--</strong><small>定投 / 转入，不是策略收益</small></div>
         <div><span>提取本金</span><strong id="tracking-withdrawals">--</strong><small>转出本金</small></div>
         <div><span>净投入本金</span><strong id="tracking-net-capital">--</strong><small>累计净投入 = 流入 − 流出</small></div>
-        <div><span>当前权益 − 净投入本金</span><strong id="tracking-strategy-pnl">--</strong><small id="tracking-strategy-pnl-note">--</small></div>
+        <div><span>Last Observed Equity</span><strong id="tracking-last-observed-equity">--</strong><small>最新账户快照中的真实观察值</small></div>
+        <div><span>Capital-adjusted Equity</span><strong id="tracking-capital-adjusted-equity">--</strong><small>快照后仅加减资金流；不含交易所盈亏</small></div>
+        <div><span>Estimated Current Equity</span><strong id="tracking-estimated-equity">--</strong><small>有快照后事件时的估算值</small></div>
+        <div><span>估算策略盈亏（Estimated Strategy PnL）</span><strong id="tracking-strategy-pnl">--</strong><small id="tracking-strategy-pnl-note">--</small></div>
       </div>
 
       <div class="execution-form-wrap">
@@ -163,7 +167,7 @@
           <span class="flags">只追加，不覆盖历史</span>
         </div>
         <p class="flags">成交时间可留空；没有精确 Binance 成交时间时，系统会明确记录为“约略时间”。</p>
-        <label class="tracking-key-field"><span>写入密钥（仅保存在本浏览器标签页会话）</span><input id="tracking-api-key" type="password" autocomplete="off" required><small id="tracking-key-note">刷新页面后仍保留；关闭此标签页后清除，不写入长期本地存储。</small><div class="tracking-key-actions"><button id="clear-tracking-key" type="button">清除本页密钥</button></div></label>
+        <label class="tracking-key-field"><span>V3 私人追踪数据访问密钥（仅本标签页会话）</span><input id="tracking-api-key" type="password" autocomplete="off" required><small id="tracking-key-note">仅保存在 sessionStorage；关闭此标签页后消失，不写入 localStorage，不进入控制台或统计。</small><div class="tracking-key-actions"><button id="clear-tracking-key" type="button">清除本页密钥</button></div></label>
         <form id="execution-form" class="execution-form">
           <label><span>方向</span><select id="execution-side" required><option value="BUY">买入（BUY）</option><option value="SELL">卖出（SELL）</option></select></label>
           <label><span>合约张数</span><input id="execution-contracts" type="number" inputmode="numeric" min="1" step="1" required></label>

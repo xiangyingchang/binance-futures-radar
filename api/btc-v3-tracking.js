@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const accounting = require('../btc-v3-execution-accounting');
 
-const DEFAULT_REPOSITORY = 'xiangyingchang/binance-futures-radar';
+const PUBLIC_CODE_REPOSITORY = 'xiangyingchang/binance-futures-radar';
 const LEDGER_PATHS = Object.freeze({
   execution: 'data/btc-v3-execution-ledger.jsonl',
   capitalFlow: 'data/btc-v3-capital-flow.jsonl',
@@ -11,8 +11,14 @@ const LEDGER_PATHS = Object.freeze({
 });
 
 function config(path) {
-  const repository = String(process.env.GITHUB_EXECUTION_LEDGER_REPO || DEFAULT_REPOSITORY).trim();
-  const branch = String(process.env.GITHUB_EXECUTION_LEDGER_BRANCH || process.env.VERCEL_GIT_COMMIT_REF || 'main').trim();
+  const repository = String(process.env.GITHUB_V3_TRACKING_DATA_REPO || '').trim();
+  const branch = String(process.env.GITHUB_V3_TRACKING_DATA_BRANCH || 'main').trim();
+  if (!repository) {
+    throw Object.assign(new Error('GITHUB_V3_TRACKING_DATA_REPO is not configured; V3 private tracking data must not fall back to the public code repository'), { status: 503 });
+  }
+  if (repository.toLowerCase() === PUBLIC_CODE_REPOSITORY.toLowerCase()) {
+    throw Object.assign(new Error('GITHUB_V3_TRACKING_DATA_REPO must point to the private data repository, not the public code repository'), { status: 503 });
+  }
   return { repository, branch, path };
 }
 
@@ -20,16 +26,8 @@ function encodedPath(path) {
   return path.split('/').map((part) => encodeURIComponent(part)).join('/');
 }
 
-function rawBranchPath(branch) {
-  return branch.split('/').map((part) => encodeURIComponent(part)).join('/');
-}
-
 function contentsUrl(location) {
   return `https://api.github.com/repos/${location.repository}/contents/${encodedPath(location.path)}?ref=${encodeURIComponent(location.branch)}`;
-}
-
-function rawUrl(location) {
-  return `https://raw.githubusercontent.com/${location.repository}/${rawBranchPath(location.branch)}/${encodedPath(location.path)}?t=${Date.now()}`;
 }
 
 function githubHeaders(token) {
@@ -47,6 +45,7 @@ async function responseJson(response) {
 }
 
 async function readFromGithub(token, path, parse) {
+  if (!token) throw Object.assign(new Error('GITHUB_V3_TRACKING_DATA_TOKEN is not configured'), { status: 503 });
   const location = config(path);
   const response = await fetch(contentsUrl(location), { headers: githubHeaders(token), cache: 'no-store' });
   if (response.status === 404) return { text: '', sha: null, records: [], source: 'github-empty', path };
@@ -58,27 +57,11 @@ async function readFromGithub(token, path, parse) {
   return { text, sha: payload.sha || null, records: parse(text), source: 'github', path };
 }
 
-async function readFromRaw(path, parse) {
-  const location = config(path);
-  const response = await fetch(rawUrl(location), {
-    headers: { Accept: 'application/json', 'User-Agent': 'binance-futures-radar-v3-account-tracking/1.0' },
-    cache: 'no-store',
-  });
-  if (response.status === 404) return { text: '', sha: null, records: [], source: 'raw-empty', path };
-  if (!response.ok) throw new Error(`V3 tracking ledger read failed: HTTP ${response.status}`);
-  const text = await response.text();
-  return { text, sha: null, records: parse(text), source: 'raw', path };
-}
-
-async function readLedger(token, path, parse) {
-  return token ? readFromGithub(token, path, parse) : readFromRaw(path, parse);
-}
-
-async function readAllLedgers(token = String(process.env.GITHUB_EXECUTION_LEDGER_TOKEN || '')) {
+async function readAllLedgers(token = String(process.env.GITHUB_V3_TRACKING_DATA_TOKEN || '')) {
   const [execution, capitalFlow, accountSnapshot] = await Promise.all([
-    readLedger(token, LEDGER_PATHS.execution, accounting.parseLedger),
-    readLedger(token, LEDGER_PATHS.capitalFlow, accounting.parseCapitalFlowLedger),
-    readLedger(token, LEDGER_PATHS.accountSnapshot, accounting.parseAccountSnapshotLedger),
+    readFromGithub(token, LEDGER_PATHS.execution, accounting.parseLedger),
+    readFromGithub(token, LEDGER_PATHS.capitalFlow, accounting.parseCapitalFlowLedger),
+    readFromGithub(token, LEDGER_PATHS.accountSnapshot, accounting.parseAccountSnapshotLedger),
   ]);
   return { execution, capitalFlow, accountSnapshot };
 }
@@ -99,10 +82,14 @@ function idempotencyKey(req) {
 }
 
 function authorizeWrite(req) {
-  const expected = String(process.env.EXECUTION_LEDGER_API_KEY || '');
-  if (!expected) return { ok: false, status: 503, message: 'V3 tracking write auth is not configured' };
-  if (!safeEqual(bearerToken(req), expected)) return { ok: false, status: 401, message: 'V3 tracking write authorization failed' };
+  const expected = String(process.env.V3_TRACKING_ACCESS_KEY || '');
+  if (!expected) return { ok: false, status: 503, message: 'V3 tracking access key is not configured' };
+  if (!safeEqual(bearerToken(req), expected)) return { ok: false, status: 401, message: 'V3 tracking authorization failed' };
   return { ok: true };
+}
+
+function authorizeAccess(req) {
+  return authorizeWrite(req);
 }
 
 function requestBody(req) {
@@ -168,7 +155,7 @@ async function appendCapitalFlowToGithub(record) {
   return appendLedgerToGithub({
     path: LEDGER_PATHS.capitalFlow,
     record,
-    token: String(process.env.GITHUB_EXECUTION_LEDGER_TOKEN || ''),
+    token: String(process.env.GITHUB_V3_TRACKING_DATA_TOKEN || ''),
     parse: accounting.parseCapitalFlowLedger,
     append: accounting.appendCapitalFlowRecord,
     findById: accounting.findCapitalFlowById,
@@ -182,7 +169,7 @@ async function appendAccountSnapshotToGithub(record) {
   return appendLedgerToGithub({
     path: LEDGER_PATHS.accountSnapshot,
     record,
-    token: String(process.env.GITHUB_EXECUTION_LEDGER_TOKEN || ''),
+    token: String(process.env.GITHUB_V3_TRACKING_DATA_TOKEN || ''),
     parse: accounting.parseAccountSnapshotLedger,
     append: accounting.appendAccountSnapshotRecord,
     findById: accounting.findAccountSnapshotById,
@@ -203,6 +190,11 @@ module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   if (req.method === 'GET') {
+    const auth = authorizeAccess(req);
+    if (!auth.ok) {
+      if (auth.status === 401) res.setHeader('WWW-Authenticate', 'Bearer');
+      return res.status(auth.status).json({ error: 'V3_TRACKING_UNAUTHORIZED', message: auth.message });
+    }
     try {
       const ledgers = await readAllLedgers();
       return res.status(200).json({
@@ -260,6 +252,7 @@ module.exports = async function handler(req, res) {
 
 module.exports._test = {
   LEDGER_PATHS,
+  authorizeAccess,
   appendAccountSnapshotToGithub,
   appendCapitalFlowToGithub,
   appendLedgerToGithub,

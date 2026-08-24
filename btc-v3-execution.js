@@ -84,6 +84,14 @@
     }[value] || value || '--');
   }
 
+  function formatEquityStatus(status) {
+    return ({
+      OBSERVED: '已核验（OBSERVED）',
+      ESTIMATED: '估算（ESTIMATED）',
+      UNAVAILABLE: '不可用（UNAVAILABLE）',
+    }[status] || status || '--');
+  }
+
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'\"]/g, (character) => ({
       '&': '&amp;',
@@ -117,6 +125,13 @@
     try { sessionStorage.removeItem(WRITE_KEY_SESSION_STORAGE); } catch (_) {}
     const input = $('tracking-api-key');
     if (input) input.value = '';
+    executionRecords = [];
+    capitalFlowRecords = [];
+    accountSnapshotRecords = [];
+    executionError = '尚未输入 V3 私人追踪数据访问密钥';
+    trackingError = '尚未输入 V3 私人追踪数据访问密钥';
+    render();
+    publishTracking();
     setText('tracking-key-note', '本页密钥已清除；下次写入前需要重新输入。');
   }
 
@@ -256,17 +271,26 @@
   function render() {
     const { current, tracking } = calculateState();
     const currentMark = tracking.currentMarkPrice ?? current.markPrice;
-    const positionSource = tracking.actualPositionSource === 'account_snapshot' ? '账户快照' : '执行账本推导';
-    const equitySource = tracking.equitySource === 'account_snapshot' ? '账户快照（当前真实策略权益）' : '资金流基准（尚无策略权益快照）';
+    const positionSource = tracking.actualPositionSource === 'account_snapshot'
+      ? '账户快照'
+      : tracking.actualPositionSource === 'account_snapshot_plus_execution_ledger'
+        ? '账户快照 + 快照后执行账本'
+        : '执行账本推导';
     const executionStatus = executionError ? '执行账本读取失败：' + executionError : '执行账本已读取 ' + executionRecords.length + ' 条';
     const trackingStatus = trackingError ? ' · 追踪账本读取失败：' + trackingError : ' · 资金流 ' + capitalFlowRecords.length + ' 条 · 账户快照 ' + accountSnapshotRecords.length + ' 条';
 
     setText('tracking-ledger-status', executionStatus + trackingStatus);
-    setText('tracking-equity-note', `策略权益来源：${equitySource}。它只代表分配给 V3 的 BTC，不代表用户全部 BTC；资金流不计入策略盈亏。`);
+    const equityLabel = tracking.equityStatus === 'OBSERVED' ? '已核验观察值' : tracking.equityStatus === 'ESTIMATED' ? '估算值' : '不可用';
+    setText('tracking-equity-note', `策略权益来源：${equityLabel}。它只代表分配给 V3 的 BTC，不代表用户全部 BTC；资金流不计入策略盈亏。`);
     setText('tracking-current-equity', tracking.currentStrategyEquityBtc === null ? '--' : tracking.currentStrategyEquityBtc.toFixed(4) + ' BTC');
-    setText('tracking-equity-source', equitySource);
+    setText('tracking-equity-source', equityLabel);
+    setText('tracking-equity-status', formatEquityStatus(tracking.equityStatus));
     setText('tracking-current-mark', formatPrice(currentMark));
     setText('tracking-actual-source', positionSource);
+    const latestSnapshotTime = tracking.latestSnapshot
+      ? (tracking.latestSnapshot.capturedAt || tracking.latestSnapshot.recordedAt)
+      : null;
+    setText('tracking-last-snapshot', latestSnapshotTime ? '最近账户快照：' + formatTime(latestSnapshotTime) : '最近账户快照：暂无');
     setText('execution-target-exposure', formatX(current.targetExposure));
     setText('execution-actual-exposure', formatX(tracking.actualExposure));
     setText('execution-actual-contracts', formatContracts(tracking.currentActualContracts));
@@ -281,22 +305,31 @@
     setText('tracking-starting-capital', formatBtc(tracking.startingCapitalBtc, 4));
     setText('tracking-contributions', formatBtc(tracking.additionalContributionsBtc, 4));
     setText('tracking-withdrawals', formatBtc(-tracking.withdrawalsBtc, 4));
+    setText('tracking-last-observed-equity', tracking.lastObservedEquityBtc === null ? '--' : tracking.lastObservedEquityBtc.toFixed(4) + ' BTC');
+    setText('tracking-capital-adjusted-equity', tracking.capitalAdjustedEquityBtc === null ? '--' : tracking.capitalAdjustedEquityBtc.toFixed(4) + ' BTC');
+    setText('tracking-estimated-equity', tracking.estimatedCurrentEquityBtc === null ? '--' : tracking.estimatedCurrentEquityBtc.toFixed(4) + ' BTC');
     setText('tracking-strategy-pnl', formatBtc(tracking.strategyPnlBtc, 4));
     setText('tracking-strategy-pnl-note', tracking.currentStrategyEquityBtc === null
       ? '等待当前策略权益快照'
-      : '当前权益 − 净投入本金；以当前快照为准，包含按市价计价及未拆分的资金费 / 手续费影响。');
+      : '估算：当前/估算权益 − 净投入本金。可能包含已实现期货盈亏、未实现盈亏、资金费、手续费和对账差异；不是精确收益。');
     setText('tracking-reconcile', formatReconciliationStatus(tracking.reconciliation.status));
     setText('tracking-reconcile-note', tracking.reconciliation.message);
     setText('execution-ledger-status', executionStatus + trackingStatus);
     renderDailyAction(tracking);
 
     const progress = $('execution-progress');
-    const progressValue = tracking.completionPercent === null ? 0 : tracking.completionPercent;
     if (progress) {
+      const hasCompletion = tracking.completionPercent !== null;
+      const progressValue = hasCompletion ? tracking.completionPercent : 0;
       progress.style.setProperty('--execution-progress', progressValue + '%');
       progress.setAttribute('aria-valuenow', progressValue.toFixed(1));
+      progress.setAttribute('aria-valuetext', hasCompletion
+        ? formatPercent(tracking.completionPercent)
+        : '完成率不适用；请查看剩余合约和追踪误差');
     }
-    setText('execution-completion', tracking.completionPercent === null ? '--' : formatPercent(tracking.completionPercent));
+    setText('execution-completion', tracking.completionPercent === null
+      ? `完成率不适用 · 误差 ${tracking.trackingError === null ? '--' : tracking.trackingError.toFixed(4) + 'x'}`
+      : formatPercent(tracking.completionPercent));
     renderExecutionHistory(tracking.currentStrategyEquityBtc, current.contractSizeUsd);
     renderCapitalHistory(tracking);
     renderSnapshotHistory(tracking);
@@ -305,12 +338,19 @@
 
   async function loadTracking() {
     try {
-      const response = await fetch('/api/btc-v3-tracking', { cache: 'no-store', headers: { Accept: 'application/json' } });
+      const key = writeKey();
+      if (!key) {
+        trackingError = '尚未输入 V3 私人追踪数据访问密钥';
+        render();
+        return { ok: false, tracking: window.BtcV3AccountTracking || null };
+      }
+      const response = await fetch('/api/btc-v3-tracking', { cache: 'no-store', headers: { Accept: 'application/json', Authorization: 'Bearer ' + key } });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || payload.error || ('HTTP ' + response.status));
       executionRecords = (Array.isArray(payload.executionRecords) ? payload.executionRecords : []).map((record) => accounting.normalizeRecord(record));
       capitalFlowRecords = (Array.isArray(payload.capitalFlowRecords) ? payload.capitalFlowRecords : []).map((record) => accounting.normalizeCapitalFlow(record));
       accountSnapshotRecords = (Array.isArray(payload.accountSnapshotRecords) ? payload.accountSnapshotRecords : []).map((record) => accounting.normalizeAccountSnapshot(record));
+      rememberWriteKey(key);
       executionError = null;
       trackingError = null;
       const tracking = publishTracking();
@@ -318,6 +358,11 @@
       return { ok: true, tracking };
     } catch (error) {
       trackingError = error.message || 'V3 tracking unavailable';
+      if (/401|unauthorized|access key|authorization/i.test(trackingError)) {
+        executionRecords = [];
+        capitalFlowRecords = [];
+        accountSnapshotRecords = [];
+      }
       render();
       return { ok: false, tracking: window.BtcV3AccountTracking || null };
     }
@@ -332,6 +377,27 @@
     const inputValue = String($('tracking-api-key')?.value || $('execution-api-key')?.value || '').trim();
     if (inputValue) return inputValue;
     try { return String(sessionStorage.getItem(WRITE_KEY_SESSION_STORAGE) || '').trim(); } catch (_) { return ''; }
+  }
+
+  async function loadExecutionLedger() {
+    try {
+      const key = writeKey();
+      if (!key) {
+        executionError = '尚未输入 V3 私人追踪数据访问密钥';
+        render();
+        return;
+      }
+      const response = await fetch('/api/btc-v3-execution', { cache: 'no-store', headers: { Accept: 'application/json', Authorization: 'Bearer ' + key } });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || payload.error || ('HTTP ' + response.status));
+      executionRecords = (Array.isArray(payload.records) ? payload.records : []).map((record) => accounting.normalizeRecord(record));
+      executionError = null;
+      render();
+    } catch (error) {
+      executionError = error.message || 'Execution ledger unavailable';
+      if (/401|unauthorized|access key|authorization/i.test(executionError)) executionRecords = [];
+      render();
+    }
   }
 
   function parseOptionalTime(id, label) {
@@ -471,7 +537,14 @@
     event.preventDefault();
     const strategyEquityBtc = number($('account-snapshot-equity')?.value);
     const actualContracts = number($('account-snapshot-contracts')?.value);
-    const markPrice = number($('account-snapshot-mark')?.value);
+    let markPrice = number($('account-snapshot-mark')?.value);
+    const liveMark = number(snapshot?.funding?.markPrice);
+    let markSourceNote = '';
+    if (markPrice === null && liveMark !== null && liveMark > 0) {
+      markPrice = liveMark;
+      markSourceNote = 'public mark price at snapshot capture; not a Binance private-account value';
+      setText('account-snapshot-form-status', '未手填标记价格，将默认写入当前公开 V3 mark price（不是 Binance 私有账户返回值）。正在提交…');
+    }
     if (strategyEquityBtc === null || strategyEquityBtc < 0) return setText('account-snapshot-form-status', '策略权益 BTC 必须为 0 或正数。');
     if (!Number.isInteger(actualContracts)) return setText('account-snapshot-form-status', '实际合约张数必须是整数。');
     if (markPrice !== null && markPrice <= 0) return setText('account-snapshot-form-status', '标记价格必须为正数或留空。');
@@ -485,7 +558,7 @@
       strategyEquityBtc,
       actualContracts,
       markPrice,
-      note: String($('account-snapshot-note')?.value || '').trim(),
+      note: [String($('account-snapshot-note')?.value || '').trim(), markSourceNote].filter(Boolean).join(' · '),
     }, 'account-snapshot-form-status', 'account-snapshot-submit');
     if (confirmed) {
       pendingSnapshotId = null;
@@ -505,5 +578,6 @@
   $('clear-tracking-key')?.addEventListener('click', clearWriteKey);
   for (const id of ['btc-holdings', 'current-contracts']) $(id)?.addEventListener('input', render);
   restoreWriteKey();
-  loadTracking();
+  loadTracking().then(() => loadExecutionLedger());
+  $('tracking-api-key')?.addEventListener('change', () => loadTracking().then(() => loadExecutionLedger()));
 })();
