@@ -11,6 +11,7 @@
   let accountSnapshotRecords = [];
   let executionError = null;
   let trackingError = null;
+  let trackingGateOpen = false;
   let pendingExecutionId = null;
   let pendingFlowId = null;
   let pendingSnapshotId = null;
@@ -116,6 +117,19 @@
     } catch (_) {}
   }
 
+  function trackingGateNode() {
+    return $('tracking-access-gate');
+  }
+
+  function setTrackingGate(open, note) {
+    trackingGateOpen = open;
+    const gate = trackingGateNode();
+    if (gate) gate.hidden = !open;
+    if (note) setText('tracking-gate-note', note);
+    const keyInput = $('tracking-gate-key');
+    if (open && keyInput) keyInput.focus();
+  }
+
   function rememberWriteKey(value) {
     if (!value) return;
     try { sessionStorage.setItem(WRITE_KEY_SESSION_STORAGE, value); } catch (_) {}
@@ -133,6 +147,7 @@
     render();
     publishTracking();
     setText('tracking-key-note', '本页密钥已清除；下次写入前需要重新输入。');
+    setTrackingGate(true, '本页密钥已清除。输入访问密钥后重新读取私人追踪数据。');
   }
 
   function context() {
@@ -341,6 +356,7 @@
       const key = writeKey();
       if (!key) {
         trackingError = '尚未输入 V3 私人追踪数据访问密钥';
+        setTrackingGate(true);
         render();
         return { ok: false, tracking: window.BtcV3AccountTracking || null };
       }
@@ -353,6 +369,7 @@
       rememberWriteKey(key);
       executionError = null;
       trackingError = null;
+      setTrackingGate(false);
       const tracking = publishTracking();
       render();
       return { ok: true, tracking };
@@ -362,6 +379,7 @@
         executionRecords = [];
         capitalFlowRecords = [];
         accountSnapshotRecords = [];
+        setTrackingGate(true, '访问密钥不正确或已失效，请重新输入。');
       }
       render();
       return { ok: false, tracking: window.BtcV3AccountTracking || null };
@@ -576,6 +594,28 @@
   $('capital-flow-form')?.addEventListener('submit', submitCapitalFlow);
   $('account-snapshot-form')?.addEventListener('submit', submitSnapshot);
   $('clear-tracking-key')?.addEventListener('click', clearWriteKey);
+  $('tracking-gate-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const key = String($('tracking-gate-key')?.value || '').trim();
+    if (!key) return;
+    const submit = $('tracking-gate-submit');
+    if (submit) submit.disabled = true;
+    setText('tracking-gate-note', '正在验证访问密钥…');
+    const keyInput = $('tracking-api-key');
+    if (keyInput) keyInput.value = key;
+    const result = await loadTracking();
+    if (result.ok) {
+      await loadExecutionLedger();
+    } else if (!/401|unauthorized|access key|authorization/i.test(trackingError || '')) {
+      setTrackingGate(true, '私人追踪数据暂不可用：' + (trackingError || '请稍后重试。'));
+    }
+    if (submit) submit.disabled = false;
+  });
+  $('tracking-gate-skip')?.addEventListener('click', () => {
+    setTrackingGate(false, '已选择只看策略信号。私人追踪数据保持锁定；需要时点击“清除本页密钥”重新进入。');
+    trackingError = '私人追踪数据已锁定（只看策略信号模式）';
+    render();
+  });
   for (const id of ['btc-holdings', 'current-contracts']) $(id)?.addEventListener('input', render);
   restoreWriteKey();
   loadTracking().then(() => loadExecutionLedger());
