@@ -2,7 +2,12 @@ name: BTC V3 Forward Test
 
 on:
   schedule:
+    # GitHub scheduled workflows can be delayed under load. Run three idempotent
+    # collection windows so the immutable daily observation does not depend on a
+    # single scheduler slot. Beijing time: 08:10 / 08:40 / 09:10.
     - cron: '10 0 * * *'
+    - cron: '40 0 * * *'
+    - cron: '10 1 * * *'
   workflow_dispatch:
   push:
     branches:
