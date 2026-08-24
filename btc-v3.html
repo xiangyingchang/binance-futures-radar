@@ -99,6 +99,19 @@
         <div><div class="eyebrow">我的执行</div><h2>实际交易记录</h2></div>
         <span class="badge execution-badge">执行账本</span>
       </div>
+      <div id="tracking-access-gate" class="tracking-access-gate" hidden>
+        <div class="tracking-access-card">
+          <div class="eyebrow">V3 私人追踪数据</div>
+          <h3>输入访问密钥</h3>
+          <p>实际交易记录、资金流和账户快照存放在私人数据仓库，需要访问密钥后才能读取。</p>
+          <form id="tracking-gate-form">
+            <label><span>访问密钥（仅本标签页会话）</span><input id="tracking-gate-key" type="password" autocomplete="off" required></label>
+            <button type="submit" id="tracking-gate-submit">验证并进入</button>
+            <button type="button" id="tracking-gate-skip">只看策略信号</button>
+          </form>
+          <small id="tracking-gate-note">密钥仅保存在 sessionStorage；关闭此标签页后消失，不写入 localStorage，不进入控制台或统计。</small>
+        </div>
+      </div>
       <p id="execution-ledger-status" class="flags" role="status" aria-live="polite">正在读取独立执行账本…</p>
       <p id="tracking-ledger-status" class="flags" role="status" aria-live="polite">正在读取资金流账本与账户快照…</p>
       <p id="execution-equity-note" class="flags">实际敞口基于当前 V3 BTC 数量和 COIN-M 期货增量（Delta）；不会读取 Binance 账户。</p>

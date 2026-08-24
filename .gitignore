@@ -11,3 +11,5 @@ __pycache__/
 
 # Temporary data
 bapi_response.json
+.vercel
+.env*.local
