@@ -2,6 +2,7 @@
 
 (() => {
   const accounting = window.BtcV3ExecutionAccounting;
+  const keyStorage = window.BtcV3TrackingKeyStorage;
   const $ = (id) => document.getElementById(id);
   if (!accounting) return;
 
@@ -15,7 +16,6 @@
   let pendingExecutionId = null;
   let pendingFlowId = null;
   let pendingSnapshotId = null;
-  const WRITE_KEY_SESSION_STORAGE = 'btc-v3-tracking-api-key-session';
 
   function number(value) {
     if (value === null || value === undefined || value === '') return null;
@@ -111,10 +111,12 @@
   function restoreWriteKey() {
     const input = $('tracking-api-key');
     if (!input) return;
-    try {
-      const saved = sessionStorage.getItem(WRITE_KEY_SESSION_STORAGE);
-      if (saved) input.value = saved;
-    } catch (_) {}
+    if (!keyStorage) return;
+    const saved = keyStorage.get(window);
+    if (saved) {
+      input.value = saved;
+      setText('tracking-key-note', '本机已缓存密钥（24 小时未操作会自动清除）。');
+    }
   }
 
   function trackingGateNode() {
@@ -132,11 +134,22 @@
 
   function rememberWriteKey(value) {
     if (!value) return;
-    try { sessionStorage.setItem(WRITE_KEY_SESSION_STORAGE, value); } catch (_) {}
+    if (!keyStorage) return;
+    keyStorage.put(window, value);
+  }
+
+  function touchWriteKey() {
+    if (!keyStorage) return;
+    keyStorage.touch(window);
+  }
+
+  function forgetWriteKey() {
+    if (!keyStorage) return;
+    keyStorage.remove(window);
   }
 
   function clearWriteKey() {
-    try { sessionStorage.removeItem(WRITE_KEY_SESSION_STORAGE); } catch (_) {}
+    forgetWriteKey();
     const input = $('tracking-api-key');
     if (input) input.value = '';
     executionRecords = [];
@@ -146,8 +159,8 @@
     trackingError = '尚未输入 V3 私人追踪数据访问密钥';
     render();
     publishTracking();
-    setText('tracking-key-note', '本页密钥已清除；下次写入前需要重新输入。');
-    setTrackingGate(true, '本页密钥已清除。输入访问密钥后重新读取私人追踪数据。');
+    setText('tracking-key-note', '本机缓存的密钥已清除；下次进入前需要重新输入。');
+    setTrackingGate(true, '本机缓存的密钥已清除。输入访问密钥后重新读取私人追踪数据。');
   }
 
   function context() {
@@ -367,6 +380,7 @@
       capitalFlowRecords = (Array.isArray(payload.capitalFlowRecords) ? payload.capitalFlowRecords : []).map((record) => accounting.normalizeCapitalFlow(record));
       accountSnapshotRecords = (Array.isArray(payload.accountSnapshotRecords) ? payload.accountSnapshotRecords : []).map((record) => accounting.normalizeAccountSnapshot(record));
       rememberWriteKey(key);
+      touchWriteKey();
       executionError = null;
       trackingError = null;
       setTrackingGate(false);
@@ -376,6 +390,7 @@
     } catch (error) {
       trackingError = error.message || 'V3 tracking unavailable';
       if (/401|unauthorized|access key|authorization/i.test(trackingError)) {
+        forgetWriteKey();
         executionRecords = [];
         capitalFlowRecords = [];
         accountSnapshotRecords = [];
@@ -394,7 +409,8 @@
   function writeKey() {
     const inputValue = String($('tracking-api-key')?.value || $('execution-api-key')?.value || '').trim();
     if (inputValue) return inputValue;
-    try { return String(sessionStorage.getItem(WRITE_KEY_SESSION_STORAGE) || '').trim(); } catch (_) { return ''; }
+    if (!keyStorage) return '';
+    return keyStorage.get(window);
   }
 
   async function loadExecutionLedger() {
@@ -409,11 +425,16 @@
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || payload.error || ('HTTP ' + response.status));
       executionRecords = (Array.isArray(payload.records) ? payload.records : []).map((record) => accounting.normalizeRecord(record));
+      rememberWriteKey(key);
+      touchWriteKey();
       executionError = null;
       render();
     } catch (error) {
       executionError = error.message || 'Execution ledger unavailable';
-      if (/401|unauthorized|access key|authorization/i.test(executionError)) executionRecords = [];
+      if (/401|unauthorized|access key|authorization/i.test(executionError)) {
+        forgetWriteKey();
+        executionRecords = [];
+      }
       render();
     }
   }
@@ -449,6 +470,7 @@
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || result.error || ('HTTP ' + response.status));
       rememberWriteKey(key);
+      touchWriteKey();
       const loaded = await loadTracking();
       const confirmed = loaded.ok && (ledgerType === 'capital-flow'
         ? capitalFlowRecords.some((record) => record.flowId === id)
@@ -507,6 +529,7 @@
       const result = await response.json();
       if (!response.ok) throw new Error(result.message || result.error || ('HTTP ' + response.status));
       rememberWriteKey(key);
+      touchWriteKey();
       const submittedId = pendingExecutionId;
       const loaded = await loadTracking();
       const confirmed = loaded.ok && executionRecords.some((record) => record.executionId === submittedId);
@@ -618,6 +641,10 @@
   });
   for (const id of ['btc-holdings', 'current-contracts']) $(id)?.addEventListener('input', render);
   restoreWriteKey();
-  loadTracking().then(() => loadExecutionLedger());
+  const restoredKey = keyStorage ? keyStorage.get(window) : '';
+  if (restoredKey) {
+    setText('tracking-key-note', '本机已缓存密钥（24 小时未操作会自动清除）。');
+    loadTracking().then(() => loadExecutionLedger());
+  }
   $('tracking-api-key')?.addEventListener('change', () => loadTracking().then(() => loadExecutionLedger()));
 })();
