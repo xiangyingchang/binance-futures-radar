@@ -1,204 +1,139 @@
 'use strict';
 
 const fs = require('fs');
-const {
-  CONFIG,
-  computeSignal,
-  inversePnlBtc,
-  fundingPnlBtc,
-  targetContracts,
-  maintenanceHeadroom,
-} = require('../lib/btc-v3-strategy');
-const { fetchJson, parseKlines, fetchContractMetadata } = require('../lib/binance-coinm');
+const os = require('os');
+const path = require('path');
+const { execFileSync } = require('child_process');
+const { CONFIG, computeSignal, inversePnlBtc, targetContracts } = require('../lib/btc-v3-strategy');
 
 const DAY = 86400000;
-const WINDOW = 199 * DAY;
-const FEE_BPS = Number(process.env.BTC_V3_FEE_BPS || 5);
-const SLIPPAGE_BPS = Number(process.env.BTC_V3_SLIPPAGE_BPS || 5);
-const STRESS_MAINTENANCE_RATE = Number(process.env.BTC_V3_MAINT_RATE || 0.10);
+const START = Date.UTC(2020, 7, 1);
+const END = Date.UTC(2026, 7, 0, 23, 59, 59, 999); // latest complete month: 2026-07-31
+const FEE_BPS = 5;
+const SLIPPAGE_BPS = 5;
+const CONTRACT_SIZE = 100;
+const BASE = 'https://data.binance.vision/data/futures/cm/monthly';
 
-async function fetchWindowed(path, baseParams, startTime, endTime) {
+function monthKeys(start, end) {
+  const out = [];
+  const d = new Date(Date.UTC(new Date(start).getUTCFullYear(), new Date(start).getUTCMonth(), 1));
+  const last = new Date(end);
+  while (d.getTime() <= Date.UTC(last.getUTCFullYear(), last.getUTCMonth(), 1)) {
+    out.push([d.getUTCFullYear(), d.getUTCMonth() + 1]);
+    d.setUTCMonth(d.getUTCMonth() + 1);
+  }
+  return out;
+}
+
+async function fetchZipCsv(url) {
+  const response = await fetch(url, { headers: { 'User-Agent': 'btc-v3-rebalance-frequency-research/1.0' } });
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`${response.status} ${url}`);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'v3freq-'));
+  const zip = path.join(dir, 'a.zip');
+  fs.writeFileSync(zip, Buffer.from(await response.arrayBuffer()));
+  try { return execFileSync('unzip', ['-p', zip], { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 }); }
+  finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
+
+function parse(csv) {
+  if (!csv) return [];
+  return csv.split(/\r?\n/).filter(Boolean).map((line) => line.split(',')).map((r) => ({
+    openTime: Number(r[0]), open: Number(r[1]), high: Number(r[2]), low: Number(r[3]), close: Number(r[4]), closeTime: Number(r[6]),
+  })).filter((r) => [r.openTime,r.open,r.high,r.low,r.close,r.closeTime].every(Number.isFinite) && r.open > 0 && r.close > 0);
+}
+
+async function load(kind, symbol) {
   const all = [];
-  for (let start = startTime; start <= endTime; start += WINDOW + 1) {
-    const end = Math.min(endTime, start + WINDOW);
-    const rows = await fetchJson(path, { ...baseParams, startTime: start, endTime: end, limit: 1500 }, 20000);
-    if (Array.isArray(rows)) all.push(...rows);
+  for (const [y,m] of monthKeys(START, END)) {
+    const mm = String(m).padStart(2,'0');
+    const url = `${BASE}/${kind}/${symbol}/1d/${symbol}-1d-${y}-${mm}.zip`;
+    const csv = await fetchZipCsv(url);
+    if (csv) all.push(...parse(csv));
   }
   const seen = new Set();
-  return all.filter((row) => {
-    const key = Array.isArray(row) ? Number(row[0]) : Number(row.fundingTime);
-    if (!Number.isFinite(key) || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).sort((a, b) => (Array.isArray(a) ? Number(a[0]) : Number(a.fundingTime)) - (Array.isArray(b) ? Number(b[0]) : Number(b.fundingTime)));
-}
-
-async function fetchFundingRange(symbol, startTime, endTime) {
-  const out = [];
-  let cursor = startTime;
-  while (cursor <= endTime) {
-    const batch = await fetchJson('/dapi/v1/fundingRate', { symbol, startTime: cursor, endTime, limit: 1000 }, 20000);
-    if (!Array.isArray(batch) || batch.length === 0) break;
-    out.push(...batch);
-    if (batch.length < 1000) break;
-    const last = Number(batch.at(-1).fundingTime);
-    if (!Number.isFinite(last) || last < cursor) break;
-    cursor = last + 1;
-  }
-  return out.map((row) => ({ fundingTime: Number(row.fundingTime), fundingRate: Number(row.fundingRate) }))
-    .filter((row) => Number.isFinite(row.fundingTime) && Number.isFinite(row.fundingRate))
-    .sort((a, b) => a.fundingTime - b.fundingTime);
-}
-
-function nearestClosedMark(markCandles, timestamp) {
-  let lo = 0; let hi = markCandles.length - 1; let best = null;
-  while (lo <= hi) {
-    const mid = Math.floor((lo + hi) / 2);
-    const candle = markCandles[mid];
-    if (candle.closeTime <= timestamp) { best = candle; lo = mid + 1; } else hi = mid - 1;
-  }
-  return best ? best.close : null;
-}
-
-function maxDrawdown(values) {
-  let peak = -Infinity; let worst = 0;
-  for (const value of values) {
-    if (value > peak) peak = value;
-    if (peak > 0) worst = Math.min(worst, (value / peak) - 1);
-  }
-  return worst;
+  return all.filter((r) => r.openTime >= START && r.openTime <= END && !seen.has(r.openTime) && seen.add(r.openTime)).sort((a,b)=>a.openTime-b.openTime);
 }
 
 function periodKey(ts, frequency) {
   const d = new Date(ts);
-  if (frequency === 'daily') return d.toISOString().slice(0, 10);
-  if (frequency === 'monthly') return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+  if (frequency === 'daily') return d.toISOString().slice(0,10);
+  if (frequency === 'monthly') return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
   const copy = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   const day = copy.getUTCDay() || 7;
   copy.setUTCDate(copy.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(copy.getUTCFullYear(), 0, 1));
-  const week = Math.ceil((((copy - yearStart) / DAY) + 1) / 7);
-  return `${copy.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+  const y0 = new Date(Date.UTC(copy.getUTCFullYear(),0,1));
+  const w = Math.ceil((((copy-y0)/DAY)+1)/7);
+  return `${copy.getUTCFullYear()}-W${String(w).padStart(2,'0')}`;
 }
 
-async function loadData() {
-  const contract = await fetchContractMetadata(CONFIG.coinMSymbol);
-  const startTime = contract.onboardDate;
-  const endTime = Date.now() - DAY;
-  const [indexRaw, executionRaw, markRaw, funding] = await Promise.all([
-    fetchWindowed('/dapi/v1/indexPriceKlines', { pair: CONFIG.coinMPair, interval: '1d' }, startTime, endTime),
-    fetchWindowed('/dapi/v1/continuousKlines', { pair: CONFIG.coinMPair, contractType: 'PERPETUAL', interval: '1d' }, startTime, endTime),
-    fetchWindowed('/dapi/v1/markPriceKlines', { symbol: CONFIG.coinMSymbol, interval: '4h' }, startTime, endTime),
-    fetchFundingRange(CONFIG.coinMSymbol, startTime, endTime),
-  ]);
-  return { contract, indexDaily: parseKlines(indexRaw), executionDaily: parseKlines(executionRaw), markCandles: parseKlines(markRaw), funding };
+function maxDrawdown(values) {
+  let peak=-Infinity, worst=0;
+  for (const v of values) { if (v>peak) peak=v; if (peak>0) worst=Math.min(worst,v/peak-1); }
+  return worst;
 }
 
-function runScenario(data, frequency) {
-  const { contract, indexDaily, executionDaily, markCandles, funding } = data;
-  const executionByOpen = new Map(executionDaily.map((row) => [row.openTime, row]));
-  const fundingByDay = new Map();
-  for (const row of funding) {
-    const dayOpen = Math.floor(row.fundingTime / DAY) * DAY;
-    if (!fundingByDay.has(dayOpen)) fundingByDay.set(dayOpen, []);
-    fundingByDay.get(dayOpen).push(row);
-  }
-
-  let equityBtc = 1, contracts = 0, lastPrice = null;
-  let totalFeesBtc = 0, totalSlippageBtc = 0, totalFundingBtc = 0;
-  let liquidated = false, tradeCount = 0, turnoverUsd = 0;
-  let heldTarget = 1, lastKey = null;
-  const closes = [], usdNav = [], btcNav = [], exposureRows = [];
-
-  for (const indexCandle of indexDaily) {
-    const execution = executionByOpen.get(indexCandle.openTime);
-    if (!execution) continue;
-    if (lastPrice !== null) equityBtc += inversePnlBtc(contracts, contract.contractSize, lastPrice, execution.open);
-    lastPrice = execution.open;
-
-    for (const item of (fundingByDay.get(indexCandle.openTime) || []).filter((r) => r.fundingTime <= indexCandle.openTime)) {
-      const mark = nearestClosedMark(markCandles, item.fundingTime) || execution.open;
-      equityBtc += inversePnlBtc(contracts, contract.contractSize, lastPrice, mark); lastPrice = mark;
-      const pnl = fundingPnlBtc(contracts, contract.contractSize, mark, item.fundingRate); equityBtc += pnl; totalFundingBtc += pnl;
-    }
-    if (lastPrice !== execution.open) { equityBtc += inversePnlBtc(contracts, contract.contractSize, lastPrice, execution.open); lastPrice = execution.open; }
+function run(indexDaily, executionDaily, frequency) {
+  const execMap = new Map(executionDaily.map(r=>[r.openTime,r]));
+  let equityBtc=1, contracts=0, lastPrice=null, heldTarget=1, lastKey=null;
+  let fees=0, slippage=0, trades=0, turnover=0;
+  const closes=[], btcNav=[], usdNav=[], exposures=[];
+  for (const idx of indexDaily) {
+    const ex = execMap.get(idx.openTime);
+    if (!ex) continue;
+    if (lastPrice !== null) equityBtc += inversePnlBtc(contracts, CONTRACT_SIZE, lastPrice, ex.open);
+    lastPrice = ex.open;
 
     const signal = closes.length >= CONFIG.valuationLookbackDays ? computeSignal(closes) : null;
     const desired = signal?.ready ? signal.finalTarget : 1;
-    const key = periodKey(indexCandle.openTime, frequency);
+    const key = periodKey(idx.openTime, frequency);
     if (lastKey === null || key !== lastKey) { heldTarget = desired; lastKey = key; }
-    const targetExposure = heldTarget;
 
-    const sizing = targetContracts({ targetExposure, equityBtc, price: execution.open, contractSizeUsd: contract.contractSize, currentContracts: contracts });
-    const delta = sizing.deltaContracts;
-    if (delta !== 0) {
-      const slip = SLIPPAGE_BPS / 10000;
-      const fillPrice = execution.open * (delta > 0 ? (1 + slip) : (1 - slip));
-      const slippagePnl = inversePnlBtc(delta, contract.contractSize, fillPrice, execution.open);
-      equityBtc += slippagePnl; totalSlippageBtc += slippagePnl;
-      const fee = Math.abs(delta) * contract.contractSize / fillPrice * (FEE_BPS / 10000);
-      equityBtc -= fee; totalFeesBtc += fee; contracts = sizing.signedContracts; lastPrice = execution.open;
-      tradeCount += 1; turnoverUsd += Math.abs(delta) * contract.contractSize;
+    const sizing = targetContracts({ targetExposure: heldTarget, equityBtc, price: ex.open, contractSizeUsd: CONTRACT_SIZE, currentContracts: contracts });
+    if (sizing.deltaContracts !== 0) {
+      const delta = sizing.deltaContracts;
+      const slip = SLIPPAGE_BPS/10000;
+      const fill = ex.open * (delta>0 ? 1+slip : 1-slip);
+      const slipPnl = inversePnlBtc(delta, CONTRACT_SIZE, fill, ex.open);
+      equityBtc += slipPnl; slippage += slipPnl;
+      const fee = Math.abs(delta)*CONTRACT_SIZE/fill*(FEE_BPS/10000);
+      equityBtc -= fee; fees += fee;
+      contracts = sizing.signedContracts; trades += 1; turnover += Math.abs(delta)*CONTRACT_SIZE;
     }
 
-    const worstPrice = contracts >= 0 ? execution.low : execution.high;
-    const stressedEquity = equityBtc + inversePnlBtc(contracts, contract.contractSize, execution.open, worstPrice);
-    const stress = maintenanceHeadroom({ equityBtc: stressedEquity, signedContracts: contracts, contractSizeUsd: contract.contractSize, markPrice: worstPrice, maintenanceRate: STRESS_MAINTENANCE_RATE });
-    if (!stress || !stress.passes || stressedEquity <= 0) { liquidated = true; break; }
-
-    for (const item of (fundingByDay.get(indexCandle.openTime) || []).filter((r) => r.fundingTime > indexCandle.openTime && r.fundingTime <= execution.closeTime)) {
-      const mark = nearestClosedMark(markCandles, item.fundingTime) || lastPrice;
-      equityBtc += inversePnlBtc(contracts, contract.contractSize, lastPrice, mark); lastPrice = mark;
-      const pnl = fundingPnlBtc(contracts, contract.contractSize, mark, item.fundingRate); equityBtc += pnl; totalFundingBtc += pnl;
-    }
-
-    equityBtc += inversePnlBtc(contracts, contract.contractSize, lastPrice, execution.close); lastPrice = execution.close;
-    closes.push(indexCandle.close);
-    btcNav.push(equityBtc); usdNav.push(equityBtc * execution.close); exposureRows.push(targetExposure);
+    equityBtc += inversePnlBtc(contracts, CONTRACT_SIZE, ex.open, ex.close);
+    lastPrice = ex.close;
+    closes.push(idx.close);
+    btcNav.push(equityBtc); usdNav.push(equityBtc*ex.close); exposures.push(heldTarget);
   }
-
   return {
     frequency,
-    endingBtc: btcNav.at(-1) || equityBtc,
-    btcGainPct: ((btcNav.at(-1) || equityBtc) - 1) * 100,
-    endingUsd: usdNav.at(-1) || null,
-    btcMaxDrawdown: maxDrawdown(btcNav),
-    usdMaxDrawdown: maxDrawdown(usdNav),
-    totalFeesBtc,
-    totalSlippageBtc,
-    totalFundingBtc,
-    tradeCount,
-    turnoverUsd,
-    avgExposure: exposureRows.reduce((a,b)=>a+b,0) / Math.max(1, exposureRows.length),
-    liquidated,
-    observations: btcNav.length,
+    endingBtc: btcNav.at(-1), btcGainPct:(btcNav.at(-1)-1)*100, endingUsd:usdNav.at(-1),
+    btcMaxDrawdown:maxDrawdown(btcNav), usdMaxDrawdown:maxDrawdown(usdNav),
+    totalFeesBtc:fees, totalSlippageBtc:slippage, tradeCount:trades, turnoverUsd:turnover,
+    avgExposure:exposures.reduce((a,b)=>a+b,0)/exposures.length, observations:btcNav.length,
   };
 }
 
-(async () => {
-  const data = await loadData();
-  const scenarios = ['daily','weekly','monthly'].map((f) => runScenario(data, f));
-  const daily = scenarios[0];
-  for (const s of scenarios) {
-    s.deltaVsDaily = {
-      endingBtc: s.endingBtc - daily.endingBtc,
-      btcGainPctPoints: s.btcGainPct - daily.btcGainPct,
-      btcMaxDrawdownPoints: (s.btcMaxDrawdown - daily.btcMaxDrawdown) * 100,
-      usdMaxDrawdownPoints: (s.usdMaxDrawdown - daily.usdMaxDrawdown) * 100,
-      tradeCountPct: daily.tradeCount ? ((s.tradeCount / daily.tradeCount) - 1) * 100 : null,
-      turnoverPct: daily.turnoverUsd ? ((s.turnoverUsd / daily.turnoverUsd) - 1) * 100 : null,
-    };
-  }
-  const result = {
-    generatedAt: new Date().toISOString(),
-    strategyVersion: CONFIG.version,
-    researchOnly: true,
-    productionChanged: false,
-    timing: 'T-1 closed signal -> T open; weekly uses first UTC day of ISO week, monthly first UTC day of month',
-    costs: { feeBps: FEE_BPS, slippageBps: SLIPPAGE_BPS, funding: 'included', stressMaintenanceRate: STRESS_MAINTENANCE_RATE },
-    scenarios,
+(async()=>{
+  const [indexDaily, executionDaily] = await Promise.all([
+    load('indexPriceKlines', CONFIG.coinMPair),
+    load('klines', CONFIG.coinMSymbol),
+  ]);
+  if (!indexDaily.length || !executionDaily.length) throw new Error(`missing Vision data index=${indexDaily.length} execution=${executionDaily.length}`);
+  const scenarios=['daily','weekly','monthly'].map(f=>run(indexDaily,executionDaily,f));
+  const daily=scenarios[0];
+  for (const s of scenarios) s.deltaVsDaily={
+    endingBtc:s.endingBtc-daily.endingBtc,
+    btcGainPctPoints:s.btcGainPct-daily.btcGainPct,
+    btcMaxDrawdownPoints:(s.btcMaxDrawdown-daily.btcMaxDrawdown)*100,
+    usdMaxDrawdownPoints:(s.usdMaxDrawdown-daily.usdMaxDrawdown)*100,
+    tradeCountPct:(s.tradeCount/daily.tradeCount-1)*100,
+    turnoverPct:(s.turnoverUsd/daily.turnoverUsd-1)*100,
   };
-  fs.mkdirSync('research', { recursive: true });
-  fs.writeFileSync('research/btc-v3-rebalance-frequency-result.json', JSON.stringify(result, null, 2));
-  console.log(JSON.stringify(result, null, 2));
-})().catch((error) => { console.error(error); process.exit(1); });
+  const result={generatedAt:new Date().toISOString(),strategyVersion:CONFIG.version,researchOnly:true,productionChanged:false,
+    dataSource:'Binance Vision COIN-M monthly indexPriceKlines + BTCUSD_PERP daily klines',
+    dataWindow:{start:indexDaily[0]?.openTime?new Date(indexDaily[0].openTime).toISOString().slice(0,10):null,end:indexDaily.at(-1)?.openTime?new Date(indexDaily.at(-1).openTime).toISOString().slice(0,10):null},
+    assumptions:{signalTiming:'T-1 closed daily index signal -> T perpetual open',weekly:'first UTC day of ISO week',monthly:'first UTC day of month',feesBps:FEE_BPS,slippageBps:SLIPPAGE_BPS,funding:'omitted for apples-to-apples frequency screening'},scenarios};
+  fs.mkdirSync('research',{recursive:true}); fs.writeFileSync('research/btc-v3-rebalance-frequency-result.json',JSON.stringify(result,null,2)); console.log(JSON.stringify(result,null,2));
+})().catch(e=>{console.error(e);process.exit(1);});
