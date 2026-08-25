@@ -1,0 +1,87 @@
+{
+  "generatedAt": "2026-08-25T13:04:23.896Z",
+  "strategyVersion": "btc-v3.1-coinm",
+  "researchOnly": true,
+  "productionChanged": false,
+  "dataSource": "Binance Vision COIN-M monthly indexPriceKlines + BTCUSD_PERP daily klines",
+  "dataWindow": {
+    "start": "2020-08-01",
+    "end": "2026-07-31"
+  },
+  "assumptions": {
+    "signalTiming": "T-1 closed daily index signal -> T perpetual open",
+    "weekly": "first UTC day of ISO week",
+    "monthly": "first UTC day of month",
+    "feesBps": 5,
+    "slippageBps": 5,
+    "funding": "omitted for apples-to-apples frequency screening"
+  },
+  "scenarios": [
+    {
+      "frequency": "daily",
+      "endingBtc": 2.0927315751057685,
+      "btcGainPct": 109.27315751057685,
+      "endingUsd": 131411.61434666417,
+      "btcMaxDrawdown": -0.3457556731060645,
+      "usdMaxDrawdown": -0.538854314433196,
+      "totalFeesBtc": 0.022789618562997473,
+      "totalSlippageBtc": -0.022789618562994236,
+      "tradeCount": 895,
+      "turnoverUsd": 2836800,
+      "avgExposure": 0.7529450793419082,
+      "observations": 2176,
+      "deltaVsDaily": {
+        "endingBtc": 0,
+        "btcGainPctPoints": 0,
+        "btcMaxDrawdownPoints": 0,
+        "usdMaxDrawdownPoints": 0,
+        "tradeCountPct": 0,
+        "turnoverPct": 0
+      }
+    },
+    {
+      "frequency": "weekly",
+      "endingBtc": 1.8039026745249185,
+      "btcGainPct": 80.39026745249186,
+      "endingUsd": 113274.80571492009,
+      "btcMaxDrawdown": -0.4319153551201499,
+      "usdMaxDrawdown": -0.5322996441784291,
+      "totalFeesBtc": 0.01638617568401135,
+      "totalSlippageBtc": -0.01638617568400916,
+      "tradeCount": 808,
+      "turnoverUsd": 1949100,
+      "avgExposure": 0.7613036842047909,
+      "observations": 2176,
+      "deltaVsDaily": {
+        "endingBtc": -0.28882890058085,
+        "btcGainPctPoints": -28.882890058084996,
+        "btcMaxDrawdownPoints": -8.615968201408542,
+        "usdMaxDrawdownPoints": 0.6554670254766859,
+        "tradeCountPct": -9.720670391061448,
+        "turnoverPct": -31.292301184433168
+      }
+    },
+    {
+      "frequency": "monthly",
+      "endingBtc": 1.7692605190008222,
+      "btcGainPct": 76.92605190008221,
+      "endingUsd": 111099.47580829333,
+      "btcMaxDrawdown": -0.457396192597493,
+      "usdMaxDrawdown": -0.5726159924761028,
+      "totalFeesBtc": 0.00970171720992183,
+      "totalSlippageBtc": -0.009701717209920843,
+      "tradeCount": 703,
+      "turnoverUsd": 1055500,
+      "avgExposure": 0.7669436675420619,
+      "observations": 2176,
+      "deltaVsDaily": {
+        "endingBtc": -0.3234710561049463,
+        "btcGainPctPoints": -32.34710561049464,
+        "btcMaxDrawdownPoints": -11.16405194914285,
+        "usdMaxDrawdownPoints": -3.376167804290686,
+        "tradeCountPct": -21.452513966480446,
+        "turnoverPct": -62.79258319232939
+      }
+    }
+  ]
+}
