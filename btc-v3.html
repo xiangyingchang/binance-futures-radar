@@ -105,11 +105,11 @@
           <h3>输入访问密钥</h3>
           <p>实际交易记录、资金流和账户快照存放在私人数据仓库，需要访问密钥后才能读取。</p>
           <form id="tracking-gate-form">
-            <label><span>访问密钥（仅本标签页会话）</span><input id="tracking-gate-key" type="password" autocomplete="off" required></label>
+            <label><span>访问密钥</span><input id="tracking-gate-key" type="password" autocomplete="off" required></label>
             <button type="submit" id="tracking-gate-submit">验证并进入</button>
             <button type="button" id="tracking-gate-skip">只看策略信号</button>
           </form>
-          <small id="tracking-gate-note">密钥仅保存在 sessionStorage；关闭此标签页后消失，不写入 localStorage，不进入控制台或统计。</small>
+          <small id="tracking-gate-note">密钥只保存在本机浏览器（localStorage），距离上一次操作超过 24 小时会自动清除；不进入控制台或统计。你可以在下方手动清除。</small>
         </div>
       </div>
       <p id="execution-ledger-status" class="flags" role="status" aria-live="polite">正在读取独立执行账本…</p>
@@ -180,7 +180,7 @@
           <span class="flags">只追加，不覆盖历史</span>
         </div>
         <p class="flags">成交时间可留空；没有精确 Binance 成交时间时，系统会明确记录为“约略时间”。</p>
-        <label class="tracking-key-field"><span>V3 私人追踪数据访问密钥（仅本标签页会话）</span><input id="tracking-api-key" type="password" autocomplete="off" required><small id="tracking-key-note">仅保存在 sessionStorage；关闭此标签页后消失，不写入 localStorage，不进入控制台或统计。</small><div class="tracking-key-actions"><button id="clear-tracking-key" type="button">清除本页密钥</button></div></label>
+        <label class="tracking-key-field"><span>V3 私人追踪数据访问密钥</span><input id="tracking-api-key" type="password" autocomplete="off" required><small id="tracking-key-note">密钥只保存在本机浏览器（localStorage），距离上一次操作超过 24 小时会自动清除；不进入控制台或统计。</small><div class="tracking-key-actions"><button id="clear-tracking-key" type="button">清除本机缓存密钥</button></div></label>
         <form id="execution-form" class="execution-form">
           <label><span>方向</span><select id="execution-side" required><option value="BUY">买入（BUY）</option><option value="SELL">卖出（SELL）</option></select></label>
           <label><span>合约张数</span><input id="execution-contracts" type="number" inputmode="numeric" min="1" step="1" required></label>
@@ -285,7 +285,8 @@
     <footer><span id="updated">最后更新：--</span><span id="next-review">下次评估：--</span><a href="https://binance-futures-radar.vercel.app/" target="_blank" rel="noreferrer">返回做空雷达</a><a href="https://github.com/xiangyingchang/binance-futures-radar/blob/main/BTC_V3_STRATEGY.md" target="_blank" rel="noreferrer">策略文档</a></footer>
   </main>
   <script src="btc-v3-execution-accounting.js?v=3"></script>
-  <script src="btc-v3-execution.js?v=4"></script>
+  <script src="btc-v3-tracking-key-storage.js?v=1"></script>
+  <script src="btc-v3-execution.js?v=5"></script>
   <script src="btc-v3.js?v=9"></script>
   <script src="btc-v3-daily-analysis.js?v=1"></script>
 </body>

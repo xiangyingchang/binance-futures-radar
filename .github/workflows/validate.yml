@@ -23,6 +23,7 @@ jobs:
           node --check app-v4.js
           node --check whale.js
           node --check btc-v3.js
+          node --check btc-v3-tracking-key-storage.js
           node --check btc-v3-execution-accounting.js
           node --check btc-v3-execution.js
           node --check api/radar.js
@@ -42,6 +43,7 @@ jobs:
           node --check tests/whale-intelligence.test.js
           node --check tests/btc-v3-strategy.test.js
           node --check tests/btc-v3-execution-accounting.test.js
+          node --check tests/btc-v3-tracking-key-storage.test.js
           node --check tests/btc-v3-execution-api.test.js
           node --check tests/btc-v3-tracking-api.test.js
 
@@ -51,6 +53,7 @@ jobs:
           node tests/whale-intelligence.test.js
           node tests/btc-v3-strategy.test.js
           node tests/btc-v3-execution-accounting.test.js
+          node tests/btc-v3-tracking-key-storage.test.js
           node tests/btc-v3-execution-api.test.js
           node tests/btc-v3-tracking-api.test.js
 
