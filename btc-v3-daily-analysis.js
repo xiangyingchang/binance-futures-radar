@@ -1,6 +1,7 @@
 'use strict';
 
-const DAILY_ANALYSIS_URL = 'https://raw.githubusercontent.com/xiangyingchang/binance-futures-radar/main/data/btc-v3-daily-analysis.json';
+const SAME_ORIGIN_URL = '/api/btc-v3-daily-analysis';
+const RAW_FALLBACK_URL = 'https://raw.githubusercontent.com/xiangyingchang/binance-futures-radar/main/data/btc-v3-daily-analysis.json';
 
 function fmtShanghai(iso) {
   if (!iso) return '--';
@@ -53,22 +54,37 @@ function renderDailyAnalysis(data) {
     setText('daily-analysis-guidance', `当日结论：${data.marketGuidance || '--'}`);
   }
 
-  setText('daily-analysis-meta', `对应日线：${data?.candleDate || '--'} UTC · 自动分析更新时间：${fmtShanghai(data?.generatedAt)}（北京时间）`);
+  const sourceNote = data?.servedVia === 'vercel-same-origin-proxy' ? ' · 数据通道：同域代理' : '';
+  setText('daily-analysis-meta', `对应日线：${data?.candleDate || '--'} UTC · 自动分析更新时间：${fmtShanghai(data?.generatedAt)}（北京时间）${sourceNote}`);
+}
+
+async function fetchJson(url) {
+  const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, {
+    cache: 'no-store',
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
 }
 
 async function loadDailyAnalysis() {
   try {
-    const res = await fetch(`${DAILY_ANALYSIS_URL}?t=${Date.now()}`, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const data = await fetchJson(SAME_ORIGIN_URL);
     renderDailyAnalysis(data);
-  } catch (error) {
-    renderDailyAnalysis({
-      status: 'error',
-      generatedAt: null,
-      candleDate: null,
-      error: `每日策略分析读取失败：${error.message || error}`,
-    });
+    return;
+  } catch (primaryError) {
+    try {
+      const data = await fetchJson(RAW_FALLBACK_URL);
+      renderDailyAnalysis(data);
+      return;
+    } catch (fallbackError) {
+      renderDailyAnalysis({
+        status: 'error',
+        generatedAt: null,
+        candleDate: null,
+        error: `每日策略分析读取失败：同域代理 ${primaryError.message || primaryError}；GitHub Raw 备用通道 ${fallbackError.message || fallbackError}`,
+      });
+    }
   }
 }
 
