@@ -25,6 +25,10 @@
     "api/btc-v3-tracking.js": {
       "regions": ["sin1"],
       "maxDuration": 60
+    },
+    "api/btc-v3-daily-analysis.js": {
+      "regions": ["sin1"],
+      "maxDuration": 15
     }
   }
 }
