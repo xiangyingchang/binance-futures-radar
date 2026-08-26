@@ -10,6 +10,10 @@
       "regions": ["sin1"],
       "maxDuration": 60
     },
+    "api/market.js": {
+      "regions": ["sin1"],
+      "maxDuration": 30
+    },
     "api/backtest-30d.js": {
       "regions": ["sin1"],
       "maxDuration": 60
