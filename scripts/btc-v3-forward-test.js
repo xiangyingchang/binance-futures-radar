@@ -4,8 +4,11 @@ const fs = require('fs');
 const path = require('path');
 
 const LEDGER = path.join(__dirname, '..', 'data', 'btc-v3-forward-test.jsonl');
-const SNAPSHOT_URL = process.env.BTC_V3_SNAPSHOT_URL
-  || 'https://binance-futures-radar-v3.vercel.app/api/btc-v3';
+const SNAPSHOT_URLS = (process.env.BTC_V3_SNAPSHOT_URLS
+  || 'https://binance-futures-radar.vercel.app/api/btc-v3,https://binance-futures-radar-v3.vercel.app/api/btc-v3')
+  .split(',')
+  .map((url) => url.trim())
+  .filter(Boolean);
 const REQUEST_TIMEOUT_MS = Number(process.env.BTC_V3_SNAPSHOT_TIMEOUT_MS || 30000);
 
 function readLedger() {
@@ -26,10 +29,33 @@ function append(record) {
 }
 
 async function fetchRemoteSnapshot() {
+  const errors = [];
+  let lastSnapshot = null;
+  let lastUrl = null;
+  for (const url of SNAPSHOT_URLS) {
+    if (lastSnapshot) break;
+    try {
+      const snapshot = await fetchSnapshotFrom(url);
+      lastSnapshot = snapshot;
+      lastUrl = url;
+    } catch (error) {
+      errors.push(`${url}: ${error.message}`);
+    }
+  }
+  if (!lastSnapshot) {
+    throw new Error(`all snapshot sources failed: ${errors.join(' | ')}`);
+  }
+  if (SNAPSHOT_URLS.length > 1 && lastUrl !== SNAPSHOT_URLS[0]) {
+    console.warn(`BTC_V3_INFO primary snapshot source unavailable; captured from fallback ${lastUrl}`);
+  }
+  return { snapshot: lastSnapshot, snapshotUrl: lastUrl };
+}
+
+async function fetchSnapshotFrom(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetch(SNAPSHOT_URL, {
+    const response = await fetch(url, {
       headers: { Accept: 'application/json', 'User-Agent': 'btc-v3-forward-test-ledger/1.0' },
       cache: 'no-store',
       signal: controller.signal,
@@ -46,6 +72,16 @@ async function fetchRemoteSnapshot() {
   }
 }
 
+function getLedgerSummary(existing) {
+  const signals = existing.filter((item) => item.recordType === 'signal');
+  const latest = signals[signals.length - 1] || null;
+  return {
+    signalRecords: signals.length,
+    latestSignalCandleDate: latest?.candleDate || null,
+    latestSignalObservedAt: latest?.observedAt || null,
+  };
+}
+
 function compactSnapshot(snapshot) {
   const candle = snapshot.latestClosedCandle;
   const signal = snapshot.signal;
@@ -56,7 +92,6 @@ function compactSnapshot(snapshot) {
     candleDate,
     observedAt: snapshot.observedAt,
     collectedAt: new Date().toISOString(),
-    snapshotUrl: SNAPSHOT_URL,
     signalPriceSource: snapshot.signalPriceSource,
     latestClosedCandle: candle,
     instrument: snapshot.instrument,
@@ -103,35 +138,39 @@ function compactSnapshot(snapshot) {
 
 async function main() {
   const existing = readLedger();
+  const ledgerBefore = getLedgerSummary(existing);
   try {
-    const snapshot = await fetchRemoteSnapshot();
+    const { snapshot, snapshotUrl } = await fetchRemoteSnapshot();
     const record = compactSnapshot(snapshot);
+    record.snapshotUrl = snapshotUrl;
     if (!record.candleDate) throw new Error('latest closed candle date unavailable');
     if (!snapshot.signal?.ready) throw new Error(`snapshot signal not ready: ${snapshot.signal?.reason || 'unknown'}`);
     const alreadyObserved = existing.some((item) => item.recordType === 'signal'
       && item.candleDate === record.candleDate
       && item.reconstructed !== true);
     if (alreadyObserved) {
-      console.log(`BTC V3 ${record.candleDate} already observed; no backfill or overwrite performed.`);
+      console.log(`BTC_V3_INFO action=skip productionCandleDate=${record.candleDate} ledgerLatestCandleDate=${ledgerBefore.latestSignalCandleDate} reconstructed=${record.reconstructed} target=${record.signal.finalTarget.toFixed(4)}x source=${snapshotUrl}`);
       return;
     }
     append(record);
-    console.log(`Appended BTC V3 forward-test signal for ${record.candleDate}: ${record.signal.finalTarget.toFixed(4)}x`);
+    console.log(`BTC_V3_INFO action=append productionCandleDate=${record.candleDate} ledgerLatestCandleDate=${ledgerBefore.latestSignalCandleDate} reconstructed=${record.reconstructed} target=${record.signal.finalTarget.toFixed(4)}x source=${snapshotUrl} flags=${JSON.stringify(record.dataQualityFlags || [])}`);
   } catch (error) {
     const now = new Date();
     const intended = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - 86400000)
       .toISOString().slice(0, 10);
-    append({
+    const failure = {
       recordType: 'failure',
       strategyVersion: 'btc-v3.1-coinm',
       candleDate: intended,
       observedAt: now.toISOString(),
-      snapshotUrl: SNAPSHOT_URL,
+      snapshotUrl: SNAPSHOT_URLS.join(','),
       error: error.name === 'AbortError' ? `snapshot timeout after ${REQUEST_TIMEOUT_MS}ms` : (error.message || 'unknown forward-test failure'),
       ledgerWriterCommitSha: process.env.GITHUB_SHA || 'writer-sha-unavailable',
       reconstructed: false,
       autoTrade: false,
-    });
+    };
+    append(failure);
+    console.error(`BTC_V3_INFO action=error productionCandleDate=unavailable ledgerLatestCandleDate=${ledgerBefore.latestSignalCandleDate} intendedCandleDate=${failure.candleDate} error=${JSON.stringify(failure.error)}`);
     console.error(error);
     process.exitCode = 1;
   }

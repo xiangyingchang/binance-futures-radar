@@ -2,12 +2,17 @@ name: BTC V3 Forward Test
 
 on:
   schedule:
-    # GitHub scheduled workflows can be delayed under load. Run three idempotent
-    # collection windows so the immutable daily observation does not depend on a
-    # single scheduler slot. Beijing time: 08:10 / 08:40 / 09:10.
-    - cron: '10 0 * * *'
-    - cron: '40 0 * * *'
-    - cron: '10 1 * * *'
+    # GitHub cron runs in UTC and is heavily delayed around the top of the hour,
+    # especially at 00:xx UTC. Observed 2026-08-25/26 delays: 70-105 minutes.
+    # Use staggered off-peak minutes across multiple windows (Beijing
+    # 08:07/08:23/08:37/08:53/09:07/09:23) so queue delay in one slot cannot
+    # push every capture past the 10:10 Beijing review.
+    - cron: '7 0 * * *'
+    - cron: '23 0 * * *'
+    - cron: '37 0 * * *'
+    - cron: '53 0 * * *'
+    - cron: '7 1 * * *'
+    - cron: '23 1 * * *'
   workflow_dispatch:
   push:
     branches:
@@ -26,7 +31,9 @@ jobs:
   snapshot:
     runs-on: ubuntu-latest
     env:
-      BTC_V3_SNAPSHOT_URL: https://binance-futures-radar-v3.vercel.app/api/btc-v3
+      # Primary: Git-integrated main production deployment (codeCommitSha
+      # verifiable). Fallback: legacy standalone Singapore deployment.
+      BTC_V3_SNAPSHOT_URLS: https://binance-futures-radar.vercel.app/api/btc-v3,https://binance-futures-radar-v3.vercel.app/api/btc-v3
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,7 +45,7 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Append observed signal from Singapore deployment
+      - name: Append observed signal from production deployment
         run: node scripts/btc-v3-forward-test.js
 
       - name: Commit immutable observation
@@ -52,4 +59,15 @@ jobs:
           git config user.email "btc-v3-forward-test[bot]@users.noreply.github.com"
           git add data/btc-v3-forward-test.jsonl
           git commit -m "data: append BTC V3 forward-test observation"
-          git push
+          # Another window may have pushed first; rebase our commit and retry.
+          for i in 1 2 3; do
+            if git push; then
+              echo "BTC_V3_INFO action=push commit=$(git rev-parse HEAD)"
+              exit 0
+            fi
+            echo "Push conflict (attempt $i); rebasing on origin/main and retrying."
+            git fetch origin main
+            git rebase origin/main
+          done
+          echo "BTC_V3_INFO action=error failed to push forward-test observation after retries"
+          exit 1
