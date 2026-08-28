@@ -1,17 +1,16 @@
 {
   "strategyVersion": "btc-v3.1-coinm",
-  "status": "ok",
-  "candleDate": "2026-08-26",
-  "generatedAt": "2026-08-27T02:53:13.213Z",
-  "label": "适度进攻",
-  "headline": "8 月 26 日生产信号与 Forward Test 已对齐；V3.1 正式目标维持 1.25x。",
-  "summary": "生产快照与 data/btc-v3-forward-test.jsonl 已同日对齐 2026-08-26 完整 UTC 日线，Forward Test 记录为真实生产采集（reconstructed=false），dataQualityFlags 为空。Trend Score=2/3、Bear Lock=false，估值层 cheap=true，波动率与保证金约束未触发下修，最终目标维持 1.25x。当日采集因 GitHub Actions schedule 未触发而延迟，已通过手动窗口用真实生产快照补采，并完成采集链路加固（多快照源、加密采集窗口、push 重试）。",
-  "trend": "Trend Score=2/3：EMA15 高于 EMA30，收盘价高于 MA200（偏离约 +14.2%），但 EMA30 低于 MA200，趋势结构仍属修复期而非全面强势。",
-  "valuation": "365D Drawdown 约 -36.6%，cheap=true、veryCheap=true，估值层原始结果为 1.25x，无估值下修。",
-  "risk": "30D RV 约 43.1%，Volatility Cap 约 1.39x；Margin Cap=1.50x；COIN-M Funding 约 -0.001522%，Mark Price 约 $78,888。波动率与保证金约束均不构成下修。",
-  "marketGuidance": "维持 1.25x 目标仓位。该目标基于冻结的 V3.1 参数，不因采集链路修复而改变；下一次调仓依据 2026-08-27 日线信号。",
+  "status": "error",
+  "candleDate": "2026-08-27",
+  "generatedAt": "2026-08-28T02:11:35.000Z",
+  "label": "数据异常",
+  "headline": "8 月 27 日生产信号已生成，但 Forward Test 尚未落账，今日自动策略分析未通过完整性检查。",
+  "summary": "生产快照已覆盖 2026-08-27 完整 UTC 日线，signal.dataQualityFlags 为空；但按规则二次读取 data/btc-v3-forward-test.jsonl 后，最新成功记录仍为 2026-08-26，且 reconstructed=false。生产 candleDate 比 Forward Test 最新成功记录恰好多 1 天，二次核对仍未对齐，因此本次写入 status=error，不生成正常调仓观点。",
+  "trend": "生产观测：Trend Score=2/3，Bear Lock=false，2026-08-27 收盘约 $80,266，MA200 deviation 约 +15.95%。该信息仅用于异常诊断，未通过 Forward Test 审计前不作为正式日级执行结论。",
+  "valuation": "生产观测：365D Drawdown 约 -35.64%，cheap=true、veryCheap=true。该信息仅用于异常诊断，未通过 Forward Test 审计前不作为正式日级执行结论。",
+  "risk": "生产观测：30D RV 约 43.11%，Volatility Cap 约 1.39x，Margin Cap=1.50x，COIN-M Funding 约 -0.002454%，Mark Price 约 $80,340。生产原始 finalTarget=1.25x，但因 Forward Test 未对齐，不视为已审计的正式调仓结论。",
+  "marketGuidance": "暂停使用 2026-08-27 的每日自动分析进行正式调仓；等待对应 Forward Test 真实采集记录（reconstructed=false）落账并与生产日线、数据质量重新对齐。",
   "targetExposure": 1.25,
-  "sourceObservedAt": "2026-08-27T02:53:13.213Z",
+  "sourceObservedAt": "2026-08-28T02:11:34.919Z",
   "autoTrade": false
 }
-
