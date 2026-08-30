@@ -81,6 +81,9 @@ function slippagePnlBtc(deltaContracts, contractSizeUsd, referencePrice, fillPri
 function scenarioTarget(mode, baseSignal, overrideActive) {
   const base = baseSignal?.ready ? baseSignal.finalTarget : 1;
   if (mode === 'v3') return base;
+  if (mode === 'override_1_25x') return overrideActive ? 1.25 : base;
+  if (mode === 'override_1_5x') return overrideActive ? 1.5 : base;
+  if (mode === 'override_1_75x') return overrideActive ? 1.75 : base;
   if (mode === 'override_2x') return overrideActive ? 2 : base;
   if (mode === 'hard_veto') return overrideActive && !baseSignal.bearLock ? 2 : base;
   if (mode === 'soft_1x_then_2x') {
@@ -297,7 +300,7 @@ function runScenario({ mode, market, ahrByDate }) {
 
 async function main() {
   const [market, ahrByDate] = await Promise.all([loadMarketData(), loadAhr()]);
-  const modes = ['v3', 'override_2x', 'hard_veto', 'soft_1x_then_2x'];
+  const modes = ['v3', 'override_1_25x', 'override_1_5x', 'override_1_75x', 'override_2x', 'hard_veto', 'soft_1x_then_2x'];
   const scenarios = modes.map((mode) => runScenario({ mode, market, ahrByDate }));
   const result = {
     generatedAt: new Date().toISOString(),
