@@ -1,0 +1,78 @@
+{
+  "generatedAt": "2026-08-31T11:56:31.409Z",
+  "researchOnly": true,
+  "engine": "long-price-history linear overlay; ahr999 replicated from formula",
+  "ahrValidation": {
+    "dcaMode": "geometric",
+    "n": 3003,
+    "medianAbsRelErr": 0.01766031708961302
+  },
+  "priceWindow": {
+    "start": "2010-07-18",
+    "end": "2026-05-23",
+    "n": 5789
+  },
+  "simStart": "2011-08-22",
+  "windows": [
+    {
+      "years": 1,
+      "available": true,
+      "from": "2025-05-23",
+      "to": "2026-05-23",
+      "hodlUsdCagrPct": -28.60392359898333,
+      "systemUsdCagrPct": -0.5315742563027914,
+      "excessBtcCagrPct": 39.319176567916834,
+      "totalBtcExcessPct": 39.28755943762532
+    },
+    {
+      "years": 3,
+      "available": true,
+      "from": "2023-05-24",
+      "to": "2026-05-23",
+      "hodlUsdCagrPct": 42.78191827376831,
+      "systemUsdCagrPct": 55.03885665636483,
+      "excessBtcCagrPct": 8.58437716118592,
+      "totalBtcExcessPct": 28.005487965942024
+    },
+    {
+      "years": 5,
+      "available": true,
+      "from": "2021-05-23",
+      "to": "2026-05-23",
+      "hodlUsdCagrPct": 17.11869515575044,
+      "systemUsdCagrPct": 51.63126745114932,
+      "excessBtcCagrPct": 29.468030060873108,
+      "totalBtcExcessPct": 263.6938261892483
+    },
+    {
+      "years": 10,
+      "available": true,
+      "from": "2016-05-23",
+      "to": "2026-05-23",
+      "hodlUsdCagrPct": 67.38109822167118,
+      "systemUsdCagrPct": 86.58179064421591,
+      "excessBtcCagrPct": 11.471242945912753,
+      "totalBtcExcessPct": 196.1855553255126
+    },
+    {
+      "years": 14.75,
+      "available": true,
+      "from": "2011-08-23",
+      "to": "2026-05-23",
+      "hodlUsdCagrPct": 82.29821674332611,
+      "systemUsdCagrPct": 108.96962954222164,
+      "excessBtcCagrPct": 14.63064931482494,
+      "totalBtcExcessPct": 649.229842553119
+    },
+    {
+      "years": 15,
+      "available": false,
+      "reason": "before sim start (indicator warmup)"
+    },
+    {
+      "years": 20,
+      "available": false,
+      "reason": "before sim start (indicator warmup)"
+    }
+  ]
+}
