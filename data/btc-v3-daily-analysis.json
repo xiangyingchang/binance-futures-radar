@@ -1,16 +1,16 @@
 {
   "strategyVersion": "btc-v4-draft",
   "status": "ok",
-  "candleDate": "2026-08-30",
-  "generatedAt": "2026-08-31T17:15:49Z",
+  "candleDate": "2026-08-31",
+  "generatedAt": "2026-09-01T02:18:30.000Z",
   "label": "趋势修复，V4维持1.00x纯现货",
   "headline": "Bear Lock未触发且深水区override未生效，V4最终目标维持1.00x，不增加BTC beta。",
-  "summary": "2026-08-30 UTC完整日线收盘价为77,687.64003012，高于MA200=69,366.40403403；但MA200 30D slope=-2.928484%，Bear Lock=false，第二层基础敞口为1.00x。与该日对齐的独立日值AHR999=0.5131481586，未低于0.40；365D Drawdown=-37.709220%虽通过确认门，但未同时满足深水区入场条件，override不生效。按冻结优先级维持1.00x纯现货，不增加BTC beta；主要风险是收盘跌破MA200且长期斜率仍为负，触发Bear Lock。",
-  "trend": "Close=77,687.64003012高于MA200=69,366.40403403，且EMA15=75,020.54799761高于EMA30=71,435.13111801，短中期仍偏强，处于趋势修复阶段。MA200 30D slope=-2.928484%使长期趋势未确认反转，但因Bear Lock要求Close同时低于MA200且斜率为负，当前Bear Lock=false，基础敞口按V4二元规则为1.00x；trendScore=2/3仅作V4已删除阶梯层的对照，不参与敞口决策。",
-  "valuation": "对应2026-08-30 UTC日值AHR999=0.5131481586，不满足AHR999<0.40；365D Drawdown=-37.709220%满足<=-20%的确认门，但两项未同时成立，深水区override不生效，目标不是1.50x。AHR999同时高于0.45滞后带出场线，当前未处于override；无ramp，ACTIVE超过182天的kill switch未触发，故维持第二层1.00x结论。",
-  "risk": "按override>Bear Lock>默认1.00x裁决，最终目标敞口为1.00x；marginCap=1.50x与V4 override上限一致，未压低本次目标。COIN-M Funding=+0.010000%、Mark Price=78,687.97213498仅作资金成本与合约换算的风险背景，不改变日级信号；主要风险触发器是Close<MA200且MA200 30D slope<0，届时基础目标切换为0.00x对冲。",
+  "summary": "2026-08-31 UTC完整日线收盘价为78,559.45709106，高于MA200=69,428.16745920；MA200 30D slope=-2.619860%，因此Bear Lock=false，第二层基础敞口为1.00x纯现货。trendScore=2/3仅作V4已删除阶梯层对照，不参与决策。独立日级AHR999=0.5146281678，未低于0.40；drawdown365=-37.010188%虽通过<=-20%确认门，但override需两项同时满足，故不生效。",
+  "trend": "收盘价78,559.45709106高于MA200=69,428.16745920，且EMA15=75,462.91163429高于EMA30=71,894.76505176，短中期偏强但MA200 30D slope为负，属于趋势修复而非长期反转确认。Bear Lock要求Close<MA200且斜率<0，当前不满足，基础敞口为1.00x；trendScore=2/3仅作V4已删除层对照，不改变敞口。",
+  "valuation": "对应2026-08-31 UTC独立日值AHR999=0.5146281678，不满足AHR999<0.40；365D Drawdown=-37.010188%满足<=-20%确认门，但两项未同时成立，深水区override不生效。当前不在override，且AHR999已达到0.45滞后退出线；无ramp，ACTIVE超过182天的kill switch未触发，故维持第二层1.00x，不启用1.50x。",
+  "risk": "按override>Bear Lock>默认1.00x裁决，最终目标敞口为1.00x；marginCap=1.50x与V4 override目标一致，本次未压低目标。COIN-M Funding=+0.00809%、Mark Price=78,227.58557660仅作资金成本与合约换算背景，不改变日级信号；主要风险触发器是Close<MA200且MA200 30D slope<0，届时目标切换为0.00x对冲。",
   "marketGuidance": "SELL 110 张 BTCUSD_PERP，调整后 0 张",
   "targetExposure": 1.0,
-  "sourceObservedAt": "2026-08-31T17:11:51.817Z",
+  "sourceObservedAt": "2026-09-01T02:12:15.594Z",
   "autoTrade": false
 }
