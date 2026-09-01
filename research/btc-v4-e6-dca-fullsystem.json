@@ -1,0 +1,195 @@
+{
+  "generatedAt": "2026-09-01T07:22:28.347Z",
+  "researchOnly": true,
+  "researchVersion": "btc-v4-e6-dca-fullsystem-v1",
+  "engine": "linear daily overlay in BTC terms; no funding/convexity/wicks (solvency settled by E2)",
+  "ahrValidation": {
+    "dcaMode": "geometric",
+    "n": 3003,
+    "medianAbsRelErr": 0.01766031708961302
+  },
+  "priceWindow": {
+    "start": "2010-07-18",
+    "end": "2026-05-23",
+    "n": 5789
+  },
+  "simStart": "2011-08-22",
+  "dcaSpec": {
+    "weeklyBudgetUsd": 700,
+    "tiers": [
+      {
+        "below": 0.45,
+        "usd": 1400
+      },
+      {
+        "below": 0.8,
+        "usd": 1225
+      },
+      {
+        "below": 1.2,
+        "usd": 700
+      },
+      {
+        "below": 2,
+        "usd": 420
+      },
+      {
+        "below": 3,
+        "usd": 210
+      },
+      {
+        "below": null,
+        "usd": 140
+      }
+    ],
+    "ammoPool": true,
+    "buyDay": "Sunday",
+    "feeBps": 10
+  },
+  "partA_dcaFullSystemWindows": [
+    {
+      "window": "1y",
+      "from": "2025-05-23",
+      "to": "2026-05-23",
+      "investedUsd": 36400,
+      "pureDcaBtc": 0.3985894730645223,
+      "systemBtc": 0.50221457305116,
+      "excessBtcPct": 25.997952025658044,
+      "pureDcaUsd": 30540,
+      "systemUsd": 38480,
+      "switches": 3,
+      "hedgeDays": 95,
+      "overrideDays": 77,
+      "overlayRatioMddPct": -11.963440015658666
+    },
+    {
+      "window": "3y",
+      "from": "2023-05-24",
+      "to": "2026-05-23",
+      "investedUsd": 109200,
+      "pureDcaBtc": 1.8677820220492207,
+      "systemBtc": 2.4116489421372886,
+      "excessBtcPct": 29.118329316146287,
+      "pureDcaUsd": 143109,
+      "systemUsd": 184780,
+      "switches": 5,
+      "hedgeDays": 108,
+      "overrideDays": 77,
+      "overlayRatioMddPct": -14.230860815944746
+    },
+    {
+      "window": "5y",
+      "from": "2021-05-23",
+      "to": "2026-05-23",
+      "investedUsd": 182700,
+      "pureDcaBtc": 4.739932150458728,
+      "systemBtc": 8.961503382405658,
+      "excessBtcPct": 89.0639591019962,
+      "pureDcaUsd": 363173,
+      "systemUsd": 686629,
+      "switches": 14,
+      "hedgeDays": 249,
+      "overrideDays": 259,
+      "overlayRatioMddPct": -32.45650131913388
+    },
+    {
+      "window": "10y",
+      "from": "2016-05-23",
+      "to": "2026-05-23",
+      "investedUsd": 364700,
+      "pureDcaBtc": 72.00417626597365,
+      "systemBtc": 222.27112053252955,
+      "excessBtcPct": 208.69198435308834,
+      "pureDcaUsd": 5516950,
+      "systemUsd": 17030384,
+      "switches": 26,
+      "hedgeDays": 362,
+      "overrideDays": 371,
+      "overlayRatioMddPct": -50.335934099840564
+    },
+    {
+      "window": "full",
+      "from": "2011-08-22",
+      "to": "2026-05-23",
+      "investedUsd": 538300,
+      "pureDcaBtc": 9776.640209144238,
+      "systemBtc": 95665.44678947177,
+      "excessBtcPct": 878.5104569972253,
+      "pureDcaUsd": 749084869,
+      "systemUsd": 7329873772,
+      "switches": 57,
+      "hedgeDays": 736,
+      "overrideDays": 497,
+      "overlayRatioMddPct": -50.335934099840586
+    }
+  ],
+  "partB_l2FrequencyAblation": [
+    {
+      "variant": "L2_daily+L3",
+      "excessBtcPct": 878.5104569972253,
+      "systemBtc": 95665.44678947177,
+      "switches": 57,
+      "feePaidPctOfStack": 6.100000000000005,
+      "hedgeDays": 736,
+      "hedgeEntries": 26,
+      "avgHedgeEntryDelayDays": 0,
+      "overlayRatioMddPct": -50.335934099840586
+    },
+    {
+      "variant": "L2_weekly+L3",
+      "excessBtcPct": 464.79505931558236,
+      "systemBtc": 55217.98086830728,
+      "switches": 44,
+      "feePaidPctOfStack": 4.700000000000003,
+      "hedgeDays": 721,
+      "hedgeEntries": 19,
+      "avgHedgeEntryDelayDays": 3.1578947368421053,
+      "overlayRatioMddPct": -65.71046658379186
+    },
+    {
+      "variant": "L2_daily_only",
+      "excessBtcPct": 54.19507474708365,
+      "systemBtc": 15075.097678243394,
+      "switches": 43,
+      "feePaidPctOfStack": 4.300000000000003,
+      "hedgeDays": 1073,
+      "hedgeEntries": 22,
+      "avgHedgeEntryDelayDays": 0,
+      "overlayRatioMddPct": -76.99196380450412
+    },
+    {
+      "variant": "L2_weekly_only",
+      "excessBtcPct": 8.233215612228118,
+      "systemBtc": 10581.572077194873,
+      "switches": 29,
+      "feePaidPctOfStack": 2.9000000000000017,
+      "hedgeDays": 1029,
+      "hedgeEntries": 15,
+      "avgHedgeEntryDelayDays": 3.1333333333333333,
+      "overlayRatioMddPct": -80.88426319543541
+    }
+  ],
+  "partB2_freqByWindow": [
+    {
+      "window": "3y",
+      "dailyExcessPct": 29.118329316146287,
+      "weeklyExcessPct": 24.92714267889213,
+      "dailySwitches": 5,
+      "weeklySwitches": 5
+    },
+    {
+      "window": "5y",
+      "dailyExcessPct": 89.0639591019962,
+      "weeklyExcessPct": 83.54278869024955,
+      "dailySwitches": 14,
+      "weeklySwitches": 14
+    },
+    {
+      "window": "10y",
+      "dailyExcessPct": 208.69198435308834,
+      "weeklyExcessPct": 115.05818049399035,
+      "dailySwitches": 26,
+      "weeklySwitches": 25
+    }
+  ]
+}
