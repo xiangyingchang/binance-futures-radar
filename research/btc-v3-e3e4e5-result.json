@@ -1,0 +1,1206 @@
+{
+  "generatedAt": "2026-08-31T08:35:13.341Z",
+  "researchOnly": true,
+  "productionChanged": false,
+  "researchVersion": "btc-v3-e3e4e5-longsim-v1",
+  "dataWindow": {
+    "start": "2018-08-18",
+    "end": "2026-08-30",
+    "observations": 2935
+  },
+  "engineCaveats": [
+    "Linear daily overlay approximation in BTC terms; no funding, no inverse convexity, no wicks.",
+    "Solvency/liquidation risk is out of scope here (settled by E2).",
+    "Exit fees on return-to-1x land outside segments; effect < fee budget, ignored in bootstrap."
+  ],
+  "finalFormUnderTest": "L2 bear-lock binary (0.0x hedge), L3 override 1.5x, Sunday hysteresis 0.40/0.45",
+  "scenarios": [
+    {
+      "name": "e3_short_current",
+      "excessPct": 654.093895594402,
+      "endingEquityBtc": 7.5409389559440205,
+      "btcMaxDrawdown": -0.49094188837509356,
+      "totalFeesPct": 3.3000000000000016,
+      "handbacks": [
+        "2019-02-24",
+        "2020-04-05",
+        "2022-08-14",
+        "2022-11-06",
+        "2026-04-26"
+      ],
+      "overrideEpisodes": [
+        {
+          "start": "2018-11-25",
+          "end": "2019-02-24",
+          "days": 91,
+          "mult": 0.9803715565205326
+        },
+        {
+          "start": "2020-03-15",
+          "end": "2020-04-05",
+          "days": 21,
+          "mult": 1.1250985657268346
+        },
+        {
+          "start": "2022-06-19",
+          "end": "2022-08-14",
+          "days": 56,
+          "mult": 1.1128805948541105
+        },
+        {
+          "start": "2022-08-21",
+          "end": "2022-11-06",
+          "days": 77,
+          "mult": 0.9830201288917905
+        },
+        {
+          "start": "2022-11-13",
+          "end": "2023-01-15",
+          "days": 63,
+          "mult": 1.1054381065325116
+        },
+        {
+          "start": "2026-02-08",
+          "end": "2026-04-26",
+          "days": 77,
+          "mult": 1.0408193818750198
+        },
+        {
+          "start": "2026-06-07",
+          "end": "2026-08-23",
+          "days": 77,
+          "mult": 1.1110301805446667
+        }
+      ],
+      "activeDurations": [
+        91,
+        21,
+        56,
+        77,
+        63,
+        77,
+        77
+      ],
+      "blockedEntries": 0,
+      "hedgeSegments": [
+        {
+          "start": "2018-08-18",
+          "end": "2018-11-24",
+          "mult": 1.6718915647791177,
+          "fromHandback": false
+        },
+        {
+          "start": "2019-02-24",
+          "end": "2019-04-02",
+          "mult": 0.8469006874203515,
+          "fromHandback": true
+        },
+        {
+          "start": "2019-12-19",
+          "end": "2020-01-28",
+          "mult": 0.775590921261633,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-02-29",
+          "end": "2020-03-02",
+          "mult": 0.974086742476927,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-03-09",
+          "end": "2020-03-14",
+          "mult": 1.5508830204986017,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-04-05",
+          "end": "2020-04-29",
+          "mult": 0.7803244731203373,
+          "fromHandback": true
+        },
+        {
+          "start": "2021-09-22",
+          "end": "2021-10-01",
+          "mult": 0.845290500670833,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-03-08",
+          "end": "2022-06-18",
+          "mult": 1.999443249332267,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-08-14",
+          "end": "2022-08-20",
+          "mult": 1.1544293812650572,
+          "fromHandback": true
+        },
+        {
+          "start": "2022-11-06",
+          "end": "2022-11-12",
+          "mult": 1.26500831217791,
+          "fromHandback": true
+        },
+        {
+          "start": "2024-10-02",
+          "end": "2024-10-14",
+          "mult": 0.9192086346481194,
+          "fromHandback": false
+        },
+        {
+          "start": "2025-12-03",
+          "end": "2026-02-07",
+          "mult": 1.3153669895732956,
+          "fromHandback": false
+        },
+        {
+          "start": "2026-04-26",
+          "end": "2026-06-06",
+          "mult": 1.2730400961687862,
+          "fromHandback": true
+        }
+      ]
+    },
+    {
+      "name": "e3_no_short",
+      "excessPct": 54.7927468352722,
+      "endingEquityBtc": 1.547927468352722,
+      "btcMaxDrawdown": -0.14330931366373356,
+      "totalFeesPct": 0.7000000000000003,
+      "handbacks": [
+        "2019-02-24",
+        "2020-04-05",
+        "2022-08-14",
+        "2022-11-06",
+        "2026-04-26"
+      ],
+      "overrideEpisodes": [
+        {
+          "start": "2018-11-25",
+          "end": "2019-02-24",
+          "days": 91,
+          "mult": 0.9813534008435386
+        },
+        {
+          "start": "2020-03-15",
+          "end": "2020-04-05",
+          "days": 21,
+          "mult": 1.1262253544756846
+        },
+        {
+          "start": "2022-06-19",
+          "end": "2022-08-14",
+          "days": 56,
+          "mult": 1.1139951472776006
+        },
+        {
+          "start": "2022-08-21",
+          "end": "2022-11-06",
+          "days": 77,
+          "mult": 0.9840046257659933
+        },
+        {
+          "start": "2022-11-13",
+          "end": "2023-01-15",
+          "days": 63,
+          "mult": 1.106545205287176
+        },
+        {
+          "start": "2026-02-08",
+          "end": "2026-04-26",
+          "days": 77,
+          "mult": 1.0418617648313286
+        },
+        {
+          "start": "2026-06-07",
+          "end": "2026-08-23",
+          "days": 77,
+          "mult": 1.1121428797740562
+        }
+      ],
+      "activeDurations": [
+        91,
+        21,
+        56,
+        77,
+        63,
+        77,
+        77
+      ],
+      "blockedEntries": 0,
+      "hedgeSegments": []
+    },
+    {
+      "name": "e3_neutral_handback",
+      "excessPct": 515.9378892378068,
+      "endingEquityBtc": 6.159378892378068,
+      "btcMaxDrawdown": -0.3247429628380315,
+      "totalFeesPct": 2.3000000000000007,
+      "handbacks": [
+        "2019-02-24",
+        "2020-04-05",
+        "2022-08-14",
+        "2022-11-06",
+        "2026-04-26"
+      ],
+      "overrideEpisodes": [
+        {
+          "start": "2018-11-25",
+          "end": "2019-02-24",
+          "days": 91,
+          "mult": 0.9803715565205326
+        },
+        {
+          "start": "2020-03-15",
+          "end": "2020-04-05",
+          "days": 21,
+          "mult": 1.1250985657268349
+        },
+        {
+          "start": "2022-06-19",
+          "end": "2022-08-14",
+          "days": 56,
+          "mult": 1.112880594854112
+        },
+        {
+          "start": "2022-08-21",
+          "end": "2022-11-06",
+          "days": 77,
+          "mult": 0.9840046257659933
+        },
+        {
+          "start": "2022-11-13",
+          "end": "2023-01-15",
+          "days": 63,
+          "mult": 1.1065452052871763
+        },
+        {
+          "start": "2026-02-08",
+          "end": "2026-04-26",
+          "days": 77,
+          "mult": 1.0408193818750189
+        },
+        {
+          "start": "2026-06-07",
+          "end": "2026-08-23",
+          "days": 77,
+          "mult": 1.1121428797740558
+        }
+      ],
+      "activeDurations": [
+        91,
+        21,
+        56,
+        77,
+        63,
+        77,
+        77
+      ],
+      "blockedEntries": 0,
+      "hedgeSegments": [
+        {
+          "start": "2018-08-18",
+          "end": "2018-11-24",
+          "mult": 1.6718915647791177,
+          "fromHandback": false
+        },
+        {
+          "start": "2019-12-19",
+          "end": "2020-01-28",
+          "mult": 0.7755909212616325,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-02-29",
+          "end": "2020-03-02",
+          "mult": 0.974086742476927,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-03-09",
+          "end": "2020-03-14",
+          "mult": 1.550883020498602,
+          "fromHandback": false
+        },
+        {
+          "start": "2021-09-22",
+          "end": "2021-10-01",
+          "mult": 0.845290500670833,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-03-08",
+          "end": "2022-06-18",
+          "mult": 1.9994432493322665,
+          "fromHandback": false
+        },
+        {
+          "start": "2024-10-02",
+          "end": "2024-10-14",
+          "mult": 0.9192086346481194,
+          "fromHandback": false
+        },
+        {
+          "start": "2025-12-03",
+          "end": "2026-02-07",
+          "mult": 1.3153669895732942,
+          "fromHandback": false
+        }
+      ]
+    },
+    {
+      "name": "e3_breaker_1_25",
+      "excessPct": 654.093895594402,
+      "endingEquityBtc": 7.5409389559440205,
+      "btcMaxDrawdown": -0.49094188837509356,
+      "totalFeesPct": 3.3000000000000016,
+      "handbacks": [
+        "2019-02-24",
+        "2020-04-05",
+        "2022-08-14",
+        "2022-11-06",
+        "2026-04-26"
+      ],
+      "overrideEpisodes": [
+        {
+          "start": "2018-11-25",
+          "end": "2019-02-24",
+          "days": 91,
+          "mult": 0.9803715565205326
+        },
+        {
+          "start": "2020-03-15",
+          "end": "2020-04-05",
+          "days": 21,
+          "mult": 1.1250985657268346
+        },
+        {
+          "start": "2022-06-19",
+          "end": "2022-08-14",
+          "days": 56,
+          "mult": 1.1128805948541105
+        },
+        {
+          "start": "2022-08-21",
+          "end": "2022-11-06",
+          "days": 77,
+          "mult": 0.9830201288917905
+        },
+        {
+          "start": "2022-11-13",
+          "end": "2023-01-15",
+          "days": 63,
+          "mult": 1.1054381065325116
+        },
+        {
+          "start": "2026-02-08",
+          "end": "2026-04-26",
+          "days": 77,
+          "mult": 1.0408193818750198
+        },
+        {
+          "start": "2026-06-07",
+          "end": "2026-08-23",
+          "days": 77,
+          "mult": 1.1110301805446667
+        }
+      ],
+      "activeDurations": [
+        91,
+        21,
+        56,
+        77,
+        63,
+        77,
+        77
+      ],
+      "blockedEntries": 0,
+      "hedgeSegments": [
+        {
+          "start": "2018-08-18",
+          "end": "2018-11-24",
+          "mult": 1.6718915647791177,
+          "fromHandback": false
+        },
+        {
+          "start": "2019-02-24",
+          "end": "2019-04-02",
+          "mult": 0.8469006874203515,
+          "fromHandback": true
+        },
+        {
+          "start": "2019-12-19",
+          "end": "2020-01-28",
+          "mult": 0.775590921261633,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-02-29",
+          "end": "2020-03-02",
+          "mult": 0.974086742476927,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-03-09",
+          "end": "2020-03-14",
+          "mult": 1.5508830204986017,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-04-05",
+          "end": "2020-04-29",
+          "mult": 0.7803244731203373,
+          "fromHandback": true
+        },
+        {
+          "start": "2021-09-22",
+          "end": "2021-10-01",
+          "mult": 0.845290500670833,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-03-08",
+          "end": "2022-06-18",
+          "mult": 1.999443249332267,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-08-14",
+          "end": "2022-08-20",
+          "mult": 1.1544293812650572,
+          "fromHandback": true
+        },
+        {
+          "start": "2022-11-06",
+          "end": "2022-11-12",
+          "mult": 1.26500831217791,
+          "fromHandback": true
+        },
+        {
+          "start": "2024-10-02",
+          "end": "2024-10-14",
+          "mult": 0.9192086346481194,
+          "fromHandback": false
+        },
+        {
+          "start": "2025-12-03",
+          "end": "2026-02-07",
+          "mult": 1.3153669895732956,
+          "fromHandback": false
+        },
+        {
+          "start": "2026-04-26",
+          "end": "2026-06-06",
+          "mult": 1.2730400961687862,
+          "fromHandback": true
+        }
+      ]
+    },
+    {
+      "name": "e4_kill_182",
+      "excessPct": 654.093895594402,
+      "endingEquityBtc": 7.5409389559440205,
+      "btcMaxDrawdown": -0.49094188837509356,
+      "totalFeesPct": 3.3000000000000016,
+      "handbacks": [
+        "2019-02-24",
+        "2020-04-05",
+        "2022-08-14",
+        "2022-11-06",
+        "2026-04-26"
+      ],
+      "overrideEpisodes": [
+        {
+          "start": "2018-11-25",
+          "end": "2019-02-24",
+          "days": 91,
+          "mult": 0.9803715565205326
+        },
+        {
+          "start": "2020-03-15",
+          "end": "2020-04-05",
+          "days": 21,
+          "mult": 1.1250985657268346
+        },
+        {
+          "start": "2022-06-19",
+          "end": "2022-08-14",
+          "days": 56,
+          "mult": 1.1128805948541105
+        },
+        {
+          "start": "2022-08-21",
+          "end": "2022-11-06",
+          "days": 77,
+          "mult": 0.9830201288917905
+        },
+        {
+          "start": "2022-11-13",
+          "end": "2023-01-15",
+          "days": 63,
+          "mult": 1.1054381065325116
+        },
+        {
+          "start": "2026-02-08",
+          "end": "2026-04-26",
+          "days": 77,
+          "mult": 1.0408193818750198
+        },
+        {
+          "start": "2026-06-07",
+          "end": "2026-08-23",
+          "days": 77,
+          "mult": 1.1110301805446667
+        }
+      ],
+      "activeDurations": [
+        91,
+        21,
+        56,
+        77,
+        63,
+        77,
+        77
+      ],
+      "blockedEntries": 0,
+      "hedgeSegments": [
+        {
+          "start": "2018-08-18",
+          "end": "2018-11-24",
+          "mult": 1.6718915647791177,
+          "fromHandback": false
+        },
+        {
+          "start": "2019-02-24",
+          "end": "2019-04-02",
+          "mult": 0.8469006874203515,
+          "fromHandback": true
+        },
+        {
+          "start": "2019-12-19",
+          "end": "2020-01-28",
+          "mult": 0.775590921261633,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-02-29",
+          "end": "2020-03-02",
+          "mult": 0.974086742476927,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-03-09",
+          "end": "2020-03-14",
+          "mult": 1.5508830204986017,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-04-05",
+          "end": "2020-04-29",
+          "mult": 0.7803244731203373,
+          "fromHandback": true
+        },
+        {
+          "start": "2021-09-22",
+          "end": "2021-10-01",
+          "mult": 0.845290500670833,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-03-08",
+          "end": "2022-06-18",
+          "mult": 1.999443249332267,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-08-14",
+          "end": "2022-08-20",
+          "mult": 1.1544293812650572,
+          "fromHandback": true
+        },
+        {
+          "start": "2022-11-06",
+          "end": "2022-11-12",
+          "mult": 1.26500831217791,
+          "fromHandback": true
+        },
+        {
+          "start": "2024-10-02",
+          "end": "2024-10-14",
+          "mult": 0.9192086346481194,
+          "fromHandback": false
+        },
+        {
+          "start": "2025-12-03",
+          "end": "2026-02-07",
+          "mult": 1.3153669895732956,
+          "fromHandback": false
+        },
+        {
+          "start": "2026-04-26",
+          "end": "2026-06-06",
+          "mult": 1.2730400961687862,
+          "fromHandback": true
+        }
+      ]
+    },
+    {
+      "name": "e4_kill_364",
+      "excessPct": 654.093895594402,
+      "endingEquityBtc": 7.5409389559440205,
+      "btcMaxDrawdown": -0.49094188837509356,
+      "totalFeesPct": 3.3000000000000016,
+      "handbacks": [
+        "2019-02-24",
+        "2020-04-05",
+        "2022-08-14",
+        "2022-11-06",
+        "2026-04-26"
+      ],
+      "overrideEpisodes": [
+        {
+          "start": "2018-11-25",
+          "end": "2019-02-24",
+          "days": 91,
+          "mult": 0.9803715565205326
+        },
+        {
+          "start": "2020-03-15",
+          "end": "2020-04-05",
+          "days": 21,
+          "mult": 1.1250985657268346
+        },
+        {
+          "start": "2022-06-19",
+          "end": "2022-08-14",
+          "days": 56,
+          "mult": 1.1128805948541105
+        },
+        {
+          "start": "2022-08-21",
+          "end": "2022-11-06",
+          "days": 77,
+          "mult": 0.9830201288917905
+        },
+        {
+          "start": "2022-11-13",
+          "end": "2023-01-15",
+          "days": 63,
+          "mult": 1.1054381065325116
+        },
+        {
+          "start": "2026-02-08",
+          "end": "2026-04-26",
+          "days": 77,
+          "mult": 1.0408193818750198
+        },
+        {
+          "start": "2026-06-07",
+          "end": "2026-08-23",
+          "days": 77,
+          "mult": 1.1110301805446667
+        }
+      ],
+      "activeDurations": [
+        91,
+        21,
+        56,
+        77,
+        63,
+        77,
+        77
+      ],
+      "blockedEntries": 0,
+      "hedgeSegments": [
+        {
+          "start": "2018-08-18",
+          "end": "2018-11-24",
+          "mult": 1.6718915647791177,
+          "fromHandback": false
+        },
+        {
+          "start": "2019-02-24",
+          "end": "2019-04-02",
+          "mult": 0.8469006874203515,
+          "fromHandback": true
+        },
+        {
+          "start": "2019-12-19",
+          "end": "2020-01-28",
+          "mult": 0.775590921261633,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-02-29",
+          "end": "2020-03-02",
+          "mult": 0.974086742476927,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-03-09",
+          "end": "2020-03-14",
+          "mult": 1.5508830204986017,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-04-05",
+          "end": "2020-04-29",
+          "mult": 0.7803244731203373,
+          "fromHandback": true
+        },
+        {
+          "start": "2021-09-22",
+          "end": "2021-10-01",
+          "mult": 0.845290500670833,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-03-08",
+          "end": "2022-06-18",
+          "mult": 1.999443249332267,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-08-14",
+          "end": "2022-08-20",
+          "mult": 1.1544293812650572,
+          "fromHandback": true
+        },
+        {
+          "start": "2022-11-06",
+          "end": "2022-11-12",
+          "mult": 1.26500831217791,
+          "fromHandback": true
+        },
+        {
+          "start": "2024-10-02",
+          "end": "2024-10-14",
+          "mult": 0.9192086346481194,
+          "fromHandback": false
+        },
+        {
+          "start": "2025-12-03",
+          "end": "2026-02-07",
+          "mult": 1.3153669895732956,
+          "fromHandback": false
+        },
+        {
+          "start": "2026-04-26",
+          "end": "2026-06-06",
+          "mult": 1.2730400961687862,
+          "fromHandback": true
+        }
+      ]
+    },
+    {
+      "name": "e4_confirm_gate",
+      "excessPct": 654.093895594402,
+      "endingEquityBtc": 7.5409389559440205,
+      "btcMaxDrawdown": -0.49094188837509356,
+      "totalFeesPct": 3.3000000000000016,
+      "handbacks": [
+        "2019-02-24",
+        "2020-04-05",
+        "2022-08-14",
+        "2022-11-06",
+        "2026-04-26"
+      ],
+      "overrideEpisodes": [
+        {
+          "start": "2018-11-25",
+          "end": "2019-02-24",
+          "days": 91,
+          "mult": 0.9803715565205326
+        },
+        {
+          "start": "2020-03-15",
+          "end": "2020-04-05",
+          "days": 21,
+          "mult": 1.1250985657268346
+        },
+        {
+          "start": "2022-06-19",
+          "end": "2022-08-14",
+          "days": 56,
+          "mult": 1.1128805948541105
+        },
+        {
+          "start": "2022-08-21",
+          "end": "2022-11-06",
+          "days": 77,
+          "mult": 0.9830201288917905
+        },
+        {
+          "start": "2022-11-13",
+          "end": "2023-01-15",
+          "days": 63,
+          "mult": 1.1054381065325116
+        },
+        {
+          "start": "2026-02-08",
+          "end": "2026-04-26",
+          "days": 77,
+          "mult": 1.0408193818750198
+        },
+        {
+          "start": "2026-06-07",
+          "end": "2026-08-23",
+          "days": 77,
+          "mult": 1.1110301805446667
+        }
+      ],
+      "activeDurations": [
+        91,
+        21,
+        56,
+        77,
+        63,
+        77,
+        77
+      ],
+      "blockedEntries": 0,
+      "hedgeSegments": [
+        {
+          "start": "2018-08-18",
+          "end": "2018-11-24",
+          "mult": 1.6718915647791177,
+          "fromHandback": false
+        },
+        {
+          "start": "2019-02-24",
+          "end": "2019-04-02",
+          "mult": 0.8469006874203515,
+          "fromHandback": true
+        },
+        {
+          "start": "2019-12-19",
+          "end": "2020-01-28",
+          "mult": 0.775590921261633,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-02-29",
+          "end": "2020-03-02",
+          "mult": 0.974086742476927,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-03-09",
+          "end": "2020-03-14",
+          "mult": 1.5508830204986017,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-04-05",
+          "end": "2020-04-29",
+          "mult": 0.7803244731203373,
+          "fromHandback": true
+        },
+        {
+          "start": "2021-09-22",
+          "end": "2021-10-01",
+          "mult": 0.845290500670833,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-03-08",
+          "end": "2022-06-18",
+          "mult": 1.999443249332267,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-08-14",
+          "end": "2022-08-20",
+          "mult": 1.1544293812650572,
+          "fromHandback": true
+        },
+        {
+          "start": "2022-11-06",
+          "end": "2022-11-12",
+          "mult": 1.26500831217791,
+          "fromHandback": true
+        },
+        {
+          "start": "2024-10-02",
+          "end": "2024-10-14",
+          "mult": 0.9192086346481194,
+          "fromHandback": false
+        },
+        {
+          "start": "2025-12-03",
+          "end": "2026-02-07",
+          "mult": 1.3153669895732956,
+          "fromHandback": false
+        },
+        {
+          "start": "2026-04-26",
+          "end": "2026-06-06",
+          "mult": 1.2730400961687862,
+          "fromHandback": true
+        }
+      ]
+    },
+    {
+      "name": "e4_gate_plus_kill_364",
+      "excessPct": 654.093895594402,
+      "endingEquityBtc": 7.5409389559440205,
+      "btcMaxDrawdown": -0.49094188837509356,
+      "totalFeesPct": 3.3000000000000016,
+      "handbacks": [
+        "2019-02-24",
+        "2020-04-05",
+        "2022-08-14",
+        "2022-11-06",
+        "2026-04-26"
+      ],
+      "overrideEpisodes": [
+        {
+          "start": "2018-11-25",
+          "end": "2019-02-24",
+          "days": 91,
+          "mult": 0.9803715565205326
+        },
+        {
+          "start": "2020-03-15",
+          "end": "2020-04-05",
+          "days": 21,
+          "mult": 1.1250985657268346
+        },
+        {
+          "start": "2022-06-19",
+          "end": "2022-08-14",
+          "days": 56,
+          "mult": 1.1128805948541105
+        },
+        {
+          "start": "2022-08-21",
+          "end": "2022-11-06",
+          "days": 77,
+          "mult": 0.9830201288917905
+        },
+        {
+          "start": "2022-11-13",
+          "end": "2023-01-15",
+          "days": 63,
+          "mult": 1.1054381065325116
+        },
+        {
+          "start": "2026-02-08",
+          "end": "2026-04-26",
+          "days": 77,
+          "mult": 1.0408193818750198
+        },
+        {
+          "start": "2026-06-07",
+          "end": "2026-08-23",
+          "days": 77,
+          "mult": 1.1110301805446667
+        }
+      ],
+      "activeDurations": [
+        91,
+        21,
+        56,
+        77,
+        63,
+        77,
+        77
+      ],
+      "blockedEntries": 0,
+      "hedgeSegments": [
+        {
+          "start": "2018-08-18",
+          "end": "2018-11-24",
+          "mult": 1.6718915647791177,
+          "fromHandback": false
+        },
+        {
+          "start": "2019-02-24",
+          "end": "2019-04-02",
+          "mult": 0.8469006874203515,
+          "fromHandback": true
+        },
+        {
+          "start": "2019-12-19",
+          "end": "2020-01-28",
+          "mult": 0.775590921261633,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-02-29",
+          "end": "2020-03-02",
+          "mult": 0.974086742476927,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-03-09",
+          "end": "2020-03-14",
+          "mult": 1.5508830204986017,
+          "fromHandback": false
+        },
+        {
+          "start": "2020-04-05",
+          "end": "2020-04-29",
+          "mult": 0.7803244731203373,
+          "fromHandback": true
+        },
+        {
+          "start": "2021-09-22",
+          "end": "2021-10-01",
+          "mult": 0.845290500670833,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-03-08",
+          "end": "2022-06-18",
+          "mult": 1.999443249332267,
+          "fromHandback": false
+        },
+        {
+          "start": "2022-08-14",
+          "end": "2022-08-20",
+          "mult": 1.1544293812650572,
+          "fromHandback": true
+        },
+        {
+          "start": "2022-11-06",
+          "end": "2022-11-12",
+          "mult": 1.26500831217791,
+          "fromHandback": true
+        },
+        {
+          "start": "2024-10-02",
+          "end": "2024-10-14",
+          "mult": 0.9192086346481194,
+          "fromHandback": false
+        },
+        {
+          "start": "2025-12-03",
+          "end": "2026-02-07",
+          "mult": 1.3153669895732956,
+          "fromHandback": false
+        },
+        {
+          "start": "2026-04-26",
+          "end": "2026-06-06",
+          "mult": 1.2730400961687862,
+          "fromHandback": true
+        }
+      ]
+    }
+  ],
+  "e3LeaveOneOut": [
+    {
+      "segment": "2018-08-18..2018-11-24",
+      "mult": 1.6718915647791177,
+      "fromHandback": false,
+      "totalWithoutIt": 4.5104234717161775
+    },
+    {
+      "segment": "2019-02-24..2019-04-02",
+      "mult": 0.8469006874203515,
+      "fromHandback": true,
+      "totalWithoutIt": 8.904159682422295
+    },
+    {
+      "segment": "2019-12-19..2020-01-28",
+      "mult": 0.775590921261633,
+      "fromHandback": false,
+      "totalWithoutIt": 9.722830359691907
+    },
+    {
+      "segment": "2020-02-29..2020-03-02",
+      "mult": 0.974086742476927,
+      "fromHandback": false,
+      "totalWithoutIt": 7.741547674459436
+    },
+    {
+      "segment": "2020-03-09..2020-03-14",
+      "mult": 1.5508830204986017,
+      "fromHandback": false,
+      "totalWithoutIt": 4.86235187069083
+    },
+    {
+      "segment": "2020-04-05..2020-04-29",
+      "mult": 0.7803244731203373,
+      "fromHandback": true,
+      "totalWithoutIt": 9.663850379816422
+    },
+    {
+      "segment": "2021-09-22..2021-10-01",
+      "mult": 0.845290500670833,
+      "fromHandback": false,
+      "totalWithoutIt": 8.921121141145486
+    },
+    {
+      "segment": "2022-03-08..2022-06-18",
+      "mult": 1.999443249332267,
+      "fromHandback": false,
+      "totalWithoutIt": 3.771519375937471
+    },
+    {
+      "segment": "2022-08-14..2022-08-20",
+      "mult": 1.1544293812650572,
+      "fromHandback": true,
+      "totalWithoutIt": 6.532178648884041
+    },
+    {
+      "segment": "2022-11-06..2022-11-12",
+      "mult": 1.26500831217791,
+      "fromHandback": true,
+      "totalWithoutIt": 5.9611773957130065
+    },
+    {
+      "segment": "2024-10-02..2024-10-14",
+      "mult": 0.9192086346481194,
+      "fromHandback": false,
+      "totalWithoutIt": 8.203729459994415
+    },
+    {
+      "segment": "2025-12-03..2026-02-07",
+      "mult": 1.3153669895732956,
+      "fromHandback": false,
+      "totalWithoutIt": 5.732954388942281
+    },
+    {
+      "segment": "2026-04-26..2026-06-06",
+      "mult": 1.2730400961687862,
+      "fromHandback": true,
+      "totalWithoutIt": 5.923567512632535
+    }
+  ],
+  "e5Bootstrap": {
+    "e3_short_current": {
+      "draws": 10000,
+      "seed": 20260831,
+      "nOverrideSegments": 7,
+      "nHedgeSegments": 13,
+      "p10ExcessPct": 93.79430147556194,
+      "p50ExcessPct": 638.9356045016705,
+      "p90ExcessPct": 3004.4115029458644,
+      "probNegative": 0.0291
+    },
+    "e3_no_short": {
+      "draws": 10000,
+      "seed": 20260831,
+      "nOverrideSegments": 7,
+      "nHedgeSegments": 0,
+      "p10ExcessPct": 28.005582747712698,
+      "p50ExcessPct": 55.44187324966396,
+      "p90ExcessPct": 87.71875373924698,
+      "probNegative": 0.0021
+    },
+    "e3_breaker_1_25": {
+      "draws": 10000,
+      "seed": 20260831,
+      "nOverrideSegments": 7,
+      "nHedgeSegments": 13,
+      "p10ExcessPct": 93.79430147556194,
+      "p50ExcessPct": 638.9356045016705,
+      "p90ExcessPct": 3004.4115029458644,
+      "probNegative": 0.0291
+    }
+  }
+}

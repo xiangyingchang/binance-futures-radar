@@ -1,0 +1,42 @@
+name: BTC V3 EMA Sensitivity Research
+
+on:
+  push:
+    branches:
+      - research/v3-exposure-curve
+    paths:
+      - 'scripts/btc-v3-ema-sensitivity.js'
+      - 'tests/btc-v3-ema-sensitivity.test.js'
+      - 'lib/btc-v3-strategy.js'
+      - '.github/workflows/btc-v3-ema-sensitivity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sensitivity:
+    runs-on: ubuntu-latest
+    env:
+      BTC_V3_EMA_END: '2026-07-31'
+      BTC_V3_FEE_BPS: '5'
+      BTC_V3_SLIPPAGE_BPS: '5'
+      BTC_V3_MAINT_RATE: '0.10'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: research/v3-exposure-curve
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax and focused tests
+        run: |
+          node --check scripts/btc-v3-ema-sensitivity.js
+          node --test tests/btc-v3-ema-sensitivity.test.js
+          node --test tests/btc-v3-strategy.test.js
+      - name: Run frozen EMA sensitivity backtest
+        run: node scripts/btc-v3-ema-sensitivity.js
+      - name: Verify research outputs
+        run: |
+          test -s research/btc-v3-ema-sensitivity-result.json
+          test -s research/btc-v3-ema-sensitivity-report.md
