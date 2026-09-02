@@ -50,6 +50,13 @@ def finite(value: Any, fallback: float | None = None) -> float | None:
     return result if math.isfinite(result) else fallback
 
 
+def timestamp_ms(value: Any) -> int | None:
+    number = finite(value)
+    if number is None or number <= 0:
+        return None
+    return int(number)
+
+
 def pct_change(current: Any, previous: Any) -> float | None:
     current_n = finite(current)
     previous_n = finite(previous)
@@ -113,17 +120,31 @@ def parse_klines(rows: Any) -> list[dict[str, float | int]]:
     for row in rows:
         if not isinstance(row, list) or len(row) < 8:
             continue
+        open_time = finite(row[0])
+        open_price = finite(row[1])
+        high = finite(row[2])
+        low = finite(row[3])
         close = finite(row[4])
-        if close is None:
+        close_time = finite(row[6])
+        if (
+            open_time is None
+            or open_price is None
+            or high is None
+            or low is None
+            or close is None
+            or close_time is None
+        ):
+            continue
+        if high < low or high < max(open_price, close) or low > min(open_price, close):
             continue
         parsed.append(
             {
-                "openTime": int(row[0]),
-                "open": finite(row[1]) or 0.0,
-                "high": finite(row[2]) or 0.0,
-                "low": finite(row[3]) or 0.0,
+                "openTime": int(open_time),
+                "open": open_price,
+                "high": high,
+                "low": low,
                 "close": close,
-                "closeTime": int(row[6]),
+                "closeTime": int(close_time),
                 "quoteVolume": finite(row[7]) or 0.0,
             }
         )
@@ -510,6 +531,18 @@ def _iso_age_seconds(value: Any, now: float | None = None) -> float | None:
         return None
 
 
+def _payload_timestamp_error(label: str, value: Any, now_ms: int) -> str | None:
+    timestamp = timestamp_ms(value)
+    if timestamp is None:
+        return f"{label}: missing or invalid timestamp"
+    age_seconds = (now_ms - timestamp) / 1000.0
+    if age_seconds < -5.0:
+        return f"{label}: timestamp is in the future ({age_seconds:.1f}s)"
+    if age_seconds > FRESHNESS_MAX_SECONDS:
+        return f"{label}: timestamp age {age_seconds:.1f}s > {FRESHNESS_MAX_SECONDS}s"
+    return None
+
+
 def scan_live(include_market: bool = False) -> dict[str, Any]:
     now_ms = int(time.time() * 1000)
     endpoints = {
@@ -561,6 +594,8 @@ def scan_live(include_market: bool = False) -> dict[str, Any]:
             market_age = _iso_age_seconds(market_payload.get("generatedAt"))
             if market_age is None:
                 errors.append("market: missing or invalid generatedAt")
+            elif market_age < -5.0:
+                errors.append(f"market: generatedAt is in the future ({market_age:.1f}s)")
             elif market_age > FRESHNESS_MAX_SECONDS:
                 errors.append(f"market: generatedAt age {market_age:.1f}s > {FRESHNESS_MAX_SECONDS}s")
             market_values = (
@@ -579,6 +614,15 @@ def scan_live(include_market: bool = False) -> dict[str, Any]:
     funding_history_payload = payloads.get("fundingHistory")
     ticker: dict[str, Any] = ticker_payload if isinstance(ticker_payload, dict) else {}
     premium: dict[str, Any] = premium_payload if isinstance(premium_payload, dict) else {}
+    payload_timestamp_specs = (
+        ("ticker.closeTime", ticker.get("closeTime")),
+        ("premium.time", premium.get("time")),
+        ("openInterest.time", (payloads.get("oi") or {}).get("time") if isinstance(payloads.get("oi"), dict) else None),
+    )
+    for label, value in payload_timestamp_specs:
+        timestamp_error = _payload_timestamp_error(label, value, now_ms)
+        if timestamp_error:
+            errors.append(timestamp_error)
     funding_info_rows: list[dict[str, Any]] = [
         row for row in (funding_info_payload if isinstance(funding_info_payload, list) else [])
         if isinstance(row, dict)
@@ -602,6 +646,13 @@ def scan_live(include_market: bool = False) -> dict[str, Any]:
     one_all = parse_klines(raw_1h)
     four_all = parse_klines(raw_4h)
     daily_all = parse_klines(raw_1d)
+    for label, raw_rows, parsed_rows in (
+        ("1h", raw_1h, one_all),
+        ("4h", raw_4h, four_all),
+        ("1d", raw_1d, daily_all),
+    ):
+        if isinstance(raw_rows, list) and len(parsed_rows) != len(raw_rows):
+            errors.append(f"{label}_klines: invalid candle fields")
     one_closed = closed_candles(one_all, now_ms)
     four_closed = closed_candles(four_all, now_ms)
     daily_closed = closed_candles(daily_all, now_ms)
@@ -612,6 +663,12 @@ def scan_live(include_market: bool = False) -> dict[str, Any]:
         row for row in (funding_history_payload if isinstance(funding_history_payload, list) else [])
         if isinstance(row, dict)
     ]
+    funding_latest_timestamp = max(
+        (timestamp_ms(row.get("fundingTime")) or 0 for row in funding_history),
+        default=0,
+    ) or None
+    if funding_latest_timestamp is None:
+        errors.append("fundingHistory: latest fundingTime unavailable")
     funding_rates = [finite(row.get("fundingRate")) for row in funding_history]
     funding_rates = [rate for rate in funding_rates if rate is not None]
     current_funding = finite(premium.get("lastFundingRate"))
@@ -626,6 +683,9 @@ def scan_live(include_market: bool = False) -> dict[str, Any]:
     current_oi_endpoint = finite(oi_payload.get("openInterest")) if isinstance(oi_payload, dict) else None
     if current_oi_endpoint is None:
         errors.append("openInterest: current value unavailable")
+    oi_hist_latest_timestamp = timestamp_ms(oi_metrics.get("oiCurrentTimestamp"))
+    if oi_hist_latest_timestamp is None:
+        errors.append("openInterestHist: latest timestamp unavailable")
 
     reversal = analyze_reversal(one_closed, four_closed)
     daily_live_closes = [candle["close"] for candle in daily_all]
@@ -649,16 +709,30 @@ def scan_live(include_market: bool = False) -> dict[str, Any]:
         if finite(value) is None:
             errors.append(f"{label}: missing")
 
-    source_dates = sorted(
-        str(meta.get("date"))
-        for meta in metadata.values()
-        if isinstance(meta, dict) and isinstance(meta.get("date"), str)
-    )
+    source_dates: list[str] = []
+    for name, meta in metadata.items():
+        if isinstance(meta, list):
+            source_dates.extend(
+                f"{name}[{index}]={item.get('date')}"
+                for index, item in enumerate(meta)
+                if isinstance(item, dict) and isinstance(item.get("date"), str)
+            )
+        elif isinstance(meta, dict) and isinstance(meta.get("date"), str):
+            source_dates.append(f"{name}={meta.get('date')}")
+    source_dates.sort()
     metrics: dict[str, Any] = {
         "symbol": SYMBOL,
         "snapshotTime": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "sourceDates": source_dates,
         "dataErrors": sorted(set(errors)),
+        "tickerCloseTime": timestamp_ms(ticker.get("closeTime")),
+        "premiumTime": timestamp_ms(premium.get("time")),
+        "oiEndpointTime": timestamp_ms(oi_payload.get("time")) if isinstance(oi_payload, dict) else None,
+        "fundingLatestTimestamp": funding_latest_timestamp,
+        "oiHistLatestTimestamp": oi_hist_latest_timestamp,
+        "last1hClosedTime": timestamp_ms(one_closed[-1].get("closeTime")) if one_closed else None,
+        "last4hClosedTime": timestamp_ms(four_closed[-1].get("closeTime")) if four_closed else None,
+        "last1dClosedTime": timestamp_ms(daily_closed[-1].get("closeTime")) if daily_closed else None,
         "lastPrice": finite(ticker.get("lastPrice")),
         "markPrice": finite(premium.get("markPrice")),
         "indexPrice": finite(premium.get("indexPrice")),
@@ -703,20 +777,30 @@ def _fmt_pct(value: Any, decimals: int = 2) -> str:
     return "--" if number is None else f"{number:+.{decimals}f}%"
 
 
+def _fmt_timestamp(value: Any) -> str:
+    timestamp = timestamp_ms(value)
+    if timestamp is None:
+        return "--"
+    return datetime.fromtimestamp(timestamp / 1000.0, timezone.utc).isoformat(timespec="seconds")
+
+
 def format_detail(metrics: dict[str, Any]) -> str:
     reversal = metrics.get("reversal") or {}
     triggers = next_trigger_levels(metrics)
     errors = metrics.get("dataErrors") or []
     state = metrics.get("state") or determine_status(metrics)
+    squeeze = bool(metrics.get("squeezeRisk", squeeze_risk(metrics)))
+    squeeze_text = "SQUEEZE_RISK/逼空风险高" if squeeze else "NONE"
     lines = [
         f"[UAIUSDT MONITOR] snapshotUTC={metrics.get('snapshotTime')} source=Binance-Futures",
-        f"STATUS|{state}|autoTrade=false|squeezeRisk={bool(metrics.get('squeezeRisk', squeeze_risk(metrics)))}",
+        f"STATUS|{state}|autoTrade=false|squeezeRisk={squeeze}|risk={squeeze_text}",
         f"PRICE|last={_fmt(metrics.get('lastPrice'), 7)}|mark={_fmt(metrics.get('markPrice'), 7)}|index={_fmt(metrics.get('indexPrice'), 7)}|24h={_fmt_pct(metrics.get('change24hPct'))}|7d={_fmt_pct(metrics.get('return7dPct'))}|high24h={_fmt(metrics.get('high24h'), 7)}|low24h={_fmt(metrics.get('low24h'), 7)}|quoteVol={_fmt(metrics.get('quoteVolume24h'), 0)}",
         f"FUNDING|rate={_fmt_pct((finite(metrics.get('fundingRate')) or 0) * 100, 6)}|interval={metrics.get('fundingIntervalHours')}h|apr={_fmt_pct(metrics.get('fundingAprPct'), 2)}|percentile={_fmt(metrics.get('fundingPercentile'), 2)}|samples={metrics.get('fundingSamples')}",
         f"OI|currentContracts={_fmt(metrics.get('oiCurrent'), 0)}|currentValueUSD={_fmt(metrics.get('oiCurrentValue'), 2)}|24h={_fmt_pct(metrics.get('oi24hPct'))}|7d={_fmt_pct(metrics.get('oi7dPct'))}|samples={metrics.get('oiSamples')}",
         f"RSI|1hLive={_fmt(metrics.get('rsi1hLive'))}|1hClosed={_fmt(reversal.get('rsi1h'))}|4hLive={_fmt(metrics.get('rsi4hLive'))}|4hClosed={_fmt(reversal.get('rsi4h'))}|4hPeak7={_fmt(reversal.get('peakRsi4h'))}|1dLive={_fmt(metrics.get('dailyRsiLive'))}|1dClosed={_fmt(metrics.get('dailyRsiClosed'))}",
         f"STRUCTURE|1hBreak={bool(reversal.get('structureBreak1h'))}|4hBreak={bool(reversal.get('structureBreak4h'))}|1hCrossBelow80={bool(reversal.get('rsi1hCrossBelow80'))}|4hDeclining={bool(reversal.get('rsi4hDeclining'))}|bearDiv={bool(reversal.get('bearishDivergence'))}|reversalCount={reversal.get('reversalCount')}",
         f"LEVELS|next1hCloseTrigger={_fmt(triggers.get('trigger1h'), 7)}|next4hCloseTrigger={_fmt(triggers.get('trigger4h'), 7)}|recentHigh={_fmt(reversal.get('recentHigh'), 7)}|invalidation={_fmt(reversal.get('invalidationPrice'), 7)}|invalidationDistance={_fmt_pct(reversal.get('invalidationDistancePct'))}",
+        f"TIMES|tickerClose={_fmt_timestamp(metrics.get('tickerCloseTime'))}|premium={_fmt_timestamp(metrics.get('premiumTime'))}|openInterest={_fmt_timestamp(metrics.get('oiEndpointTime'))}|fundingLatest={_fmt_timestamp(metrics.get('fundingLatestTimestamp'))}|oiHistLatest={_fmt_timestamp(metrics.get('oiHistLatestTimestamp'))}|last1hClosed={_fmt_timestamp(metrics.get('last1hClosedTime'))}|last4hClosed={_fmt_timestamp(metrics.get('last4hClosedTime'))}|last1dClosed={_fmt_timestamp(metrics.get('last1dClosedTime'))}",
         f"DATA|errors={'NONE' if not errors else '; '.join(errors)}|action={'NONE' if not errors else '不调仓、不新增仓位、不执行交易'}|sourceDates={','.join(metrics.get('sourceDates') or [])}",
     ]
     market = metrics.get("market") or {}

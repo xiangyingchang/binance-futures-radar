@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import io
+import os
+import stat
 import sys
 import unittest
 import urllib.error
@@ -16,6 +18,13 @@ import uai_short_monitor as monitor  # noqa: E402  # type: ignore[import-not-fou
 class UaiMonitorPureFunctionTests(unittest.TestCase):
     def test_wilder_rsi_all_gain_is_100(self):
         self.assertEqual(monitor.current_rsi([1, 2, 3, 4, 5, 6, 7]), 100.0)
+
+    def test_parse_klines_rejects_invalid_ohlc_instead_of_using_zero(self):
+        valid = [1000, "1.0", "1.2", "0.9", "1.1", "0", 1999, "10"]
+        bad_missing = [1000, "1.0", "bad", "0.9", "1.1", "0", 1999, "10"]
+        bad_shape = [1000, "1.0", "0.8", "0.9", "1.1", "0", 1999, "10"]
+        self.assertEqual(len(monitor.parse_klines([valid])), 1)
+        self.assertEqual(monitor.parse_klines([bad_missing, bad_shape]), [])
 
     def test_percentile_rank_uses_less_or_equal(self):
         self.assertEqual(monitor.percentile_rank([0.1 + i * 0.1 for i in range(10)], 1.0), 100.0)
@@ -100,6 +109,18 @@ class UaiMonitorPureFunctionTests(unittest.TestCase):
         self.assertEqual(monitor._freshness_error({"ageSec": None}), "missing HTTP Date")
         self.assertEqual(monitor._freshness_error({"date": "bad", "ageSec": None}), "unparseable HTTP Date")
 
+    def test_payload_timestamp_requires_fresh_non_future_value(self):
+        now_ms = 1_700_000_000_000
+        self.assertIsNone(monitor._payload_timestamp_error("premium.time", now_ms - 30_000, now_ms))
+        self.assertIn("timestamp age", monitor._payload_timestamp_error("premium.time", now_ms - 181_000, now_ms) or "")
+        self.assertIn("future", monitor._payload_timestamp_error("premium.time", now_ms + 6_000, now_ms) or "")
+
+    def test_wrapper_files_are_executable(self):
+        root = Path(__file__).resolve().parents[1] / "scripts" / "hermes"
+        for name in ("uai-short-monitor.py", "uai-short-monitor-state.py", "uai_short_monitor.py"):
+            mode = os.stat(root / name).st_mode
+            self.assertTrue(mode & stat.S_IXUSR, name)
+
     def test_rate_limit_is_not_retried_through_second_opener(self):
         class RateLimitedOpener:
             def __init__(self):
@@ -153,6 +174,7 @@ class UaiMonitorPureFunctionTests(unittest.TestCase):
         output = monitor.format_detail(metrics)
         self.assertIn("autoTrade=false", output)
         self.assertIn("STATUS|WATCH_EXTREME", output)
+        self.assertIn("SQUEEZE_RISK/逼空风险高", output)
 
     def test_top_level_failure_degrades_to_data_error(self):
         buffer = io.StringIO()
