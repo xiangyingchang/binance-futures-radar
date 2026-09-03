@@ -190,17 +190,25 @@ function entrySet(sim) {
 
 function matchEpisodes(candidateEpisodes, vaEpisodes) {
   const used = new Set();
-  const matched = candidateEpisodes.map((candidate) => {
-    let best = null;
-    for (let i = 0; i < vaEpisodes.length; i += 1) {
-      if (used.has(i)) continue;
-      const va = vaEpisodes[i];
-      const distance = Math.abs(va.entryIdx - candidate.entryIdx);
-      if (distance > 21) continue;
-      if (!best || distance < best.distance) best = { index: i, va, distance };
+  const pairs = [];
+  for (let candidateIndex = 0; candidateIndex < candidateEpisodes.length; candidateIndex += 1) {
+    for (let vaIndex = 0; vaIndex < vaEpisodes.length; vaIndex += 1) {
+      const distance = Math.abs(vaEpisodes[vaIndex].entryIdx - candidateEpisodes[candidateIndex].entryIdx);
+      if (distance <= 21) pairs.push({ candidateIndex, vaIndex, distance });
     }
-    if (best) used.add(best.index);
-    return { candidate, va: best?.va || null, distance: best?.distance ?? null };
+  }
+  pairs.sort((a, b) => a.distance - b.distance || a.candidateIndex - b.candidateIndex || a.vaIndex - b.vaIndex);
+  const assignments = new Map();
+  for (const pair of pairs) {
+    if (assignments.has(pair.candidateIndex) || used.has(pair.vaIndex)) continue;
+    assignments.set(pair.candidateIndex, pair);
+    used.add(pair.vaIndex);
+  }
+  const matched = candidateEpisodes.map((candidate, candidateIndex) => {
+    const pair = assignments.get(candidateIndex);
+    return pair
+      ? { candidate, va: vaEpisodes[pair.vaIndex], distance: pair.distance }
+      : { candidate, va: null, distance: null };
   });
   return { matched, used };
 }
