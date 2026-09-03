@@ -572,8 +572,21 @@ async function main() {
   const e2 = loadE2Reference();
   const e7Reference = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'research', 'btc-v4-e7-l3-frequency-result.json'), 'utf8'));
   const e7RefVariants = e7Reference.variants || {};
+  const legacyModes = { 'V-A': 'weekly', 'V-B': 'enterDaily', 'V-C': 'fullDaily' };
+  const legacyPrimary = Object.entries(legacyModes).map(([name, mode]) => {
+    const sim = E.simulate(rows, ind, startIdx, endIdx, mode);
+    return {
+      variant: name,
+      stack: sim.stack,
+      excessPct: (sim.stack / dca.stack - 1) * 100,
+      switches: sim.switches,
+      feeBtcPaidPct: sim.feeBtcPaidPct,
+      overrideDays: sim.overrideDays,
+      hedgeDays: sim.hedgeDays,
+    };
+  });
   const regressionRows = ['V-A', 'V-B', 'V-C'].map((name) => {
-    const current = primary.find((r) => r.variant === name);
+    const current = legacyPrimary.find((r) => r.variant === name);
     const expected = e7RefVariants[name];
     const diffs = expected ? {
       stack: current.stack - expected.stack,
