@@ -563,12 +563,31 @@ function maeSummary(activeEpisodes) {
   const values = activeEpisodes.map((e) => e.postEntryMaxDrawdownPct).filter(Number.isFinite);
   return {
     n: values.length,
+    negativeCount: values.filter((v) => v < 0).length,
     p50Pct: quantile(values, 0.50),
     p90Pct: quantile(values, 0.90),
     p95Pct: quantile(values, 0.95),
     maxPct: values.length ? Math.min(...values) : null,
     minPct: values.length ? Math.min(...values) : null,
     valuesPct: values,
+  };
+}
+
+function loadE5Reference() {
+  const file = path.join(__dirname, '..', 'research', 'btc-v3-e3e4e5-result.json');
+  if (!fs.existsSync(file)) return null;
+  const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const row = parsed.e5Bootstrap?.e3_short_current;
+  if (!row) return null;
+  return {
+    source: 'research/btc-v3-e3e4e5-result.json:e5Bootstrap.e3_short_current',
+    draws: row.draws,
+    seed: row.seed,
+    nOverrideSegments: row.nOverrideSegments,
+    nHedgeSegments: row.nHedgeSegments,
+    p10ExcessPct: row.p10ExcessPct,
+    p50ExcessPct: row.p50ExcessPct,
+    p90ExcessPct: row.p90ExcessPct,
   };
 }
 
@@ -940,7 +959,7 @@ function renderReport(out) {
   const lines = [];
   lines.push('# E7：BTC V4 深水区 override 入场/校准频率消融实验');
   lines.push('');
-  lines.push('> 研究用途；不改生产 cron、不改 Forward Test ledger、不改冻结参数；最终结论等待人工裁决。深水区 episode 样本为个位数，以下均为方向性证据。');
+  lines.push('> 研究用途；不改生产 cron、不改 Forward Test ledger、不改冻结参数；最终结论等待人工裁决。共同 gate episode 共 29 个，实际 L3 入场为 10/13/17 个，样本仍偏少，以下均为方向性证据。');
   lines.push('');
   lines.push(`运行时间：${out.generatedAt}；预注册：${out.preregistration.commits.join(', ')}；证据基线：${out.preregistration.evidenceTag} / ${out.preregistration.evidenceCommit}`);
   lines.push('');
@@ -965,6 +984,9 @@ function renderReport(out) {
   for (const row of p) lines.push(`| ${row.variant} | ${fmtNum(row.systemBtc, 2)} | ${fmtPct(row.excessBtcPct)} | ${row.variant === 'V-A' ? '—' : fmtPct(row.relativeFinalBtcVsVaPct)} | ${row.l3Entries} | ${row.overrideDays} | ${fmtPct(row.feePaidPctOfStack)} |`);
   lines.push('');
   lines.push(`V-A 基准：${fmtNum(va.systemBtc, 2)} BTC；相对纯 DCA 超额 ${fmtPct(va.excessBtcPct)}。相对 V-A 的“终值差”与超额百分点差同时保存在 result.json，避免只看一个口径。`);
+  const vbMain = p.find((r) => r.variant === 'V-B');
+  const vcMain = p.find((r) => r.variant === 'V-C');
+  lines.push(`全样本总费用率相对 V-A：V-B ${fmtPct(vbMain.feePaidPctOfStack - va.feePaidPctOfStack)}、V-C ${fmtPct(vcMain.feePaidPctOfStack - va.feePaidPctOfStack)}；这是额外状态变动的全程结果，不等同于每个提前入场区间都产生额外费用。`);
   lines.push('');
   lines.push('固定窗口稳健性检查：');
   lines.push('');
@@ -1023,9 +1045,9 @@ function renderReport(out) {
   lines.push('');
   lines.push('最大跌幅按日收盘、从 L3 入场参考价计算；这是市场价格回撤，不等于合约账户权益回撤。');
   lines.push('');
-  lines.push('| 变体 | n | P50 | P90 | P95 | 最深 | 相对 V-A 尾部 |');
-  lines.push('|---|---:|---:|---:|---:|---:|---|');
-  for (const [name, row] of Object.entries(out.postEntryMae)) lines.push(`| ${name} | ${row.n} | ${fmtPct(row.p50Pct)} | ${fmtPct(row.p90Pct)} | ${fmtPct(row.p95Pct)} | ${fmtPct(row.minPct)} | ${name === 'V-A' ? '—' : (row.tailDeeperVsVa ? '最深值更深' : '不更深')} |`);
+  lines.push('| 变体 | n | 有负回撤 | P50 | P90 | P95 | 最深 | 相对 V-A 尾部 |');
+  lines.push('|---|---:|---:|---:|---:|---:|---:|---|');
+  for (const [name, row] of Object.entries(out.postEntryMae)) lines.push(`| ${name} | ${row.n} | ${row.negativeCount} | ${fmtPct(row.p50Pct)} | ${fmtPct(row.p90Pct)} | ${fmtPct(row.p95Pct)} | ${fmtPct(row.minPct)} | ${name === 'V-A' ? '—' : (row.tailDeeperVsVa ? '最深值更深' : '不更深')} |`);
   lines.push('');
   lines.push(`E2 基准压力验收切片（10% 维持保证金、20% wick、高资金费率）中，1.5x 最小余量为 ${fmtNum(out.e2Stress.base.byLeverage.find((r) => r.leverage === 1.5).worstMinHeadroomAcceptanceSlice, 3)}x；无爆仓，达到 ≥3x。`);
   lines.push('');
@@ -1043,6 +1065,10 @@ function renderReport(out) {
   for (const row of out.acceptance) lines.push(`| ${row.variant} | ${fmtPct(row.observedRelativeFinalBtcVsVaPct)} | ${fmtPct(row.bootstrap.p10RelativePct)} 至 ${fmtPct(row.bootstrap.p90RelativePct)} | ${row.passBootstrap ? '是' : '否'} | ${row.passLeaveOneOut ? '是' : '否'} | ${row.passSolvency ? '是' : '否'} | ${row.passAll ? '是' : '否'} |`);
   lines.push('');
   lines.push('bootstrap 固定为 E5 同款 10,000 次、有放回、seed=20260831；E7 将候选/V-A 的 canonical episode isolated contribution 做配对抽样，故它是 E5-style paired extension，不冒充独立同分布的精确置信区间。');
+  if (out.e5OriginalSegmentBootstrapReference) {
+    const ref = out.e5OriginalSegmentBootstrapReference;
+    lines.push(`E5 原始 e3_short_current segment bootstrap 参考：P10 ${fmtPct(ref.p10ExcessPct)}、P50 ${fmtPct(ref.p50ExcessPct)}、P90 ${fmtPct(ref.p90ExcessPct)}（${ref.nOverrideSegments} 个 override segment、${ref.nHedgeSegments} 个 hedge segment）；它与 E7 的候选/V-A 相对终值差单位不同，仅作方法参考，不直接作为晋级门槛。`);
+  }
   lines.push('');
   lines.push('## 局限和人工裁决');
   lines.push('');
@@ -1171,6 +1197,7 @@ async function main() {
 
   const e2Base = summarizeE2Base();
   const e2ByVariant = Object.fromEntries(Object.entries(simulations).map(([name, sim]) => [name, summarizeE2ForVariant(sim)]));
+  const e5OriginalSegmentBootstrapReference = loadE5Reference();
   const vaE2 = e2ByVariant['V-A'];
   const acceptance = ['V-B', 'V-C'].map((name) => {
     const primary = primaryComparison.find((r) => r.variant === name);
@@ -1220,6 +1247,7 @@ async function main() {
     leaveOneOut: { summary: looSummary, rows: looRows },
     episodeOnlyContributions: Object.fromEntries(Object.entries(episodeOnlyContributions).map(([name, values]) => [name, values.map((value, i) => ({ episodeId: episodes[i].id, multiplier: value }))])),
     e5StylePairedBootstrap: bootstrap,
+    e5OriginalSegmentBootstrapReference,
     e2Stress: { base: e2Base, byVariant: e2ByVariant },
     acceptance,
     conclusion,
