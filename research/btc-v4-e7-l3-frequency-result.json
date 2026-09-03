@@ -1,0 +1,943 @@
+{
+  "meta": {
+    "generated": "2026-09-03T13:02:27.408Z",
+    "seed": 20260903,
+    "window": "2011-07-19..2026-05-23",
+    "ahrMedianErrPct": 0.7,
+    "engine": "linear daily approximation (no funding/convexity/wicks); solvency per E2",
+    "prereg": "research/btc-v4-e7-preregistration.md @ 1e79435"
+  },
+  "baseline": {
+    "dcaStack": 11072.1652,
+    "invested": 532140
+  },
+  "variants": {
+    "V-A": {
+      "stack": 106458.9067,
+      "excessPct": 861.5,
+      "switches": 57,
+      "feeBtcPaidPct": 6.1,
+      "overrideDays": 497,
+      "hedgeDays": 736,
+      "overlayRatioMddPct": -50.3,
+      "episodes": [
+        {
+          "entry": "2011-11-06",
+          "exit": "2011-12-25",
+          "entryPrice": 3,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2015-01-18",
+          "exit": "2015-01-25",
+          "entryPrice": 211,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2015-02-01",
+          "exit": "2015-02-15",
+          "entryPrice": 227,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2015-08-23",
+          "exit": "2015-10-18",
+          "entryPrice": 229,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2018-11-25",
+          "exit": "2019-02-24",
+          "entryPrice": 3947,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2020-03-15",
+          "exit": "2020-04-05",
+          "entryPrice": 5359,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2022-06-19",
+          "exit": "2022-07-31",
+          "entryPrice": 20492,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2022-08-21",
+          "exit": "2022-11-06",
+          "entryPrice": 21554,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2022-11-13",
+          "exit": "2023-01-15",
+          "entryPrice": 16320,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2026-02-08",
+          "exit": "2026-04-26",
+          "entryPrice": 70523,
+          "killed": false,
+          "openAtEnd": false
+        }
+      ]
+    },
+    "V-B": {
+      "stack": 58057.3293,
+      "excessPct": 424.4,
+      "switches": 63,
+      "feeBtcPaidPct": 6.6,
+      "overrideDays": 584,
+      "hedgeDays": 697,
+      "overlayRatioMddPct": -49,
+      "episodes": [
+        {
+          "entry": "2011-10-18",
+          "exit": "2011-10-30",
+          "entryPrice": 2,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2011-10-31",
+          "exit": "2011-12-25",
+          "entryPrice": 3,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2015-01-14",
+          "exit": "2015-01-25",
+          "entryPrice": 176,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2015-01-31",
+          "exit": "2015-02-15",
+          "entryPrice": 217,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2015-04-15",
+          "exit": "2015-05-03",
+          "entryPrice": 223,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2015-08-19",
+          "exit": "2015-10-18",
+          "entryPrice": 227,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2018-11-25",
+          "exit": "2019-02-24",
+          "entryPrice": 3947,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2020-03-13",
+          "exit": "2020-04-05",
+          "entryPrice": 5628,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2022-06-14",
+          "exit": "2022-07-31",
+          "entryPrice": 22073,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2022-08-20",
+          "exit": "2022-11-06",
+          "entryPrice": 21147,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2022-11-09",
+          "exit": "2023-01-15",
+          "entryPrice": 15758,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2023-09-12",
+          "exit": "2023-10-08",
+          "entryPrice": 25860,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2026-02-04",
+          "exit": "2026-04-26",
+          "entryPrice": 73095,
+          "killed": false,
+          "openAtEnd": false
+        }
+      ]
+    },
+    "V-C": {
+      "stack": 74104.2052,
+      "excessPct": 569.3,
+      "switches": 71,
+      "feeBtcPaidPct": 7.4,
+      "overrideDays": 524,
+      "hedgeDays": 725,
+      "overlayRatioMddPct": -49,
+      "episodes": [
+        {
+          "entry": "2011-10-18",
+          "exit": "2011-10-30",
+          "entryPrice": 2,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2011-10-31",
+          "exit": "2011-12-21",
+          "entryPrice": 3,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2015-01-14",
+          "exit": "2015-01-25",
+          "entryPrice": 176,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2015-01-31",
+          "exit": "2015-02-15",
+          "entryPrice": 217,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2015-04-15",
+          "exit": "2015-04-22",
+          "entryPrice": 223,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2015-04-27",
+          "exit": "2015-05-01",
+          "entryPrice": 227,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2015-08-19",
+          "exit": "2015-10-18",
+          "entryPrice": 227,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2018-11-25",
+          "exit": "2018-11-29",
+          "entryPrice": 3947,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2018-12-04",
+          "exit": "2019-01-07",
+          "entryPrice": 3893,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2019-01-11",
+          "exit": "2019-02-20",
+          "entryPrice": 3624,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2020-03-13",
+          "exit": "2020-03-25",
+          "entryPrice": 5628,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2020-03-29",
+          "exit": "2020-04-03",
+          "entryPrice": 5905,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2022-06-14",
+          "exit": "2022-07-29",
+          "entryPrice": 22073,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2022-08-20",
+          "exit": "2022-11-05",
+          "entryPrice": 21147,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2022-11-09",
+          "exit": "2023-01-14",
+          "entryPrice": 15758,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2023-09-12",
+          "exit": "2023-09-20",
+          "entryPrice": 25860,
+          "killed": false,
+          "openAtEnd": false
+        },
+        {
+          "entry": "2026-02-04",
+          "exit": "2026-04-18",
+          "entryPrice": 73095,
+          "killed": false,
+          "openAtEnd": false
+        }
+      ]
+    }
+  },
+  "qa_skippedWindows": [
+    {
+      "start": "2011-10-18",
+      "end": "2011-10-22",
+      "days": 5,
+      "entryPrice": 2.42227473816482,
+      "fwd30": -5.9,
+      "fwd90": 177.2
+    },
+    {
+      "start": "2011-10-24",
+      "end": "2011-10-29",
+      "days": 6,
+      "entryPrice": 2.52293599766219,
+      "fwd30": -7.6,
+      "fwd90": 149.8
+    },
+    {
+      "start": "2015-02-04",
+      "end": "2015-02-07",
+      "days": 4,
+      "entryPrice": 226.781134132087,
+      "fwd30": 20.5,
+      "fwd90": 4.1
+    },
+    {
+      "start": "2015-02-09",
+      "end": "2015-02-13",
+      "days": 5,
+      "entryPrice": 220.768493863238,
+      "fwd30": 34.4,
+      "fwd90": 9
+    },
+    {
+      "start": "2015-04-15",
+      "end": "2015-04-15",
+      "days": 1,
+      "entryPrice": 223.313907948568,
+      "fwd30": 6.3,
+      "fwd90": 28.9
+    },
+    {
+      "start": "2015-04-27",
+      "end": "2015-04-27",
+      "days": 1,
+      "entryPrice": 227.325990356517,
+      "fwd30": 4.3,
+      "fwd90": 29
+    },
+    {
+      "start": "2018-12-26",
+      "end": "2018-12-28",
+      "days": 3,
+      "entryPrice": 3807.65745353594,
+      "fwd30": -6.5,
+      "fwd90": 2.9
+    },
+    {
+      "start": "2019-01-01",
+      "end": "2019-01-01",
+      "days": 1,
+      "entryPrice": 3808.11783167738,
+      "fwd30": -10.5,
+      "fwd90": 8.7
+    },
+    {
+      "start": "2019-01-04",
+      "end": "2019-01-04",
+      "days": 1,
+      "entryPrice": 3827.52459438925,
+      "fwd30": -10.8,
+      "fwd90": 28.3
+    },
+    {
+      "start": "2022-07-26",
+      "end": "2022-07-27",
+      "days": 2,
+      "entryPrice": 21181.6591967855,
+      "fwd30": 1.9,
+      "fwd90": -8.7
+    },
+    {
+      "start": "2023-09-12",
+      "end": "2023-09-12",
+      "days": 1,
+      "entryPrice": 25859.7018068381,
+      "fwd30": 3.4,
+      "fwd90": 59.4
+    },
+    {
+      "start": "2026-04-13",
+      "end": "2026-04-13",
+      "days": 1,
+      "entryPrice": 74632.7455856224,
+      "fwd30": 6.2,
+      "fwd90": null
+    }
+  ],
+  "qb_earlyEntryLedger": [
+    {
+      "vbEntry": "2011-10-18",
+      "vaEntry": "2011-11-06",
+      "daysEarly": 19,
+      "priceChangeWhileEarlyPct": 22.31,
+      "vbEntryPrice": 2.42227473816482,
+      "vaEntryPrice": 2.96272057685564
+    },
+    {
+      "vbEntry": "2011-10-31",
+      "vaEntry": "2011-11-06",
+      "daysEarly": 6,
+      "priceChangeWhileEarlyPct": -9.26,
+      "vbEntryPrice": 3.26509821274109,
+      "vaEntryPrice": 2.96272057685564
+    },
+    {
+      "vbEntry": "2015-01-14",
+      "vaEntry": "2015-01-18",
+      "daysEarly": 4,
+      "priceChangeWhileEarlyPct": 20.21,
+      "vbEntryPrice": 175.637640561075,
+      "vaEntryPrice": 211.132518410286
+    },
+    {
+      "vbEntry": "2015-01-31",
+      "vaEntry": "2015-02-01",
+      "daysEarly": 1,
+      "priceChangeWhileEarlyPct": 4.5,
+      "vbEntryPrice": 217.332156049094,
+      "vaEntryPrice": 227.111301285798
+    },
+    {
+      "vbEntry": "2015-04-15",
+      "vaEntry": null,
+      "daysEarly": null,
+      "note": "no matching V-A episode within 21d (V-A skipped or merged)"
+    },
+    {
+      "vbEntry": "2015-08-19",
+      "vaEntry": "2015-08-23",
+      "daysEarly": 4,
+      "priceChangeWhileEarlyPct": 0.64,
+      "vbEntryPrice": 227.218251899474,
+      "vaEntryPrice": 228.673073933372
+    },
+    {
+      "vbEntry": "2020-03-13",
+      "vaEntry": "2020-03-15",
+      "daysEarly": 2,
+      "priceChangeWhileEarlyPct": -4.78,
+      "vbEntryPrice": 5627.69238836938,
+      "vaEntryPrice": 5358.61066335476
+    },
+    {
+      "vbEntry": "2022-06-14",
+      "vaEntry": "2022-06-19",
+      "daysEarly": 5,
+      "priceChangeWhileEarlyPct": -7.16,
+      "vbEntryPrice": 22072.8663085915,
+      "vaEntryPrice": 20492.2951683226
+    },
+    {
+      "vbEntry": "2022-08-20",
+      "vaEntry": "2022-08-21",
+      "daysEarly": 1,
+      "priceChangeWhileEarlyPct": 1.93,
+      "vbEntryPrice": 21146.6548021625,
+      "vaEntryPrice": 21553.9961717125
+    },
+    {
+      "vbEntry": "2022-11-09",
+      "vaEntry": "2022-11-13",
+      "daysEarly": 4,
+      "priceChangeWhileEarlyPct": 3.57,
+      "vbEntryPrice": 15758.2912819988,
+      "vaEntryPrice": 16320.4983375219
+    },
+    {
+      "vbEntry": "2023-09-12",
+      "vaEntry": null,
+      "daysEarly": null,
+      "note": "no matching V-A episode within 21d (V-A skipped or merged)"
+    },
+    {
+      "vbEntry": "2026-02-04",
+      "vaEntry": "2026-02-08",
+      "daysEarly": 4,
+      "priceChangeWhileEarlyPct": -3.52,
+      "vbEntryPrice": 73095.1914646406,
+      "vaEntryPrice": 70522.5892393337
+    }
+  ],
+  "qc_leaveOneOut": [
+    {
+      "masked": "2011-11-06..2011-12-25",
+      "excessA": 845.3,
+      "excessB": 415.5,
+      "excessC": 556.7,
+      "bMinusA": -429.8,
+      "cMinusA": -288.56
+    },
+    {
+      "masked": "2015-01-18..2015-01-25",
+      "excessA": 599.5,
+      "excessB": 220.6,
+      "excessC": 283.6,
+      "bMinusA": -378.9,
+      "cMinusA": -315.82
+    },
+    {
+      "masked": "2015-02-01..2015-02-15",
+      "excessA": 655.6,
+      "excessB": 257.8,
+      "excessC": 328.3,
+      "bMinusA": -397.81,
+      "cMinusA": -327.37
+    },
+    {
+      "masked": "2015-08-23..2015-10-18",
+      "excessA": 714.3,
+      "excessB": 343.7,
+      "excessC": 466.3,
+      "bMinusA": -370.61,
+      "cMinusA": -248.03
+    },
+    {
+      "masked": "2018-11-25..2019-02-24",
+      "excessA": 868.2,
+      "excessB": 428,
+      "excessC": 522.3,
+      "bMinusA": -440.2,
+      "cMinusA": -345.86
+    },
+    {
+      "masked": "2020-03-15..2020-04-05",
+      "excessA": 541,
+      "excessB": 370.8,
+      "excessC": 438.8,
+      "bMinusA": -170.26,
+      "cMinusA": -102.2
+    },
+    {
+      "masked": "2022-06-19..2022-07-31",
+      "excessA": 607.5,
+      "excessB": 194.2,
+      "excessC": 272.6,
+      "bMinusA": -413.33,
+      "cMinusA": -334.92
+    },
+    {
+      "masked": "2022-08-21..2022-11-06",
+      "excessA": 873.6,
+      "excessB": 429.3,
+      "excessC": 581.7,
+      "bMinusA": -444.22,
+      "cMinusA": -291.87
+    },
+    {
+      "masked": "2022-11-13..2023-01-15",
+      "excessA": 632.1,
+      "excessB": 298.1,
+      "excessC": 421.9,
+      "bMinusA": -334.06,
+      "cMinusA": -210.23
+    },
+    {
+      "masked": "2026-02-08..2026-04-26",
+      "excessA": 723.8,
+      "excessB": 347.9,
+      "excessC": 476.8,
+      "bMinusA": -375.88,
+      "cMinusA": -246.94
+    }
+  ],
+  "qd_postEntryDrawdown": {
+    "V-A": [
+      {
+        "entry": "2011-11-06",
+        "exit": "2011-12-25",
+        "postEntryMaxDDPct": -28.9,
+        "minDate": "2011-11-18",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2015-01-18",
+        "exit": "2015-01-25",
+        "postEntryMaxDDPct": 0,
+        "minDate": "2015-01-18",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2015-02-01",
+        "exit": "2015-02-15",
+        "postEntryMaxDDPct": -4.4,
+        "minDate": "2015-02-05",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2015-08-23",
+        "exit": "2015-10-18",
+        "postEntryMaxDDPct": -7.3,
+        "minDate": "2015-08-24",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2018-11-25",
+        "exit": "2019-02-24",
+        "postEntryMaxDDPct": -19.3,
+        "minDate": "2018-12-15",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2020-03-15",
+        "exit": "2020-04-05",
+        "postEntryMaxDDPct": -6.5,
+        "minDate": "2020-03-16",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2022-06-19",
+        "exit": "2022-07-31",
+        "postEntryMaxDDPct": -6.2,
+        "minDate": "2022-07-02",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2022-08-21",
+        "exit": "2022-11-06",
+        "postEntryMaxDDPct": -14.1,
+        "minDate": "2022-09-21",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2022-11-13",
+        "exit": "2023-01-15",
+        "postEntryMaxDDPct": -3.3,
+        "minDate": "2022-11-21",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2026-02-08",
+        "exit": "2026-04-26",
+        "postEntryMaxDDPct": -9.1,
+        "minDate": "2026-02-24",
+        "killed": false,
+        "openAtEnd": false
+      }
+    ],
+    "V-B": [
+      {
+        "entry": "2011-10-18",
+        "exit": "2011-10-30",
+        "postEntryMaxDDPct": -8.5,
+        "minDate": "2011-10-19",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2011-10-31",
+        "exit": "2011-12-25",
+        "postEntryMaxDDPct": -35.5,
+        "minDate": "2011-11-18",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2015-01-14",
+        "exit": "2015-01-25",
+        "postEntryMaxDDPct": 0,
+        "minDate": "2015-01-14",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2015-01-31",
+        "exit": "2015-02-15",
+        "postEntryMaxDDPct": -0.1,
+        "minDate": "2015-02-05",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2015-04-15",
+        "exit": "2015-05-03",
+        "postEntryMaxDDPct": -1.3,
+        "minDate": "2015-04-26",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2015-08-19",
+        "exit": "2015-10-18",
+        "postEntryMaxDDPct": -6.7,
+        "minDate": "2015-08-24",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2018-11-25",
+        "exit": "2019-02-24",
+        "postEntryMaxDDPct": -19.3,
+        "minDate": "2018-12-15",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2020-03-13",
+        "exit": "2020-04-05",
+        "postEntryMaxDDPct": -10.9,
+        "minDate": "2020-03-16",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2022-06-14",
+        "exit": "2022-07-31",
+        "postEntryMaxDDPct": -13.9,
+        "minDate": "2022-06-18",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2022-08-20",
+        "exit": "2022-11-06",
+        "postEntryMaxDDPct": -12.5,
+        "minDate": "2022-09-21",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2022-11-09",
+        "exit": "2023-01-15",
+        "postEntryMaxDDPct": 0,
+        "minDate": "2022-11-09",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2023-09-12",
+        "exit": "2023-10-08",
+        "postEntryMaxDDPct": 0,
+        "minDate": "2023-09-12",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2026-02-04",
+        "exit": "2026-04-26",
+        "postEntryMaxDDPct": -13.1,
+        "minDate": "2026-02-05",
+        "killed": false,
+        "openAtEnd": false
+      }
+    ],
+    "V-C": [
+      {
+        "entry": "2011-10-18",
+        "exit": "2011-10-30",
+        "postEntryMaxDDPct": -8.5,
+        "minDate": "2011-10-19",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2011-10-31",
+        "exit": "2011-12-21",
+        "postEntryMaxDDPct": -35.5,
+        "minDate": "2011-11-18",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2015-01-14",
+        "exit": "2015-01-25",
+        "postEntryMaxDDPct": 0,
+        "minDate": "2015-01-14",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2015-01-31",
+        "exit": "2015-02-15",
+        "postEntryMaxDDPct": -0.1,
+        "minDate": "2015-02-05",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2015-04-15",
+        "exit": "2015-04-22",
+        "postEntryMaxDDPct": -0.2,
+        "minDate": "2015-04-17",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2015-04-27",
+        "exit": "2015-05-01",
+        "postEntryMaxDDPct": -0.8,
+        "minDate": "2015-04-28",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2015-08-19",
+        "exit": "2015-10-18",
+        "postEntryMaxDDPct": -6.7,
+        "minDate": "2015-08-24",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2018-11-25",
+        "exit": "2018-11-29",
+        "postEntryMaxDDPct": -6.2,
+        "minDate": "2018-11-26",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2018-12-04",
+        "exit": "2019-01-07",
+        "postEntryMaxDDPct": -18.2,
+        "minDate": "2018-12-15",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2019-01-11",
+        "exit": "2019-02-20",
+        "postEntryMaxDDPct": -7.3,
+        "minDate": "2019-02-07",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2020-03-13",
+        "exit": "2020-03-25",
+        "postEntryMaxDDPct": -10.9,
+        "minDate": "2020-03-16",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2020-03-29",
+        "exit": "2020-04-03",
+        "postEntryMaxDDPct": 0,
+        "minDate": "2020-03-29",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2022-06-14",
+        "exit": "2022-07-29",
+        "postEntryMaxDDPct": -13.9,
+        "minDate": "2022-06-18",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2022-08-20",
+        "exit": "2022-11-05",
+        "postEntryMaxDDPct": -12.5,
+        "minDate": "2022-09-21",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2022-11-09",
+        "exit": "2023-01-14",
+        "postEntryMaxDDPct": 0,
+        "minDate": "2022-11-09",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2023-09-12",
+        "exit": "2023-09-20",
+        "postEntryMaxDDPct": 0,
+        "minDate": "2023-09-12",
+        "killed": false,
+        "openAtEnd": false
+      },
+      {
+        "entry": "2026-02-04",
+        "exit": "2026-04-18",
+        "postEntryMaxDDPct": -13.1,
+        "minDate": "2026-02-05",
+        "killed": false,
+        "openAtEnd": false
+      }
+    ]
+  },
+  "bootstrapBand": {
+    "bMinusA": {
+      "p10": -37.6,
+      "p50": -14.4,
+      "p90": 10
+    },
+    "cMinusA": {
+      "p10": -34.9,
+      "p50": -6.9,
+      "p90": 22.4
+    }
+  }
+}
