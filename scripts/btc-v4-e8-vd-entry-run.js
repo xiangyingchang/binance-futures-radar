@@ -1,7 +1,7 @@
 'use strict';
 
 // E8 runner: Bear-Lock-aware L3 entry rules.
-// Preregistration: research/btc-v4-e8-vd-entry-preregistration.md @ ca2c2ba
+// Preregistration: research/btc-v4-e8-vd-entry-preregistration.md @ 1b364bd
 // Engine: scripts/btc-v4-e7-l3-frequency-engine.js; only vd1/vd2 were added
 // to the engine's l3Mode dispatcher. Existing E7 modes are regression-checked.
 
@@ -19,6 +19,7 @@ const BOOTSTRAP_DRAWS = 10000;
 const BOOTSTRAP_SEED = 20260903;
 const OVERRIDE_LEV = 1.5;
 const FEE = E.FEE;
+const PREREG_COMMIT = '1b364bd';
 const TIERS = [
   [0.45, 1400], [0.75, 1225], [1.0, 700],
   [1.2, 420], [5.0, 210], [Infinity, 140],
@@ -93,8 +94,11 @@ function intervalExposureComparison(rows, candidatePath, vaPath, fromIdx, toIdx)
     return {
       fromDate: null, toDate: null, days: 0,
       opportunityDays: 0, protectionLossDays: 0,
+      missedOverrideDays: 0,
       opportunityPriceReturnPct: 0, protectionPriceReturnPct: 0,
+      missedOverridePriceReturnPct: 0,
       opportunityRelativeOverlayPct: 0, protectionRelativeOverlayPct: 0,
+      missedOverrideRelativeOverlayPct: 0,
       totalRelativeOverlayPct: 0,
     };
   }
@@ -102,9 +106,12 @@ function intervalExposureComparison(rows, candidatePath, vaPath, fromIdx, toIdx)
   let protectionPrice = 1;
   let opportunityOverlay = 1;
   let protectionOverlay = 1;
+  let missedOverridePrice = 1;
+  let missedOverrideOverlay = 1;
   let totalOverlay = 1;
   let opportunityDays = 0;
   let protectionLossDays = 0;
+  let missedOverrideDays = 0;
   let days = 0;
   for (let i = fromIdx; i <= toIdx; i += 1) {
     const c = candidatePath?.[i];
@@ -123,6 +130,11 @@ function intervalExposureComparison(rows, candidatePath, vaPath, fromIdx, toIdx)
       protectionPrice *= 1 + r;
       protectionOverlay *= oneDayRelative(c.exposure, a.exposure, r);
     }
+    if (c.exposure !== OVERRIDE_LEV && a.exposure === OVERRIDE_LEV) {
+      missedOverrideDays += 1;
+      missedOverridePrice *= 1 + r;
+      missedOverrideOverlay *= oneDayRelative(c.exposure, a.exposure, r);
+    }
   }
   return {
     fromDate: rows[fromIdx]?.date || null,
@@ -130,10 +142,13 @@ function intervalExposureComparison(rows, candidatePath, vaPath, fromIdx, toIdx)
     days,
     opportunityDays,
     protectionLossDays,
+    missedOverrideDays,
     opportunityPriceReturnPct: (opportunityPrice - 1) * 100,
     protectionPriceReturnPct: (protectionPrice - 1) * 100,
+    missedOverridePriceReturnPct: (missedOverridePrice - 1) * 100,
     opportunityRelativeOverlayPct: (opportunityOverlay - 1) * 100,
     protectionRelativeOverlayPct: (protectionOverlay - 1) * 100,
+    missedOverrideRelativeOverlayPct: (missedOverrideOverlay - 1) * 100,
     totalRelativeOverlayPct: (totalOverlay - 1) * 100,
   };
 }
@@ -175,7 +190,7 @@ function entrySet(sim) {
 
 function matchEpisodes(candidateEpisodes, vaEpisodes) {
   const used = new Set();
-  return candidateEpisodes.map((candidate) => {
+  const matched = candidateEpisodes.map((candidate) => {
     let best = null;
     for (let i = 0; i < vaEpisodes.length; i += 1) {
       if (used.has(i)) continue;
@@ -187,6 +202,7 @@ function matchEpisodes(candidateEpisodes, vaEpisodes) {
     if (best) used.add(best.index);
     return { candidate, va: best?.va || null, distance: best?.distance ?? null };
   });
+  return { matched, used };
 }
 
 function entryLedger(rows, simulations) {
@@ -194,7 +210,8 @@ function entryLedger(rows, simulations) {
   const out = {};
   for (const name of ['V-D1', 'V-D2']) {
     const sim = simulations[name];
-    out[name] = matchEpisodes(sim.episodes, va.episodes).map(({ candidate, va: vaEpisode, distance }) => {
+    const matching = matchEpisodes(sim.episodes, va.episodes);
+    out[name] = matching.matched.map(({ candidate, va: vaEpisode, distance }) => {
       const candidateDetail = {
         date: candidate.entryDate,
         signalDate: rows[candidate.entryIdx - 1]?.date || null,
@@ -243,6 +260,25 @@ function entryLedger(rows, simulations) {
         note: '负值为候选提前承担的价格/暴露损失；正值为候选提前获得的价格/暴露收益。',
       };
     });
+    for (let i = 0; i < va.episodes.length; i += 1) {
+      if (matching.used.has(i)) continue;
+      const vaEpisode = va.episodes[i];
+      const compareEnd = Math.min(vaEpisode.exitIdx ?? rows.length - 1, rows.length - 1);
+      out[name].push({
+        variant: name,
+        timing: 'V-A_ONLY',
+        candidate: null,
+        va: { date: vaEpisode.entryDate, signalDate: rows[vaEpisode.entryIdx - 1]?.date || null, price: vaEpisode.entryPrice },
+        matchingDistanceDays: null,
+        daysEarly: null,
+        entryPriceChangePct: null,
+        leadInMaxDrawdownPct: null,
+        leadIn: null,
+        exposureComparison: intervalExposureComparison(rows, sim.exposurePath, va.exposurePath, vaEpisode.entryIdx, compareEnd),
+        note: 'V-A 在此 episode 入场，但候选未在 21 天内入场；候选相对 V-A 的漏掉 override 机会/暴露差异单列。',
+      });
+    }
+    out[name].sort((a, b) => (a.candidate?.date || a.va?.date || '').localeCompare(b.candidate?.date || b.va?.date || ''));
   }
   return out;
 }
@@ -261,12 +297,49 @@ function preflightSplitDays(rows, ind, startIdx, endIdx) {
         ahr: ind.ahr[d],
         dd365: ind.dd365[d],
         bearLock: ind.bearLock[d],
-        forward30d: forwardPrice(rows, d, 30),
-        forward90d: forwardPrice(rows, d, 90),
+        forward30dSignal: forwardPrice(rows, d, 30),
+        forward90dSignal: forwardPrice(rows, d, 90),
+        forward30dExecution: forwardPrice(rows, i, 30),
+        forward90dExecution: forwardPrice(rows, i, 90),
       });
     }
   }
   return days;
+}
+
+function sundayVd2BlockDays(rows, ind, startIdx, endIdx) {
+  const days = [];
+  for (let i = startIdx; i <= endIdx; i += 1) {
+    const d = i - 1;
+    if (sunday(rows[i]) && gate(ind, d) && ind.bearLock[d] === true) {
+      days.push({
+        signalDate: rows[d].date,
+        affectedDate: rows[i].date,
+        signalIdx: d,
+        affectedIdx: i,
+        ahr: ind.ahr[d],
+        dd365: ind.dd365[d],
+        forward30dExecution: forwardPrice(rows, i, 30),
+        forward90dExecution: forwardPrice(rows, i, 90),
+      });
+    }
+  }
+  return days;
+}
+
+function groupWeeklyBlocks(days) {
+  const blocks = [];
+  for (const day of days) {
+    const previous = blocks.at(-1);
+    if (!previous || day.affectedIdx - previous.lastAffectedIdx !== 7) {
+      blocks.push({ startDate: day.affectedDate, endDate: day.affectedDate, count: 1, firstSignalDate: day.signalDate, lastAffectedIdx: day.affectedIdx });
+    } else {
+      previous.endDate = day.affectedDate;
+      previous.count += 1;
+      previous.lastAffectedIdx = day.affectedIdx;
+    }
+  }
+  return blocks.map(({ lastAffectedIdx, ...block }) => block);
 }
 
 function annotateSplitDays(rows, splitDays, simulations) {
@@ -284,6 +357,7 @@ function annotateSplitDays(rows, splitDays, simulations) {
           ? 'opportunity_exposure'
           : p?.exposure === vaPath?.exposure ? 'same' : 'other_difference';
       row.variants[name] = {
+        target: p?.target ?? null,
         exposure: p?.exposure ?? null,
         overrideActive: p?.overrideActive ?? null,
         newEntryOnAffectedDate: entrySets[name].has(day.affectedIdx),
@@ -399,13 +473,17 @@ function fmt(value, digits = 2) {
   return Number.isFinite(value) ? value.toFixed(digits) : 'UNAVAILABLE';
 }
 
+function fmtPctOrDash(value, digits = 2) {
+  return Number.isFinite(value) ? `${fmt(value, digits)}%` : '—';
+}
+
 function renderReport(out) {
   const lines = [];
   lines.push('# E8：BTC V4 L3 override V-D 入场规则实验');
   lines.push('');
   lines.push('> 研究用途；不改生产 cron、Forward Test ledger 或冻结参数；结论等待人工裁决。深水 episode 样本有限，以下均为方向性证据。');
   lines.push('');
-  lines.push(`预注册：\`ca2c2ba\`；基线 E7：\`fb9f992\`；运行代码：\`${out.meta.codeCommitAtRun}\`；运行时间：${out.meta.generatedAt}`);
+  lines.push(`预注册：\`${PREREG_COMMIT}\`；基线 E7：\`fb9f992\`；运行代码：\`${out.meta.codeCommitAtRun}\`；运行时间：${out.meta.generatedAt}`);
   lines.push('');
   lines.push('## 结论先行');
   lines.push('');
@@ -421,20 +499,29 @@ function renderReport(out) {
   lines.push(`- AHR999：几何均值公式，官方数据集核验中位相对误差 ${fmt(out.meta.ahrMedianErrPct)}%。`);
   lines.push('- 三组均为 E7 线性日频 DCA 全系统：L1 周日六档+弹药池，L2 每日 Bear Lock/25% breaker，L3 1.5x，退出/kill 周日，T-1 信号。唯一变量是 L3 入场规则。');
   lines.push('');
-  lines.push('## 前置盘点：唯一可能分叉的日期');
+  lines.push('## 前置盘点：预注册指定的非周日额外入场日期');
   lines.push('');
-  lines.push(`满足 AHR<0.40、dd365≤−20%、Bear Lock=false 且执行日非周日的日期：**${out.preflight.count} 个**。`);
+  lines.push(`满足 AHR<0.40、dd365≤−20%、Bear Lock=false 且执行日非周日的日期：**${out.preflight.count} 个**；其中实际暴露相对 V-A 发生差异的有 **${out.preflight.actualPathDivergenceCount} 个**。`);
   if (!out.preflight.count) lines.push('因此实验无信息量，按预注册直接判“无差异、维持 V-A”。');
   else {
     lines.push('机会成本与保护损失并排：机会成本是候选相对 V-A=1.0x 的额外 1.5x 暴露；保护损失是候选 1.5x 而 V-A=0.0x 的日子。');
     lines.push('');
-    lines.push('| 信号日 | 受影响日 | AHR | dd365 | AHR后30d价格 | AHR后90d价格 | V-D1 暴露/类别 | V-D2 暴露/类别 |');
+    lines.push('| 信号日 | 受影响日 | AHR | dd365 | 受影响日后30d价格 | 受影响日后90d价格 | V-D1 暴露/类别 | V-D2 暴露/类别 |');
     lines.push('|---|---|---:|---:|---:|---:|---|---|');
     for (const d of out.preflight.annotated) {
       const x = (name) => `${fmt(d.variants[name].exposure, 1)}x / ${d.variants[name].comparisonCategory}`;
-      lines.push(`| ${d.signalDate} | ${d.affectedDate} | ${fmt(d.ahr, 3)} | ${fmt(d.dd365, 1)}% | ${fmt(d.forward30d.pct)}% | ${fmt(d.forward90d.pct)}% | ${x('V-D1')} | ${x('V-D2')} |`);
+      lines.push(`| ${d.signalDate} | ${d.affectedDate} | ${fmt(d.ahr, 3)} | ${fmt(d.dd365, 1)}% | ${fmtPctOrDash(d.forward30dExecution.pct)} | ${fmtPctOrDash(d.forward90dExecution.pct)} | ${x('V-D1')} | ${x('V-D2')} |`);
     }
   }
+  lines.push('');
+  lines.push('### V-D2 定义一致性审计：周日且 Bear Lock=true');
+  lines.push('');
+  lines.push(`预注册正文把非周日 Bear Lock=false 清单描述为“唯一可能分叉日”，但按已写死的 V-D2 定义，另有 **${out.sundayVd2Blocks.count} 个周日**满足 gate 且 Bear Lock=true：V-A 允许周日入场，V-D2 明确禁止。这类日期不是额外的非周日入场机会，但确实会导致 V-D2 与 V-A 分叉，因此单独纳入审计。`);
+  lines.push('');
+  lines.push('| 连续周日段 | 日期数 | V-D2规则 |');
+  lines.push('|---|---:|---|');
+  for (const block of out.sundayVd2Blocks.blocks) lines.push(`| ${block.startDate}..${block.endDate} | ${block.count} | 禁止入场，V-A允许 |`);
+  lines.push('完整日期、AHR、dd365 和 30/90 日价格变化保存在 result.json 的 `sundayVd2Blocks.days`。');
   lines.push('');
   lines.push('## 主结果');
   lines.push('');
@@ -454,12 +541,14 @@ function renderReport(out) {
   for (const name of ['V-D1', 'V-D2']) {
     lines.push(`### ${name}`);
     lines.push('');
-    lines.push('| 时序 | 候选入场 | V-A入场 | 天数（正=候选提前） | 入场价差 | 提前区间最大回撤 | 机会暴露日/相对损益 | 保护损失日/相对损益 |');
+    lines.push('| 时序 | 候选入场 | V-A入场 | 天数（正=候选提前） | 入场价差 | 提前区间最大回撤 | 机会差异（额外/错过） | 保护损失 |');
     lines.push('|---|---|---|---:|---:|---:|---:|---:|');
     for (const row of out.entryLedger[name]) {
       const lead = row.leadIn;
       const overlap = row.exposureComparison;
-      lines.push(`| ${row.timing} | ${row.candidate.date} | ${row.va?.date || '—'} | ${row.daysEarly ?? '—'} | ${fmt(row.entryPriceChangePct)}% | ${fmt(row.leadInMaxDrawdownPct)}% | ${overlap.opportunityDays} / ${fmt(overlap.opportunityRelativeOverlayPct)}% | ${overlap.protectionLossDays} / ${fmt(overlap.protectionRelativeOverlayPct)}% |`);
+      const opportunity = `额外 ${overlap.opportunityDays}日/${fmtPctOrDash(overlap.opportunityRelativeOverlayPct)}；错过 ${overlap.missedOverrideDays}日/${fmtPctOrDash(overlap.missedOverrideRelativeOverlayPct)}`;
+      const protection = `${overlap.protectionLossDays}日/${fmtPctOrDash(overlap.protectionRelativeOverlayPct)}`;
+      lines.push(`| ${row.timing} | ${row.candidate?.date || '—'} | ${row.va?.date || '—'} | ${row.daysEarly ?? '—'} | ${fmtPctOrDash(row.entryPriceChangePct)} | ${fmtPctOrDash(row.leadInMaxDrawdownPct)} | ${opportunity} | ${protection} |`);
     }
     if (!out.entryLedger[name].length) lines.push('| — | 无候选 episode | — | — | — | — | — | — |');
     lines.push('');
@@ -487,13 +576,15 @@ function renderReport(out) {
   const e2 = out.e2;
   if (e2.available) {
     lines.push(`E2 验收切片（10% 维持保证金、20% wick、高资金费率）中，1.5x 最小余量 ${fmt(e2.leverage1_5x.worstMinHeadroomAcceptanceSlice, 3)}x，爆仓=${e2.leverage1_5x.liquidatedInAcceptanceSlice ? '是' : '否'}，≥3x=${e2.leverage1_5x.passes3xHeadroom ? '是' : '否'}。`);
-    lines.push('V-D 尾部若更深，E2 仍覆盖 40–60% 合成压力；因此本实验的 V-D 清偿力判定为“不受侵蚀”，但这不等于历史线性回测证明不会爆仓。');
+    const deeper = ['V-D1', 'V-D2'].filter((name) => out.postEntryDrawdown[name].tailDeeperVsVa);
+    if (deeper.length) lines.push(`${deeper.join('、')} 的历史入场后最深回撤（${deeper.map((name) => `${name} ${fmt(out.postEntryDrawdown[name].minPct, 2)}%`).join('；')}）比 V-A（${fmt(out.postEntryDrawdown['V-A'].minPct, 2)}%）更深，但仍未达到 E2 的 40% 压力下界。E2 验收切片显示 1.5x 无爆仓且最小余量 ${fmt(e2.leverage1_5x.worstMinHeadroomAcceptanceSlice, 3)}x≥3x，因此清偿力判定为“不受侵蚀”；这不等于历史线性回测证明不会爆仓。`);
+    else lines.push('V-D 的历史入场后回撤尾部不深于 V-A；E2 验收切片仍显示 1.5x 无爆仓且达到 ≥3x 健康度。');
   } else lines.push(`E2 结果不可用：${e2.reason}；清偿力判据不能通过。`);
   lines.push('');
 
   lines.push('## 预注册晋级判据');
   lines.push('');
-  lines.push('| 候选 | 超额差为正 | 超出 bootstrap P90 | LOO不翻转 | 尾部/清偿力 | 单一分叉日否决 | 全部通过 | 理由 |');
+  lines.push('| 候选 | 超额差为正 | 超出 bootstrap P90 | LOO不翻转 | 尾部/清偿力 | 单一分叉日驱动 | 全部通过 | 理由 |');
   lines.push('|---|---|---|---|---|---|---|---|');
   for (const row of out.acceptance) lines.push(`| ${row.variant} | ${row.passPositive ? '是' : '否'} | ${row.passBootstrap ? '是' : '否'} | ${row.passLeaveOneOut ? '是' : '否'} | ${row.passTail ? '是' : '否'} | ${row.singleSplitDriver ? '是' : '否'} | ${row.passAll ? '是' : '否'} | ${row.failureReason} |`);
   lines.push('');
@@ -528,6 +619,7 @@ async function main() {
   }
   const endIdx = rows.length - 1;
   const splitDays = preflightSplitDays(rows, ind, startIdx, endIdx);
+  const sundayVd2BlockDayRows = sundayVd2BlockDays(rows, ind, startIdx, endIdx);
 
   // The preflight is intentionally completed before the full variants run.
   const dca = pureDca(rows, ind, startIdx, endIdx);
@@ -555,6 +647,11 @@ async function main() {
     };
   });
   const annotatedSplit = annotateSplitDays(rows, splitDays, simulations);
+  const actualPathDivergenceCount = annotatedSplit.filter((d) => ['V-D1', 'V-D2'].some((name) => {
+    const candidate = d.variants[name];
+    const va = d.variants['V-A'];
+    return candidate.exposure !== va.exposure || candidate.target !== va.target || candidate.overrideActive !== va.overrideActive;
+  })).length;
   const splitDivergenceSummary = {};
   for (const name of ['V-D1', 'V-D2']) {
     const comp = intervalExposureComparison(rows, simulations[name].exposurePath, simulations['V-A'].exposurePath, startIdx, endIdx);
@@ -641,7 +738,7 @@ async function main() {
       generatedAt: new Date().toISOString(),
       codeCommitAtRun: meta.commit,
       scriptDirtyAtRun: meta.scriptDirtyAtRun,
-      preregistration: 'research/btc-v4-e8-vd-entry-preregistration.md @ ca2c2ba',
+      preregistration: `research/btc-v4-e8-vd-entry-preregistration.md @ ${PREREG_COMMIT}`,
       e7Baseline: 'research/v4-e7-l3-frequency @ fb9f992',
       seed: BOOTSTRAP_SEED,
       priceSource: { file: PRICE_CSV, sha256: sha256File(PRICE_CSV), url: 'https://raw.githubusercontent.com/coinmetrics/data/master/csv/btc.csv' },
@@ -657,7 +754,13 @@ async function main() {
       variants: MODES,
       commonRules: 'dd365<=-20%; 1.5x; exit/kill Sunday; L2 daily; T-1; identical DCA; only L3 entry changes',
     },
-    preflight: { count: splitDays.length, definition: 'AHR<0.40 && dd365<=-20% && BearLock=false && affected execution day non-Sunday', raw: splitDays, annotated: annotatedSplit, divergenceSummary: splitDivergenceSummary },
+    preflight: { count: splitDays.length, actualPathDivergenceCount, definition: 'AHR<0.40 && dd365<=-20% && BearLock=false && affected execution day non-Sunday', raw: splitDays, annotated: annotatedSplit, divergenceSummary: splitDivergenceSummary },
+    sundayVd2Blocks: {
+      count: sundayVd2BlockDayRows.length,
+      definition: 'AHR<0.40 && dd365<=-20% && BearLock=true && affected execution day Sunday; V-A allows entry, V-D2 forbids entry',
+      blocks: groupWeeklyBlocks(sundayVd2BlockDayRows),
+      days: sundayVd2BlockDayRows,
+    },
     primary,
     regression,
     entryLedger: entryLedgerResult,
