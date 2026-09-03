@@ -100,14 +100,19 @@ function validate(ind, rows, ref) {
 
 function tierUsd(a) { for (const t of TIERS) if (a < t.max) return t.usd; return 140; }
 
-// l3Mode: 'weekly' (V-A) | 'enterDaily' (V-B) | 'fullDaily' (V-C) | 'off'
-function simulate(rows, ind, startIdx, endIdx, l3Mode) {
+// l3Mode: 'weekly' (V-A) | 'enterDaily' (V-B) | 'fullDaily' (V-C)
+//          | 'vd1' | 'vd2' | 'off'
+// options.capturePath is telemetry only; it does not change state-machine
+// calculations and is used by E8 to measure opportunity/protection overlap.
+function simulate(rows, ind, startIdx, endIdx, l3Mode, options = {}) {
+  const capturePath = options.capturePath === true;
   let stack = 0, ammo = 0, invested = 0, exposure = 1;
   let overrideActive = false, overrideEntryIdx = null;
   let breakerTripped = false, hedgeEntryClose = null;
   let switches = 0, feeBtcPaid = 0, hedgeDays = 0, overrideDays = 0;
   let ratioPeak = 0, ratioMdd = 0, overlayRatio = 1;
   const episodes = []; // {entryIdx, exitIdx, entryPrice, minPrice, minIdx, killed}
+  const exposurePath = capturePath ? new Array(endIdx + 1).fill(null) : null;
   let cur = null;
 
   for (let i = startIdx; i <= endIdx; i += 1) {
@@ -119,7 +124,15 @@ function simulate(rows, ind, startIdx, endIdx, l3Mode) {
 
     // --- L3 state machine ---
     if (useL3) {
-      const canEnter = l3Mode === 'weekly' ? isSunday : true;
+      // Existing modes retain their exact branches. E8 adds only the two
+      // Bear-Lock-aware entry predicates below; exits remain Sunday-only.
+      const canEnter = l3Mode === 'weekly'
+        ? isSunday
+        : l3Mode === 'vd1'
+          ? (!bl || isSunday)
+          : l3Mode === 'vd2'
+            ? !bl
+            : true;
       const canExit = l3Mode === 'fullDaily' ? true : isSunday;
       if (!overrideActive && canEnter && ahr !== null && ahr < 0.40
           && ind.dd365[d] !== null && ind.dd365[d] <= -0.20) {
@@ -176,9 +189,19 @@ function simulate(rows, ind, startIdx, endIdx, l3Mode) {
       stack += (spend / rows[i].close) * (1 - FEE);
       invested += spend;
     }
+    if (exposurePath) exposurePath[i] = {
+      date: rows[i].date,
+      signalDate: rows[d].date,
+      target,
+      exposure,
+      bearLock: bl,
+      overrideActive,
+      ahr,
+      dd365: ind.dd365[d],
+    };
   }
   if (cur) { cur.exitIdx = endIdx; cur.exitDate = rows[endIdx].date; cur.openAtEnd = true; episodes.push(cur); }
-  return { stack, invested, ammo, switches, feeBtcPaidPct: feeBtcPaid * 100, hedgeDays, overrideDays, overlayRatioMdd: ratioMdd * 100, episodes };
+  return { stack, invested, ammo, switches, feeBtcPaidPct: feeBtcPaid * 100, hedgeDays, overrideDays, overlayRatioMdd: ratioMdd * 100, episodes, exposurePath };
 }
 
 function idxAtOrAfter(rows, ts) { for (let i = 0; i < rows.length; i += 1) if (rows[i].ts >= ts) return i; return -1; }
