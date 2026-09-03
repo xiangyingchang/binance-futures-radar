@@ -18,7 +18,7 @@ E7 发现每日 L3 入场在 Bear Lock 对冲期内会以 1.5x override 优先�
 |---|---|---|---|---|
 | V-A（现行） | 不入场 | 不入场 | 按 gate 入场 | 周日 |
 | V-D1 | 按 gate 每日入场 | 退回周日入场 | 按 gate 入场 | 周日 |
-| V-D2 | 按 gate 每日入场 | 完全禁止入场 | 完全禁止入场 | 周日 |
+| V-D2 | 按 gate 每日入场 | 完全禁止入场 | Bear Lock=false 时按 gate 入场；Bear Lock=true 时禁止 | 周日 |
 
 精确定义：V-D1 的入场条件为 `gate && (!bearLock || isSunday)`；V-D2 的入场条件为 `gate && !bearLock`。这里的 `isSunday` 是 E7 引擎中执行日 `i` 的周日判断，指标来自 `d=i-1` 的 T-1 收盘。V-D1/V-D2 的 exit 和 182 天 kill switch 均只在周日判定；V-D2 不是“Bear Lock 结束后补入场”，而是等后续非周日 gate 重新成立或按定义在周日也不入场，直到下一次允许的非 Bear Lock 日。
 
