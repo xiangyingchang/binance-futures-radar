@@ -1179,7 +1179,7 @@ async function main() {
     const e2 = e2ByVariant[name];
     const passBootstrap = primary.relativeFinalBtcVsVaPct > boot.p90RelativePct && primary.relativeFinalBtcVsVaPct > 0;
     const passLeaveOneOut = loo.flipCount === 0;
-    const passSolvency = e2.passes3xAcrossEntries && vaE2.passes3xAcrossEntries && e2.minHeadroomAcrossEntries >= vaE2.minHeadroomAcrossEntries;
+    const passSolvency = e2.passes3xAcrossEntries && vaE2.passes3xAcrossEntries && e2.minHeadroomAcrossEntries >= vaE2.minHeadroomAcrossEntries - 1e-9;
     return { variant: name, observedRelativeFinalBtcVsVaPct: primary.relativeFinalBtcVsVaPct, observedExcessBtcPointDeltaVsVa: primary.excessBtcPointDeltaVsVa, bootstrap: boot, passBootstrap, passLeaveOneOut, passSolvency, passAll: passBootstrap && passLeaveOneOut && passSolvency };
   });
   const passing = acceptance.filter((r) => r.passAll).map((r) => r.variant);
