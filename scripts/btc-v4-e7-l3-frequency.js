@@ -708,10 +708,14 @@ function earlyEntryCosts(rows, episodes, simulations) {
       const minClose = Math.min(...rows.slice(from, to + 1).map((r) => r.close));
       const priceReturn = rows[to].close / rows[from].close - 1;
       const overlayReturn = linearOverlayMultiplier(rows, from, to, OVERRIDE_LEV) - 1;
-      const candSnap = snapshotAt(sim, Math.min(to + 1, rows.length - 1));
-      const vaSnap = snapshotAt(simulations['V-A'], Math.min(to + 1, rows.length - 1));
-      const candTransitions = sim.feeEvents.filter((e) => e.category.startsWith('l3_') && e.idx <= to + 1).length;
-      const vaTransitions = simulations['V-A'].feeEvents.filter((e) => e.category.startsWith('l3_') && e.idx <= to + 1).length;
+      // Compare only the lead-in interval. Cumulative fees from previous
+      // episodes would be a cross-episode contamination of this row.
+      const intervalStart = from + 1;
+      const intervalEnd = to + 1;
+      const candIntervalFees = sim.feeEvents.filter((e) => e.category.startsWith('l3_') && e.idx >= intervalStart && e.idx <= intervalEnd);
+      const vaIntervalFees = simulations['V-A'].feeEvents.filter((e) => e.category.startsWith('l3_') && e.idx >= intervalStart && e.idx <= intervalEnd);
+      const candIntervalFeeRate = candIntervalFees.reduce((sum, e) => sum + e.feeRate, 0);
+      const vaIntervalFeeRate = vaIntervalFees.reduce((sum, e) => sum + e.feeRate, 0);
       return {
         episodeId: ep.id,
         timing: 'DAILY_EARLY',
@@ -722,8 +726,10 @@ function earlyEntryCosts(rows, episodes, simulations) {
         extraDrawdownToVaPct: (minClose / rows[from].close - 1) * 100,
         priceReturnToVaPct: priceReturn * 100,
         overlayReturnToVaPct: overlayReturn * 100,
-        extraFeeRateToVaBps: ((candSnap?.cumulativeL3FeeRate || 0) - (vaSnap?.cumulativeL3FeeRate || 0)) * 10000,
-        extraL3TransitionsToVa: candTransitions - vaTransitions,
+        candidateL3FeeToVaBps: candIntervalFeeRate * 10000,
+        vaL3FeeToVaBps: vaIntervalFeeRate * 10000,
+        extraFeeRateToVaBps: (candIntervalFeeRate - vaIntervalFeeRate) * 10000,
+        extraL3TransitionsToVa: candIntervalFees.length - vaIntervalFees.length,
         note: '负值是提前承担的损失；正值是提前暴露期间的收益，不代表稳定优势。',
       };
     }).filter(Boolean);
@@ -889,11 +895,17 @@ function summarizeE2Base() {
 function summarizeE2ForVariant(sim) {
   const entryRuns = [];
   for (const entry of sim.entryEvents) {
-    const grid = e2Grid(entry.entryReferenceClose, E2_BASE_EQUITY_BTC, 1.5);
+    // Preserve the E2 reference notional (300 contracts at 60,000 USD) while
+    // changing the historical entry price. This prevents one-contract
+    // rounding at low BTC prices from masquerading as leverage risk.
+    const normalizedInitialEquityBtc = E2_BASE_EQUITY_BTC * E2_BASE_ENTRY_PRICE / entry.entryReferenceClose;
+    const grid = e2Grid(entry.entryReferenceClose, normalizedInitialEquityBtc, 1.5);
     entryRuns.push({
       episodeId: entry.episodeId,
       entrySignalDate: entry.signalDate,
       entryReferenceClose: entry.entryReferenceClose,
+      normalizedInitialEquityBtc,
+      normalization: 'same E2 target notional as reference path; avoids discrete-contract rounding artifact',
       acceptanceRuns: grid.acceptance,
       minHeadroomAcceptanceSlice: Math.min(...grid.acceptance.map((r) => r.minHeadroom)),
       liquidatedInAcceptanceSlice: grid.acceptance.some((r) => r.liquidated),
@@ -998,9 +1010,9 @@ function renderReport(out) {
   lines.push('');
   lines.push('每次删除同一个 episode 在候选和 V-A 中的 L3 入场，再跑完整 DCA+L2 系统；这样检查结论是否被单一历史事件支撑。');
   lines.push('');
-  lines.push('| 候选 | 全样本相对 V-A | LOO 后仍为正的次数 | 翻转次数 | 是否依赖单一事件 |');
+  lines.push('| 候选 | 全样本相对 V-A | LOO 后同方向次数 | 翻转次数 | 是否依赖单一事件 |');
   lines.push('|---|---:|---:|---:|---|');
-  for (const row of out.leaveOneOut.summary) lines.push(`| ${row.variant} | ${fmtPct(row.fullRelativeFinalBtcVsVaPct)} | ${row.positiveCount}/${row.nEpisodes} | ${row.flipCount} | ${row.flipCount > 0 ? '是' : '否'} |`);
+  for (const row of out.leaveOneOut.summary) lines.push(`| ${row.variant} | ${fmtPct(row.fullRelativeFinalBtcVsVaPct)} | ${row.nEpisodes - row.flipCount}/${row.nEpisodes} | ${row.flipCount} | ${row.flipCount > 0 ? '是' : '否'} |`);
   lines.push('');
   lines.push('| 候选 | Episode | 删除后相对 V-A | 是否翻转 |');
   lines.push('|---|---|---:|---|');
@@ -1013,7 +1025,7 @@ function renderReport(out) {
   lines.push('');
   lines.push('| 变体 | n | P50 | P90 | P95 | 最深 | 相对 V-A 尾部 |');
   lines.push('|---|---:|---:|---:|---:|---:|---|');
-  for (const [name, row] of Object.entries(out.postEntryMae)) lines.push(`| ${name} | ${row.n} | ${fmtPct(row.p50Pct)} | ${fmtPct(row.p90Pct)} | ${fmtPct(row.p95Pct)} | ${fmtPct(row.minPct)} | ${name === 'V-A' ? '—' : (row.p90Pct < out.postEntryMae['V-A'].p90Pct ? '更深' : '不更深')} |`);
+  for (const [name, row] of Object.entries(out.postEntryMae)) lines.push(`| ${name} | ${row.n} | ${fmtPct(row.p50Pct)} | ${fmtPct(row.p90Pct)} | ${fmtPct(row.p95Pct)} | ${fmtPct(row.minPct)} | ${name === 'V-A' ? '—' : (row.tailDeeperVsVa ? '最深值更深' : '不更深')} |`);
   lines.push('');
   lines.push(`E2 基准压力验收切片（10% 维持保证金、20% wick、高资金费率）中，1.5x 最小余量为 ${fmtNum(out.e2Stress.base.byLeverage.find((r) => r.leverage === 1.5).worstMinHeadroomAcceptanceSlice, 3)}x；无爆仓，达到 ≥3x。`);
   lines.push('');
@@ -1021,7 +1033,7 @@ function renderReport(out) {
   lines.push('|---|---:|---:|---|---|');
   for (const [name, row] of Object.entries(out.e2Stress.byVariant)) lines.push(`| ${name} | ${row.nEntries} | ${fmtNum(row.minHeadroomAcrossEntries, 3)}x | ${row.liquidatedAcrossEntries ? '是' : '否'} | ${row.passes3xAcrossEntries ? '是' : '否'} |`);
   lines.push('');
-  lines.push('E2 路径从每个历史入场价归一化为 1 BTC 初始保证金，沿用 40/50/60% 单向下跌、14/56/182 日、wick、资金费率和每周校准；这是压力覆盖，不是对真实未来路径的概率预测。');
+  lines.push('由于 V-B/V-C 的最深历史回撤更深，已按每个历史入场价补跑 E2 路径；初始保证金按 BTC 数量缩放，以保持与 E2 参考路径相同的目标名义规模，避免低价时期的离散合约取整伪影。路径沿用 40/50/60% 单向下跌、14/56/182 日、wick、资金费率和每周校准；这是压力覆盖，不是对真实未来路径的概率预测。');
   lines.push('');
 
   lines.push('## 统计晋级判据');
@@ -1121,6 +1133,7 @@ async function main() {
   const skipped = skippedWindows(rows, ind, episodes, episodeBySignalIdx, simulations['V-A'], simulations['V-B'], simulations['V-C'], simStart, endIdx);
   const earlyCosts = earlyEntryCosts(rows, episodes, simulations);
   const postEntryMae = Object.fromEntries(Object.entries(simulations).map(([name, sim]) => [name, maeSummary(sim.activeEpisodes)]));
+  for (const name of ['V-B', 'V-C']) postEntryMae[name].tailDeeperVsVa = postEntryMae[name].minPct < postEntryMae['V-A'].minPct;
 
   // Episode-level LOO: remove the same canonical episode from candidate and V-A.
   const looRows = [];
@@ -1132,7 +1145,8 @@ async function main() {
       const vaLoo = simulateDca(rows, ind, episodeBySignalIdx, simStart, endIdx, { l2Frequency: 'daily', useL3: true, entryFrequency: vaDef.entryFrequency, calibrationFrequency: vaDef.calibrationFrequency, skipEpisodeIds: new Set([ep.id]) });
       const relative = (candidateLoo.stack / vaLoo.stack - 1) * 100;
       const fullRelative = (simulations[name].stack / simulations['V-A'].stack - 1) * 100;
-      looRows.push({ variant: name, episodeId: ep.id, looRelativeFinalBtcVsVaPct: relative, fullRelativeFinalBtcVsVaPct: fullRelative, flipped: Math.sign(relative) !== Math.sign(fullRelative) || relative <= 0 });
+      const flipped = (fullRelative > 0 && relative <= 0) || (fullRelative < 0 && relative >= 0);
+      looRows.push({ variant: name, episodeId: ep.id, looRelativeFinalBtcVsVaPct: relative, fullRelativeFinalBtcVsVaPct: fullRelative, flipped });
     }
   }
   const looSummary = ['V-B', 'V-C'].map((name) => {
@@ -1164,7 +1178,7 @@ async function main() {
     const loo = looSummary.find((r) => r.variant === name);
     const e2 = e2ByVariant[name];
     const passBootstrap = primary.relativeFinalBtcVsVaPct > boot.p90RelativePct && primary.relativeFinalBtcVsVaPct > 0;
-    const passLeaveOneOut = loo.flipCount === 0 && loo.positiveCount === loo.nEpisodes;
+    const passLeaveOneOut = loo.flipCount === 0;
     const passSolvency = e2.passes3xAcrossEntries && vaE2.passes3xAcrossEntries && e2.minHeadroomAcrossEntries >= vaE2.minHeadroomAcrossEntries;
     return { variant: name, observedRelativeFinalBtcVsVaPct: primary.relativeFinalBtcVsVaPct, observedExcessBtcPointDeltaVsVa: primary.excessBtcPointDeltaVsVa, bootstrap: boot, passBootstrap, passLeaveOneOut, passSolvency, passAll: passBootstrap && passLeaveOneOut && passSolvency };
   });
@@ -1202,6 +1216,7 @@ async function main() {
     skippedEntryWindows: skipped,
     earlyEntryCosts: earlyCosts,
     postEntryMae,
+    postEntryMaeEpisodes: Object.fromEntries(Object.entries(simulations).map(([name, sim]) => [name, sim.activeEpisodes.map((e) => ({ episodeId: e.episodeId, entrySignalDate: e.entrySignalDate, entryReferenceClose: e.entryReferenceClose, firstAffectedReturnDate: e.firstAffectedReturnDate, endDate: e.endDate, endReason: e.endReason, durationDays: e.durationDays, postEntryMaxDrawdownPct: e.postEntryMaxDrawdownPct, minClose: e.minClose, minCloseDate: rows[e.minCloseIdx].date, killSwitchDate: e.killSwitchDate }))])),
     leaveOneOut: { summary: looSummary, rows: looRows },
     episodeOnlyContributions: Object.fromEntries(Object.entries(episodeOnlyContributions).map(([name, values]) => [name, values.map((value, i) => ({ episodeId: episodes[i].id, multiplier: value }))])),
     e5StylePairedBootstrap: bootstrap,
