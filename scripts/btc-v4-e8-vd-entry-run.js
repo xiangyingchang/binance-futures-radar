@@ -606,7 +606,6 @@ function renderReport(out) {
   lines.push('- 机会成本和保护损失并列报告，不能用“每日抓反弹”或“周日避免下跌”的单边叙事替代比较。');
   lines.push('');
   lines.push(`最终裁决：${out.conclusion.text}`);
-  lines.push('');
   return `${lines.join('\n')}\n`;
 }
 
