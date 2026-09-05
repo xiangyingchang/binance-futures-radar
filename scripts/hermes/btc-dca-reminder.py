@@ -12,6 +12,7 @@ import json
 import time
 import urllib.request
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 AHR999_URL = "https://ahr999.aix4u.com/datasets/ahr999.json"
 KRAKEN_TICKER_URL = "https://api.kraken.com/0/public/Ticker?pair=XBTUSD"
@@ -42,6 +43,7 @@ OVERRIDE_ENTRY = 0.40   # AHR999 < 0.40 进入深水区 override
 OVERRIDE_EXIT = 0.45    # AHR999 >= 0.45 交还非深水区模式
 OVERRIDE_LEV = 1.5      # V4：深水区杠杆上限（E2 压力测试定档，原 V3 为 2.0x）
 CONFIRM_GATE_DD = -0.20 # V4 确认门：365D 回撤 <= -20% 才允许 override
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 UA = {
     "User-Agent": "btc-dca-reminder/1.0",
@@ -177,6 +179,11 @@ def fmt_usdt(v):
     return f"{v:,.0f} USDT"
 
 
+def is_sunday_calibration_day():
+    """V4 合约周日校准日；周五周报只执行第一层现货 DCA。"""
+    return datetime.now(SHANGHAI_TZ).weekday() == 6
+
+
 def main():
     record = latest_ahr999()
     ahr = float(record["ahr999"])
@@ -190,6 +197,7 @@ def main():
     price, spot_src = spot_price()
     ma200 = record.get("ma200")
     close = record.get("close")
+    sunday_calibration = is_sunday_calibration_day()
 
     exposure_lines = []
     try:
@@ -219,7 +227,10 @@ def main():
             exposure_lines.append(f"├─ AHR999 {ahr:.4f} < {OVERRIDE_ENTRY}，override 接管")
             exposure_lines.append(f"├─ V4 目标 {OVERRIDE_LEV:.2f}x（原 V3 为 2.00x，降档）")
             exposure_lines.append(f"├─ V3 趋势目标 {v3['target']:.2f}x（override 期间暂停，仅参考）")
-            exposure_lines.append(f"└─ 合约操作: 人工将总敞口调至 {OVERRIDE_LEV:.2f}x（张数按每日复盘权益快照换算）")
+            if sunday_calibration:
+                exposure_lines.append(f"└─ 合约操作: 人工将总敞口调至 {OVERRIDE_LEV:.2f}x（张数按每日复盘权益快照换算）")
+            else:
+                exposure_lines.append("└─ V4 合约操作: HOLD（周日校准；本次仅执行现货定投）")
         else:
             if ahr < OVERRIDE_ENTRY and not gate_ok:
                 dd_txt = f"{dd365 * 100:+.1f}%" if dd365 is not None else "缺失"
@@ -242,7 +253,10 @@ def main():
             exposure_lines.append(f"├─ V3 趋势层目标 {v3['target']:.2f}x（仅参考，V4 不执行趋势阶梯）")
             if sig is not None:
                 v4_target = 0.0 if sig["bear_lock"] else 1.0
-                exposure_lines.append(f"└─ V4 合约操作: {'开等量空头对冲' if sig['bear_lock'] else '平掉合约仓位，纯现货 1.0x'}")
+                if sunday_calibration:
+                    exposure_lines.append(f"└─ V4 合约操作: {'开等量空头对冲' if sig['bear_lock'] else '平掉合约仓位，纯现货 1.0x'}")
+                else:
+                    exposure_lines.append("└─ V4 合约操作: HOLD（周日校准；本次仅执行现货定投）")
     elif sig is not None:
         exposure_lines.append("")
         exposure_lines.append(f"敞口层: V3 复盘不可用，信号目标 {sig['target']:.2f}x（仅参考）")
@@ -253,6 +267,7 @@ def main():
 
     lines = []
     lines.append("⚡ BTC 定投提醒（BTC Smart DCA V3）")
+    lines.append("执行时间: 每周五 23:00（北京时间）")
     lines.append("")
     lines.append(f"AHR999: {ahr:.4f}（{tier}档 {rng}）")
     if price is not None:

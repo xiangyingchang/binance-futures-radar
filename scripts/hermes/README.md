@@ -6,7 +6,7 @@
 
 | 文件 | 用处 | 实际运行位置 |
 |---|---|---|
-| `btc-dca-reminder.py` | BTC Smart DCA V4 周报（每周日 23:00）：AHR999 六档定投金额 + V4 敞口层判断（Bear Lock 二元、override 确认门三分支）+ 弹药池流向，stdout 非空即推送飞书 | `~/.hermes/scripts/btc-dca-reminder.py` |
+| `btc-dca-reminder.py` | BTC Smart DCA V4 周报（每周五 23:00，北京时间）：AHR999 六档定投金额 + V4 敞口层判断（Bear Lock 二元、override 确认门三分支）+ 弹药池流向，stdout 非空即推送飞书 | `~/.hermes/scripts/btc-dca-reminder.py` |
 | `jobs-btc-v4-daily-review.json` | BTC V4 日报任务（每天 10:10）的 prompt 参考快照：日频监控 + 调仓日门（仅状态变化日/周日给 BUY/SELL）+ notepad 跨日状态机 + daily JSON 写入与远端回读规则 | `~/.hermes/cron/jobs.json`（job id `5293f85c811c`） |
 
 ## 同步方向（重要）
@@ -29,7 +29,7 @@
 
 ## V4 口径要点（2026-09-01 定稿）
 
-- 日报每天运行 ≠ 每天调仓：override 进出场仅周日决策；Bear Lock、25% 熔断、182 天 kill switch 每日检查、状态变化立即调仓；其余天 HOLD
+- 周报每周五 23:00 执行现货 DCA；日报每天运行 ≠ 每天调仓：override 进出场仍仅周日决策；Bear Lock、25% 熔断、182 天 kill switch 每日检查、状态变化立即调仓；其余天 HOLD
 - 跨日状态存 notepad：`hermes cron notepad 5293f85c811c get/set state`；状态不可用时降级为不调仓，不编造
 - 周报 override 确认门三分支：数据缺失 → 不调仓；确认门未满足（365D 回撤 > −20%）→ override 不生效回落第二层；满足 → 1.5x
 
@@ -37,5 +37,7 @@
 
 | 日期 | 文件 | 变更 | 验证 |
 |---|---|---|---|
+| 2026-09-06 | `btc-dca-reminder.py` | 周报改为每周五 23:00；周五通知明确 V4 合约仍按周日校准，本次仅执行现货定投 | ✅ live Cron 字段校验 + 周五通知分支测试 |
+| 2026-09-03 | `jobs-btc-v4-daily-review.json` | r4 表达层：固定五段人话通知，首屏先给敞口/动作/原因；主文只保留 Close、MA200、30D slope、AHR999、365D Drawdown；明确下一动作、理论目标与今日实际调仓的区别 | ✅ live Cron 与参考 prompt 逐字节一致；策略规则未改 |
 | 2026-09-01 | `jobs-btc-v4-daily-review.json` | 首次入库：V4 日频 prompt（9081→9801 字符），加调仓日门 + notepad 状态机；实测 run 输出 HOLD + state 写入成功，daily JSON 推送远端一致（commit c5c6f75） | ✅ hermes cron run 实测 + notepad state 回读 |
 | 2026-09-01 | `btc-dca-reminder.py` | 首次入库：V4 周报脚本，修复 override 确认门两处 bug（删 `or bear_lock` 等价条件、确认门未满足时不再无条件输出 1.5x） | ✅ 三分支逻辑测试 5/5 + 实跑非 override 分支 |
