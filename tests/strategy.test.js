@@ -5,6 +5,8 @@ const {
   calculateRsiSeries,
   currentRsi,
   percentileRank,
+  computeFundingArmState,
+  classifyPriceOiRegime,
   hardFilterReasons,
   scoreCandidate,
 } = require('../lib/strategy');
@@ -21,6 +23,23 @@ assert.strictEqual(series.slice(0, 14).every((v) => v === null), true);
 
 const pctl = percentileRank([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 9);
 assert.strictEqual(pctl, 90);
+
+const now = Date.UTC(2026, 7, 31, 12, 0, 0);
+const fundingRows = Array.from({ length: 20 }, (_, i) => ({
+  fundingTime: now - ((20 - i) * 8 * 60 * 60 * 1000),
+  fundingRate: (i + 1) / 100000,
+}));
+const armed = computeFundingArmState(fundingRows, 0.00019, now, 48);
+assert.strictEqual(armed.fundingArmed, true, 'recent P90 funding should arm the candidate');
+assert.ok(armed.recentFundingPeakPercentile >= 90);
+
+const notArmed = computeFundingArmState(fundingRows, 0.00002, now + (96 * 60 * 60 * 1000), 48);
+assert.strictEqual(notArmed.fundingArmed, false, 'stale P90 observations should expire outside the armed window');
+
+assert.strictEqual(classifyPriceOiRegime(2, 3), 'PRICE_UP_OI_UP');
+assert.strictEqual(classifyPriceOiRegime(2, -3), 'PRICE_UP_OI_DOWN');
+assert.strictEqual(classifyPriceOiRegime(-2, 3), 'PRICE_DOWN_OI_UP');
+assert.strictEqual(classifyPriceOiRegime(-2, -3), 'PRICE_DOWN_OI_DOWN');
 
 assert.deepStrictEqual(hardFilterReasons({
   base: 'TEST',
