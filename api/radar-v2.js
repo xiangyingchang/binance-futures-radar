@@ -5,6 +5,7 @@ const {
   EXCLUDED_BASES,
   currentRsi,
   percentileRank,
+  computeFundingArmState,
   pctChange,
   rankLookupKeys,
   hardFilterReasons,
@@ -307,6 +308,7 @@ async function enrichCandidate(candidate, context) {
     .map((row) => Number(row?.fundingRate))
     .filter(Number.isFinite);
   const fundingPercentile = percentileRank(historicalRates, currentFunding);
+  const fundingArm = computeFundingArmState(fundingHistory, currentFunding, now);
   const oi = computeOiChanges(oiHistory);
   const reversal = analyzeReversal(
     closedCandles(parseKlines(k1hRaw), now),
@@ -331,6 +333,8 @@ async function enrichCandidate(candidate, context) {
     fundingApr: fundingApr(currentFunding, interval),
     fundingPercentile,
     fundingHistorySamples: historicalRates.length,
+    ...fundingArm,
+    executionResearchOnly: true,
     ...oi,
     reversal,
     ...scored,
@@ -507,6 +511,7 @@ async function scanMarket() {
       return7d: '>20% (live current price vs 7d ago)',
       shortSetupGate: 'core heat/liquidity/rank gate + CMC verified 101-500 + funding >= P90',
       fundingWatch: 'P75-P90 => STRONG_WATCH',
+      fundingArmedResearch: 'research-only: remember a P90 funding observation for 48h; does not change status logic',
       oiAndReversal: 'reference/scoring only; never hard gates',
       pilotExit: 'max 3 days; hard stop if price rises 30% from entry',
       catalystReview: 'required before any trade',
