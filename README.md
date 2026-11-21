@@ -84,6 +84,19 @@ The numeric score is useful for ranking candidates, but it does **not** replace 
 
 `SHORT_SETUP` is **not an automatic trade signal**. Every candidate requires catalyst/manual sizing review and `autoTrade=false`.
 
+## V2.1 execution-layer research
+
+A research-only execution layer is proposed in [docs/v2-1-execution-research.md](docs/v2-1-execution-research.md).
+
+It keeps the current V2 discovery gates unchanged and tests four execution hypotheses:
+
+- **Funding ARMED state:** remember a recent P90 funding observation for a limited window instead of requiring crowding to remain extreme at the exact entry moment.
+- **Price × OI × Volume regime:** interpret OI jointly with price direction and participation; especially test whether price-down + OI-down + volume-down is a poor late-chase regime.
+- **Failed retest:** after a 4h structural break, prefer a failed rebound/retest over blindly shorting the first large red candle.
+- **Re-entry gate:** after a stop, require genuinely new observable information and cap repeated attempts per symbol.
+
+The branch exposes a 48h `fundingArmed` research field, but **does not change production `WATCH / STRONG_WATCH / SHORT_SETUP` status logic**. Nothing here becomes a hard gate until it survives backtest / Forward Test validation.
+
 ## Forward Test risk rules
 
 - Maximum pilot holding period: **3 days / 72 hours**
